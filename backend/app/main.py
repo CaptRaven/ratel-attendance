@@ -1,0 +1,42 @@
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.config import get_settings
+from app.core.logging import setup_logging, logger
+from app.api.v1 import auth, employees
+from app.api.v1 import auth, employees, sessions, checkin
+
+settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    setup_logging()
+    logger.info("startup", app=settings.APP_NAME, env=settings.ENVIRONMENT)
+    yield
+    logger.info("shutdown", app=settings.APP_NAME)
+
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    docs_url="/docs" if settings.DEBUG else None,
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["tauri://localhost", "http://localhost:1420"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(employees.router, prefix="/api/v1")
+app.include_router(sessions.router, prefix="/api/v1")
+app.include_router(checkin.router, prefix="/api/v1")
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "version": settings.APP_VERSION}
