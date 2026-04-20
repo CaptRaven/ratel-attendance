@@ -16,12 +16,14 @@ from app.models.attendance import Attendance, AttendanceStatus, CheckStatus
 from app.models.device import DeviceBinding
 from app.core.events import publish_checkin_event
 from app.core.logging import logger
+from app.config import get_settings
 
 router = APIRouter(prefix="/checkin", tags=["Check-in"])
 
 CHECKIN_DEDUP_KEY = "checkin:{session_id}:{employee_id}"
 DEVICE_COOKIE_NAME = "ratel_device"
 COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # 1 year
+settings = get_settings()
 
 
 class CheckInRequest(BaseModel):
@@ -189,7 +191,9 @@ async def check_in_or_out(
             value=new_device_token,
             max_age=COOKIE_MAX_AGE,
             httponly=True,
-            samesite="lax",
+            secure=not settings.DEBUG,
+            samesite="none" if not settings.DEBUG else "lax",
+            path="/",
         )
 
     return {
@@ -307,7 +311,16 @@ async def _handle_device_binding(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="This device is registered to a different employee.",
             )
-        return None  # Already bound correctly
+        if binding:
+            binding.last_seen_at = datetime.now(timezone.utc)
+            if fingerprint:
+                binding.fingerprint = fingerprint
+            return None  # Already bound correctly
+        logger.info(
+            "device_binding_missing_rebinding",
+            employee_id=employee.employee_id,
+            device_token=device_token,
+        )
 
     # No cookie — create new binding
     new_token = str(uuid.uuid4())
