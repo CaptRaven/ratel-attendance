@@ -10,15 +10,10 @@ _pool: ConnectionPool | None = None
 def get_redis_pool() -> ConnectionPool:
     global _pool
     if _pool is None:
-        # Upstash uses rediss:// (SSL) — handle both
-        redis_url = settings.REDIS_URL
-        ssl = redis_url.startswith("rediss://")
-
         _pool = ConnectionPool.from_url(
-            redis_url,
+            settings.REDIS_URL,
             max_connections=20,
             decode_responses=True,
-            ssl_cert_reqs=None if ssl else None,
         )
     return _pool
 
