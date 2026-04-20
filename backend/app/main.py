@@ -26,12 +26,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://ratel-attendance.onrender.com",
-        "http://localhost:1420",
-        "http://localhost:8000",
-        "tauri://localhost",
-    ],
+    allow_origins=["*"],  # Mobile browsers can come from any origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

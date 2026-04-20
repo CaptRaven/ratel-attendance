@@ -189,8 +189,7 @@ async def check_in_or_out(
             value=new_device_token,
             max_age=COOKIE_MAX_AGE,
             httponly=True,
-            secure=True,
-            samesite="none",
+            samesite="lax",
         )
 
     return {
