@@ -10,7 +10,7 @@ from app.core.logging import logger
 settings = get_settings()
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.async_database_url,
     echo=settings.DEBUG,
     pool_size=10,
     max_overflow=20,
@@ -31,7 +31,6 @@ class Base(DeclarativeBase):
 
 
 async def get_db() -> AsyncSession:
-    """FastAPI dependency: yields a DB session per request."""
     async with AsyncSessionLocal() as session:
         try:
             yield session

@@ -37,6 +37,18 @@ class Settings(BaseSettings):
     # Location
     DEFAULT_LOCATION_ID: str = "ratel-hq"
 
+    @property
+    def async_database_url(self) -> str:
+        if self.DATABASE_URL.startswith("postgresql+asyncpg://"):
+            return self.DATABASE_URL
+        if self.DATABASE_URL.startswith("postgresql://"):
+            return self.DATABASE_URL.replace(
+                "postgresql://",
+                "postgresql+asyncpg://",
+                1,
+            )
+        return self.DATABASE_URL
+
     @field_validator("DEBUG", mode="before")
     @classmethod
     def parse_debug_flag(cls, value):
