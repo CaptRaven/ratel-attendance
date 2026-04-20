@@ -6,6 +6,7 @@ alembic==1.14.0
 pydantic==2.10.3
 pydantic-core==2.27.1
 pydantic-settings==2.7.0
+email-validator==2.2.0
 redis[asyncio]==5.2.1
 python-jose[cryptography]==3.3.0
 bcrypt==4.0.1
