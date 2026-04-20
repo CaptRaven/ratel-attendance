@@ -3,7 +3,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { rotateToken } from "@/lib/api";
 import { useSessionStore } from "@/store/sessionStore";
 
-const CHECK_IN_BASE_URL = "http://localhost:8000/checkin";
+const CHECK_IN_BASE_URL =
+  import.meta.env.VITE_CHECKIN_URL || "https://ratel-attendance.onrender.com/checkin";
 const ROTATE_INTERVAL_MS = 25000;
 const TOKEN_TTL_MS = 25000;
 
