@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ratel · Attendance Kiosk</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      user-select: none;
+    }
+
+    .logo {
+      width: 56px; height: 56px;
+      background: linear-gradient(135deg, #e94560, #c23152);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: 32px; font-weight: 800;
+      letter-spacing: -0.5px; margin-bottom: 6px;
+    }
+
+    .subtitle {
+      color: rgba(255,255,255,0.4);
+      font-size: 15px; margin-bottom: 40px;
+      text-align: center;
+    }
+
+    .session-badge {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 999px; padding: 10px 20px;
+      margin-bottom: 32px;
+    }
+
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #22c55e; box-shadow: 0 0 10px #22c55e;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .session-name {
+      color: #22c55e; font-size: 15px; font-weight: 700;
+    }
+
+    .qr-wrapper {
+      background: white;
+      padding: 20px; border-radius: 24px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      margin-bottom: 28px;
+    }
+
+    .timer-section {
+      width: 300px; text-align: center; margin-bottom: 40px;
+    }
+
+    .timer-row {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 8px;
+    }
+
+    .timer-label { color: rgba(255,255,255,0.3); font-size: 12px; }
+    .timer-value { font-size: 13px; font-weight: 700; }
+
+    .progress-bar {
+      width: 100%; height: 4px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 999px; overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%; border-radius: 999px;
+      transition: width 1s linear, background 0.3s;
+    }
+
+    .attendee-section {
+      width: 100%; max-width: 400px;
+    }
+
+    .attendee-header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 12px;
+    }
+
+    .attendee-title {
+      font-size: 13px; font-weight: 700;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase; letter-spacing: 1px;
+    }
+
+    .attendee-count {
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.25);
+      color: #22c55e; border-radius: 999px;
+      padding: 3px 12px; font-size: 13px; font-weight: 700;
+    }
+
+    .attendee-list {
+      display: flex; flex-direction: column; gap: 8px;
+      max-height: 200px; overflow: hidden;
+    }
+
+    .attendee-item {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 12px; padding: 10px 14px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .attendee-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: linear-gradient(135deg, #e94560, #302b63);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+
+    .attendee-name { font-size: 14px; font-weight: 600; flex: 1; }
+
+    .attendee-status {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 999px;
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .status-present {
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.25);
+      color: #22c55e;
+    }
+
+    .status-late {
+      background: rgba(245,158,11,0.15);
+      border: 1px solid rgba(245,158,11,0.25);
+      color: #f59e0b;
+    }
+
+    .no-session {
+      text-align: center; padding: 40px;
+      color: rgba(255,255,255,0.3); font-size: 15px;
+    }
+
+    #qrcode canvas, #qrcode img {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo">R</div>
+  <h1>Ratel Attendance</h1>
+  <p class="subtitle" id="subtitle">Scan QR code with your phone to check in</p>
+
+  <div id="active-session" style="display:none; flex-direction:column; align-items:center; width:100%; max-width:400px;">
+    <div class="session-badge">
+      <div class="dot"></div>
+      <span class="session-name" id="session-name">Loading...</span>
+    </div>
+
+    <div class="qr-wrapper">
+      <div id="qrcode"></div>
+    </div>
+
+    <div class="timer-section">
+      <div class="timer-row">
+        <span class="timer-label">QR refreshes in</span>
+        <span class="timer-value" id="timer-value" style="color:#22c55e">25s</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"
+          style="width:100%; background:#22c55e"></div>
+      </div>
+    </div>
+
+    <div class="attendee-section">
+      <div class="attendee-header">
+        <span class="attendee-title">Checked In</span>
+        <span class="attendee-count" id="attendee-count">0</span>
+      </div>
+      <div class="attendee-list" id="attendee-list"></div>
+    </div>
+  </div>
+
+  <div id="no-session" class="no-session">
+    <div style="font-size:48px; margin-bottom:16px">⏳</div>
+    <p>No active session</p>
+    <p style="font-size:13px; margin-top:8px">Ask your admin to start an attendance session</p>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin + "/api/v1";
+    const TOKEN_TTL = 25;
+
+    let sessionId = null;
+    let qrToken = null;
+    let adminToken = null;
+    let timeLeft = TOKEN_TTL;
+    let qrCode = null;
+    let ws = null;
+    let attendees = [];
+
+    // ── Auth ──────────────────────────────────────────────────────────────
+    async function authenticate() {
+      const email = prompt("Admin email:");
+      const password = prompt("Admin password:");
+      if (!email || !password) return authenticate();
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail);
+        adminToken = data.access_token;
+        localStorage.setItem("kiosk_token", adminToken);
+        await loadOrCreateSession();
+      } catch (err) {
+        alert("Login failed: " + err.message);
+        authenticate();
+      }
+    }
+
+    // ── Session ───────────────────────────────────────────────────────────
+    async function loadOrCreateSession() {
+      const savedSession = localStorage.getItem("kiosk_session");
+      if (savedSession) {
+        const s = JSON.parse(savedSession);
+        // Verify session still active
+        try {
+          const res = await fetch(`${API_BASE}/sessions/${s.session_id}`, {
+            headers: { Authorization: `Bearer ${adminToken}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.is_active) {
+              sessionId = s.session_id;
+              await rotateToken();
+              showActiveSession(data.name);
+              connectWebSocket();
+              startCountdown();
+              return;
+            }
+          }
+        } catch (e) {}
+        localStorage.removeItem("kiosk_session");
+      }
+      await createNewSession();
+    }
+
+    async function createNewSession() {
+      const name = prompt("Session name (e.g. Morning Shift):", "Morning Shift");
+      if (!name) return createNewSession();
+
+      const res = await fetch(`${API_BASE}/sessions/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ name, location_id: "ratel-hq" }),
+      });
+      const data = await res.json();
+      sessionId = data.session_id;
+      qrToken = data.qr_token;
+      localStorage.setItem("kiosk_session",
+        JSON.stringify({ session_id: sessionId }));
+      showActiveSession(data.name);
+      renderQR();
+      connectWebSocket();
+      startCountdown();
+    }
+
+    // ── QR ────────────────────────────────────────────────────────────────
+    async function rotateToken() {
+      const res = await fetch(`${API_BASE}/sessions/rotate-token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json();
+      qrToken = data.qr_token;
+      renderQR();
+    }
+
+    function renderQR() {
+      const checkInUrl = `${window.location.origin}/checkin?token=${encodeURIComponent(qrToken)}`;
+      const container = document.getElementById("qrcode");
+      container.innerHTML = "";
+      qrCode = new QRCode(container, {
+        text: checkInUrl,
+        width: 240, height: 240,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H,
+      });
+    }
+
+    // ── Countdown ─────────────────────────────────────────────────────────
+    function startCountdown() {
+      timeLeft = TOKEN_TTL;
+      setInterval(async () => {
+        timeLeft--;
+        updateTimerUI();
+        if (timeLeft <= 0) {
+          timeLeft = TOKEN_TTL;
+          await rotateToken();
+        }
+      }, 1000);
+    }
+
+    function updateTimerUI() {
+      const pct = (timeLeft / TOKEN_TTL) * 100;
+      const color = timeLeft > 10 ? "#22c55e"
+        : timeLeft > 5 ? "#f59e0b" : "#e94560";
+      document.getElementById("timer-value").textContent = timeLeft + "s";
+      document.getElementById("timer-value").style.color = color;
+      document.getElementById("progress-fill").style.width = pct + "%";
+      document.getElementById("progress-fill").style.background = color;
+    }
+
+    // ── WebSocket ─────────────────────────────────────────────────────────
+    function connectWebSocket() {
+      const wsUrl = window.location.origin.replace("https://", "wss://")
+        .replace("http://", "ws://");
+      ws = new WebSocket(
+        `${wsUrl}/ws/sessions/${sessionId}?token=${adminToken}`
+      );
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === "checkin") addAttendee(data);
+      };
+      ws.onclose = () => {
+        setTimeout(connectWebSocket, 3000); // Reconnect on disconnect
+      };
+    }
+
+    // ── Attendees ─────────────────────────────────────────────────────────
+    function addAttendee(data) {
+      attendees.unshift(data);
+      renderAttendees();
+    }
+
+    function renderAttendees() {
+      const list = document.getElementById("attendee-list");
+      document.getElementById("attendee-count").textContent = attendees.length;
+      list.innerHTML = attendees.slice(0, 5).map((a) => `
+        <div class="attendee-item">
+          <div class="attendee-avatar">${a.employee.charAt(0).toUpperCase()}</div>
+          <span class="attendee-name">${a.employee}</span>
+          <span class="attendee-status status-${a.status}">${a.action === "checked_out" ? "out" : a.status}</span>
+        </div>
+      `).join("");
+    }
+
+    // ── UI Helpers ────────────────────────────────────────────────────────
+    function showActiveSession(name) {
+      document.getElementById("active-session").style.display = "flex";
+      document.getElementById("no-session").style.display = "none";
+      document.getElementById("session-name").textContent = name;
+      document.getElementById("subtitle").textContent =
+        "Scan QR code with your phone to check in";
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────
+    async function init() {
+      // Try saved token first
+      const saved = localStorage.getItem("kiosk_token");
+      if (saved) {
+        adminToken = saved;
+        try {
+          await loadOrCreateSession();
+          return;
+        } catch (e) {
+          localStorage.removeItem("kiosk_token");
+        }
+      }
+      authenticate();
+    }
+
+    init();
+  </script>
+</body>
+</html>

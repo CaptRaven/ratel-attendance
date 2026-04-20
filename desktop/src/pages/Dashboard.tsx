@@ -6,7 +6,7 @@ import QRDisplay from "@/components/QRDisplay";
 import AttendeeList from "@/components/AttendeeList";
 
 
-const WS_BASE_URL = "ws://localhost:8000";
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || "wss://ratel-attendance.onrender.com";
 
 export default function Dashboard() {
   const { token, user } = useAuthStore();

@@ -119,3 +119,15 @@ async def checkin_success_page(
             "time": now,
         },
     )
+
+@router.get("/kiosk", response_class=HTMLResponse)
+async def kiosk_page(request: Request):
+    """
+    Tablet kiosk page — fullscreen QR display.
+    Admin logs in, starts session, QR auto-rotates.
+    """
+    return templates.TemplateResponse(
+        request=request,
+        name="kiosk.html",
+        context={},
+    )
