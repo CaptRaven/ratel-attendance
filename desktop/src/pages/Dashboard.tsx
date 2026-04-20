@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { createSession, closeSession, getSessionAttendance, exportAttendanceCSV } from "@/lib/api";
+import {
+  createSession,
+  closeSession,
+  getSessionAttendance,
+  exportAttendanceCSV,
+  getActiveSession,
+  rotateToken,
+} from "@/lib/api";
 import { useSessionStore } from "@/store/sessionStore";
 import { useAuthStore } from "@/store/authStore";
 import QRDisplay from "@/components/QRDisplay";
@@ -15,6 +22,15 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
+  const loadSessionAttendance = async (sessionId: string) => {
+    try {
+      const data = await getSessionAttendance(sessionId);
+      data.records.forEach(addAttendee);
+    } catch (err) {
+      console.error("Failed to load session attendance:", err);
+    }
+  };
+
   const startSession = async () => {
     if (!sessionName.trim()) return;
     setLoading(true);
@@ -22,6 +38,7 @@ export default function Dashboard() {
       const newSession = await createSession(sessionName, "ratel-hq");
       setSession(newSession);
       connectWebSocket(newSession.session_id);
+      await loadSessionAttendance(newSession.session_id);
     } catch (err) {
       console.error("Failed to start session:", err);
     } finally {
@@ -30,6 +47,7 @@ export default function Dashboard() {
   };
 
   const connectWebSocket = (sessionId: string) => {
+    wsRef.current?.close();
     const ws = new WebSocket(`${WS_BASE_URL}/ws/sessions/${sessionId}?token=${token}`);
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
@@ -58,12 +76,35 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (session) {
-      getSessionAttendance(session.session_id).then((data) => {
-        data.records.forEach(addAttendee);
-      });
-    }
-  }, []);
+    if (session) return;
+
+    let cancelled = false;
+
+    const restoreActiveSession = async () => {
+      try {
+        const activeSession = await getActiveSession();
+        if (cancelled) return;
+
+        const rotated = await rotateToken(activeSession.session_id);
+        if (cancelled) return;
+
+        setSession({
+          ...activeSession,
+          qr_token: rotated.qr_token,
+        });
+        connectWebSocket(activeSession.session_id);
+        await loadSessionAttendance(activeSession.session_id);
+      } catch (err) {
+        console.error("No active session restored:", err);
+      }
+    };
+
+    void restoreActiveSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, setSession, addAttendee, token]);
 
   useEffect(() => () => { wsRef.current?.close(); }, []);
 
