@@ -17,6 +17,21 @@ SESSION_TTL_SECONDS = 60 * 60 * 4
 ACTIVE_SESSION_KEY = "attendance:active_session"
 
 
+async def _mark_session_inactive(redis: Redis, session_id: str) -> None:
+    """Mark a session inactive while preserving its remaining TTL."""
+    session_key = QR_SESSION_KEY.format(session_id=session_id)
+    data = await redis.get(session_key)
+    if not data:
+        return
+
+    session_data = json.loads(data)
+    session_data["is_active"] = False
+
+    ttl = await redis.ttl(session_key)
+    if ttl > 0:
+        await redis.setex(session_key, ttl, json.dumps(session_data))
+
+
 async def create_session(
     redis: Redis,
     name: str,
@@ -37,6 +52,16 @@ async def create_session(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_active": True,
     }
+
+    previous_active_session_id = await redis.get(ACTIVE_SESSION_KEY)
+    if previous_active_session_id:
+        previous_active_session_id = (
+            previous_active_session_id.decode()
+            if isinstance(previous_active_session_id, bytes)
+            else previous_active_session_id
+        )
+        if previous_active_session_id != session_id:
+            await _mark_session_inactive(redis, previous_active_session_id)
 
     # Store session metadata in Redis
     session_key = QR_SESSION_KEY.format(session_id=session_id)

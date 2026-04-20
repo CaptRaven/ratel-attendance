@@ -214,14 +214,20 @@
   <script>
     const API_BASE = window.location.origin + "/api/v1";
     const TOKEN_TTL = 25;
+    const ACTIVE_SESSION_POLL_MS = 5000;
 
     let sessionId = null;
+    let sessionName = null;
     let qrToken = null;
     let adminToken = null;
     let timeLeft = TOKEN_TTL;
     let qrCode = null;
     let ws = null;
     let attendees = [];
+    let countdownInterval = null;
+    let activeSessionPollInterval = null;
+    let reconnectTimeout = null;
+    let shouldReconnect = false;
 
     // ── Auth ──────────────────────────────────────────────────────────────
     async function authenticate() {
@@ -239,7 +245,8 @@
         if (!res.ok) throw new Error(data.detail);
         adminToken = data.access_token;
         localStorage.setItem("kiosk_token", adminToken);
-        await loadOrCreateSession();
+        await syncActiveSession();
+        startActiveSessionPolling();
       } catch (err) {
         alert("Login failed: " + err.message);
         authenticate();
@@ -247,40 +254,13 @@
     }
 
     // ── Session ───────────────────────────────────────────────────────────
-    async function loadOrCreateSession() {
-      const savedSession = localStorage.getItem("kiosk_session");
-      if (savedSession) {
-        const s = JSON.parse(savedSession);
-        // Verify session still active
-        try {
-          const res = await fetch(`${API_BASE}/sessions/${s.session_id}`, {
-            headers: { Authorization: `Bearer ${adminToken}` },
-          });
-          if (res.ok) {
-            const data = await res.json();
-            if (data.is_active) {
-              sessionId = s.session_id;
-              await rotateToken();
-              showActiveSession(data.name);
-              connectWebSocket();
-              startCountdown();
-              return;
-            }
-          }
-        } catch (e) {}
-        localStorage.removeItem("kiosk_session");
-      }
-      await loadActiveSession();
-    }
-
-    async function loadActiveSession() {
+    async function fetchActiveSession() {
       const res = await fetch(`${API_BASE}/sessions/active`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
 
       if (res.status === 404) {
-        showNoActiveSession();
-        return;
+        return null;
       }
 
       const data = await res.json();
@@ -288,17 +268,70 @@
         throw new Error(data.detail || "Failed to load active session");
       }
 
-      sessionId = data.session_id;
-      localStorage.setItem("kiosk_session", JSON.stringify({ session_id: sessionId }));
+      return data;
+    }
+
+    async function syncActiveSession() {
+      const activeSession = await fetchActiveSession();
+      if (!activeSession) {
+        detachSession();
+        showNoActiveSession();
+        return;
+      }
+
+      if (sessionId === activeSession.session_id) {
+        if (!ws || ws.readyState === WebSocket.CLOSED) {
+          connectWebSocket();
+        }
+        return;
+      }
+
+      await attachToSession(activeSession);
+    }
+
+    async function attachToSession(activeSession) {
+      detachSession();
+      sessionId = activeSession.session_id;
+      sessionName = activeSession.name;
+      attendees = [];
       await rotateToken();
-      showActiveSession(data.name);
-      connectWebSocket();
+      showActiveSession(sessionName);
       await loadExistingAttendance();
+      connectWebSocket();
       startCountdown();
+    }
+
+    function detachSession() {
+      clearCountdown();
+      shouldReconnect = false;
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      attendees = [];
+      sessionId = null;
+      sessionName = null;
+      qrToken = null;
+      const qrContainer = document.getElementById("qrcode");
+      if (qrContainer) qrContainer.innerHTML = "";
+    }
+
+    function startActiveSessionPolling() {
+      if (activeSessionPollInterval) {
+        clearInterval(activeSessionPollInterval);
+      }
+      activeSessionPollInterval = setInterval(() => {
+        void syncActiveSession();
+      }, ACTIVE_SESSION_POLL_MS);
     }
 
     // ── QR ────────────────────────────────────────────────────────────────
     async function rotateToken() {
+      if (!sessionId) return;
       const res = await fetch(`${API_BASE}/sessions/rotate-token`, {
         method: "POST",
         headers: {
@@ -308,11 +341,15 @@
         body: JSON.stringify({ session_id: sessionId }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to rotate QR token");
+      }
       qrToken = data.qr_token;
       renderQR();
     }
 
     async function loadExistingAttendance() {
+      if (!sessionId) return;
       const res = await fetch(`${API_BASE}/checkin/session/${sessionId}`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
@@ -329,6 +366,7 @@
     }
 
     function renderQR() {
+      if (!qrToken) return;
       const checkInUrl = `${window.location.origin}/checkin?token=${encodeURIComponent(qrToken)}`;
       const container = document.getElementById("qrcode");
       container.innerHTML = "";
@@ -343,15 +381,28 @@
 
     // ── Countdown ─────────────────────────────────────────────────────────
     function startCountdown() {
+      clearCountdown();
       timeLeft = TOKEN_TTL;
-      setInterval(async () => {
+      updateTimerUI();
+      countdownInterval = setInterval(async () => {
         timeLeft--;
         updateTimerUI();
         if (timeLeft <= 0) {
           timeLeft = TOKEN_TTL;
-          await rotateToken();
+          try {
+            await rotateToken();
+          } catch (err) {
+            console.error("Failed to rotate kiosk token:", err);
+          }
         }
       }, 1000);
+    }
+
+    function clearCountdown() {
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
     }
 
     function updateTimerUI() {
@@ -366,6 +417,8 @@
 
     // ── WebSocket ─────────────────────────────────────────────────────────
     function connectWebSocket() {
+      if (!sessionId) return;
+      shouldReconnect = true;
       const wsUrl = window.location.origin.replace("https://", "wss://")
         .replace("http://", "ws://");
       ws = new WebSocket(
@@ -376,12 +429,21 @@
         if (data.type === "checkin") addAttendee(data);
       };
       ws.onclose = () => {
-        setTimeout(connectWebSocket, 3000); // Reconnect on disconnect
+        ws = null;
+        if (!shouldReconnect || !sessionId) return;
+        reconnectTimeout = setTimeout(() => {
+          connectWebSocket();
+        }, 3000);
       };
     }
 
     // ── Attendees ─────────────────────────────────────────────────────────
     function addAttendee(data) {
+      attendees = attendees.filter((item) => !(
+        item.employee_id === data.employee_id &&
+        item.action === data.action &&
+        item.checked_in_at === data.checked_in_at
+      ));
       attendees.unshift(data);
       renderAttendees();
     }
@@ -403,18 +465,14 @@
       document.getElementById("active-session").style.display = "flex";
       document.getElementById("no-session").style.display = "none";
       document.getElementById("session-name").textContent = name;
+      document.getElementById("attendee-count").textContent = attendees.length;
       document.getElementById("subtitle").textContent =
         "Scan QR code with your phone to check in";
     }
 
     function showNoActiveSession() {
-      attendees = [];
-      sessionId = null;
-      qrToken = null;
-      if (ws) {
-        ws.close();
-        ws = null;
-      }
+      document.getElementById("attendee-list").innerHTML = "";
+      document.getElementById("attendee-count").textContent = "0";
       document.getElementById("active-session").style.display = "none";
       document.getElementById("no-session").style.display = "block";
       document.getElementById("subtitle").textContent =
@@ -428,7 +486,8 @@
       if (saved) {
         adminToken = saved;
         try {
-          await loadOrCreateSession();
+          await syncActiveSession();
+          startActiveSessionPolling();
           return;
         } catch (e) {
           localStorage.removeItem("kiosk_token");
