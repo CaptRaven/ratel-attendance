@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Ratel · Attendance</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: white;
+    }
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 28px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 400px;
+      backdrop-filter: blur(20px);
+    }
+    .logo {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, #e94560, #c23152);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 800;
+      margin: 0 auto 20px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: rgba(255,255,255,0.4);
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .session-badge {
+      background: rgba(34,197,94,0.12);
+      border: 1px solid rgba(34,197,94,0.25);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .session-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      flex-shrink: 0;
+    }
+    .session-name { color: #22c55e; font-size: 14px; font-weight: 600; }
+
+    /* Known employee card */
+    .known-employee {
+      display: none;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 20px;
+      align-items: center;
+      gap: 14px;
+    }
+    .known-employee.visible { display: flex; }
+    .avatar {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #e94560, #302b63);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; flex-shrink: 0;
+    }
+    .known-name { font-size: 16px; font-weight: 700; }
+    .known-sub { color: rgba(255,255,255,0.4); font-size: 13px; margin-top: 2px; }
+    .not-me {
+      margin-left: auto;
+      background: none;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.4);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    label {
+      display: block;
+      color: rgba(255,255,255,0.45);
+      font-size: 11px; font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    input {
+      width: 100%;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 16px 18px;
+      color: white; font-size: 17px; font-weight: 500;
+      outline: none; margin-bottom: 20px;
+      -webkit-appearance: none; letter-spacing: 1px;
+    }
+    input::placeholder { color: rgba(255,255,255,0.2); }
+    input:focus {
+      border-color: rgba(233,69,96,0.5);
+      background: rgba(255,255,255,0.1);
+    }
+    button.primary {
+      width: 100%;
+      background: linear-gradient(135deg, #e94560, #c23152);
+      color: white; border: none;
+      border-radius: 14px; padding: 18px;
+      font-size: 16px; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.3px;
+      -webkit-appearance: none; transition: opacity 0.2s;
+    }
+    button.primary:active { opacity: 0.85; }
+    button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.checkout {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+    }
+    .error {
+      background: rgba(233,69,96,0.1);
+      border: 1px solid rgba(233,69,96,0.25);
+      border-radius: 12px;
+      padding: 14px; color: #e94560;
+      font-size: 14px; text-align: center;
+      margin-bottom: 16px; display: none;
+    }
+    #id-section { display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">R</div>
+    <h1 id="page-title">Check In</h1>
+    <p class="subtitle" id="page-subtitle">Scan detected — confirm your identity</p>
+
+    <div class="session-badge">
+      <div class="session-dot"></div>
+      <span class="session-name">{{ session_name }}</span>
+    </div>
+
+    <!-- Known employee (device bound) -->
+    <div class="known-employee" id="known-employee">
+      <div class="avatar" id="known-avatar">?</div>
+      <div>
+        <div class="known-name" id="known-name"></div>
+        <div class="known-sub" id="known-sub">Device recognized</div>
+      </div>
+      <button class="not-me" onclick="showIdInput()">Not me</button>
+    </div>
+
+    <!-- ID input (new employees or override) -->
+    <div id="id-section">
+      <label>Employee ID</label>
+      <input
+        type="text" id="employee-id"
+        placeholder="e.g. EMP-001"
+        autocomplete="off" autocorrect="off"
+        autocapitalize="characters" spellcheck="false"
+      />
+    </div>
+
+    <div class="error" id="error-msg"></div>
+
+    <button class="primary" id="action-btn" onclick="submitScan()">
+      Mark Attendance
+    </button>
+  </div>
+
+  <script id="checkin-data" type="application/json">
+    {{ {
+      "qr_token": qr_token,
+      "is_known": known_employee is not none,
+      "known_name": known_employee.full_name if known_employee else "",
+      "known_id": known_employee.employee_id if known_employee else "",
+      "check_status": check_status
+    } | tojson }}
+  </script>
+
+  <script>
+    const pageData = JSON.parse(
+      document.getElementById("checkin-data").textContent
+    );
+    const QR_TOKEN = pageData.qr_token;
+    const IS_KNOWN = pageData.is_known;
+    const KNOWN_NAME = pageData.known_name;
+    const KNOWN_ID = pageData.known_id;
+    const CHECK_STATUS = pageData.check_status; // "none", "checked_in", "checked_out"
+
+    // Generate simple browser fingerprint
+    function getFingerprint() {
+      const data = [
+        navigator.userAgent,
+        screen.width + "x" + screen.height,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+        navigator.language,
+      ].join("|");
+      // Simple hash
+      let hash = 0;
+      for (let i = 0; i < data.length; i++) {
+        hash = ((hash << 5) - hash) + data.charCodeAt(i);
+        hash |= 0;
+      }
+      return Math.abs(hash).toString(16);
+    }
+
+    function initPage() {
+      if (IS_KNOWN) {
+        // Show known employee card
+        document.getElementById("known-employee").classList.add("visible");
+        document.getElementById("known-avatar").textContent =
+          KNOWN_NAME.charAt(0).toUpperCase();
+        document.getElementById("known-name").textContent = KNOWN_NAME;
+        document.getElementById("id-section").style.display = "none";
+
+        // Update UI based on check status
+        if (CHECK_STATUS === "checked_in") {
+          document.getElementById("page-title").textContent = "Check Out";
+          document.getElementById("page-subtitle").textContent =
+            "Ready to clock out?";
+          document.getElementById("known-sub").textContent =
+            "Currently checked in";
+          const btn = document.getElementById("action-btn");
+          btn.textContent = "Clock Out";
+          btn.classList.add("checkout");
+        } else {
+          document.getElementById("page-title").textContent = "Check In";
+          document.getElementById("action-btn").textContent = "Clock In";
+        }
+      }
+    }
+
+    function showIdInput() {
+      document.getElementById("known-employee").classList.remove("visible");
+      document.getElementById("id-section").style.display = "block";
+      document.getElementById("action-btn").textContent = "Mark Attendance";
+      document.getElementById("action-btn").classList.remove("checkout");
+    }
+
+    async function submitScan() {
+      const btn = document.getElementById("action-btn");
+      const errorMsg = document.getElementById("error-msg");
+
+      // Get employee ID — from known binding or input
+      let employeeId = null;
+      if (!IS_KNOWN ||
+          document.getElementById("id-section").style.display !== "none") {
+        employeeId = document.getElementById("employee-id").value.trim();
+        if (!employeeId) {
+          showError("Please enter your Employee ID");
+          return;
+        }
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Processing...";
+      errorMsg.style.display = "none";
+
+      try {
+        const res = await fetch("/api/v1/checkin/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include", // Send cookies
+          body: JSON.stringify({
+            qr_token: QR_TOKEN,
+            employee_id: employeeId,
+            fingerprint: getFingerprint(),
+          }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          const params = new URLSearchParams({
+            name: data.employee,
+            status: data.status,
+            action: data.action,
+            session: data.session,
+            hours: data.hours_clocked || "",
+          });
+          window.location.href = `/checkin/success?${params}`;
+        } else {
+          showError(data.detail || "Something went wrong. Please try again.");
+          btn.disabled = false;
+          btn.textContent = IS_KNOWN && CHECK_STATUS === "checked_in"
+            ? "Clock Out" : "Mark Attendance";
+        }
+      } catch (err) {
+        showError("Network error. Please try again.");
+        btn.disabled = false;
+        btn.textContent = "Mark Attendance";
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById("error-msg");
+      el.textContent = msg;
+      el.style.display = "block";
+    }
+
+    document.getElementById("employee-id")
+      ?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") submitScan();
+      });
+
+    initPage();
+  </script>
+</body>
+</html>

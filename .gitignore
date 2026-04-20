@@ -1,10 +1,16 @@
-venv/
-__pycache__/
-*.pyc
-*.pyo
-.env
+# Python
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/.env
+
+# Node
+desktop/node_modules/
+desktop/dist/
+
+
+src-tauri/target/
+
 .DS_Store
-*.egg-info/
-dist/
-build/
-.pytest_cache/
+*.log

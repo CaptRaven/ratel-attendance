@@ -1,0 +1,121 @@
+from fastapi import APIRouter, Request, Query
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from datetime import datetime, timezone
+from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from fastapi import Cookie, Depends
+from app.database import get_db
+from app.core.qr_token import decode_qr_token
+from app.core.session_manager import get_session
+from app.redis_client import get_redis_pool
+from app.models.device import DeviceBinding
+from app.models.user import User
+from app.models.attendance import Attendance, CheckStatus
+from redis.asyncio import Redis
+from app.core.logging import logger
+
+router = APIRouter(tags=["Mobile Check-in"])
+templates = Jinja2Templates(directory="app/templates")
+
+DEVICE_COOKIE_NAME = "ratel_device"
+
+
+@router.get("/checkin", response_class=HTMLResponse)
+async def mobile_checkin_page(
+    request: Request,
+    token: str = Query(...),
+    db: AsyncSession = Depends(get_db),
+    device_token: Optional[str] = Cookie(default=None, alias=DEVICE_COOKIE_NAME),
+):
+    # Validate token
+    token_data = decode_qr_token(token)
+    if not token_data:
+        return templates.TemplateResponse(
+            request=request, name="error.html",
+            context={
+                "title": "QR Code Expired",
+                "message": "This QR code has expired. Please scan the latest code.",
+            }, status_code=400,
+        )
+
+    # Verify session
+    redis = Redis(connection_pool=get_redis_pool())
+    session = await get_session(redis, token_data["session_id"])
+    await redis.aclose()
+
+    if not session or not session.get("is_active"):
+        return templates.TemplateResponse(
+            request=request, name="error.html",
+            context={
+                "title": "Session Closed",
+                "message": "This attendance session has ended.",
+            }, status_code=400,
+        )
+
+    # Resolve known employee from device cookie
+    known_employee = None
+    check_status = "none"
+
+    if device_token:
+        binding_result = await db.execute(
+            select(DeviceBinding).where(DeviceBinding.device_token == device_token)
+        )
+        binding = binding_result.scalar_one_or_none()
+        if binding:
+            emp_result = await db.execute(
+                select(User).where(User.id == binding.employee_id)
+            )
+            known_employee = emp_result.scalar_one_or_none()
+
+            if known_employee:
+                # Check their current status in this session
+                att_result = await db.execute(
+                    select(Attendance).where(
+                        Attendance.employee_id == known_employee.id,
+                        Attendance.session_id == token_data["session_id"],
+                    )
+                )
+                attendance = att_result.scalar_one_or_none()
+                if attendance:
+                    check_status = attendance.check_status.value
+
+    logger.info("mobile_checkin_page_loaded",
+                session_id=token_data["session_id"],
+                known=known_employee is not None)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="checkin.html",
+        context={
+            "qr_token": token,
+            "session_name": session["name"],
+            "known_employee": known_employee,
+            "check_status": check_status,
+        },
+    )
+
+
+@router.get("/checkin/success", response_class=HTMLResponse)
+async def checkin_success_page(
+    request: Request,
+    name: str = Query(...),
+    status: str = Query(...),
+    action: str = Query(...),
+    session: str = Query(...),
+    hours: str = Query(default=""),
+):
+    now = datetime.now(timezone.utc).strftime("%I:%M %p · %b %d, %Y")
+    return templates.TemplateResponse(
+        request=request,
+        name="success.html",
+        context={
+            "name": name,
+            "status": status,
+            "action": action,
+            "session": session,
+            "hours": hours,
+            "time": now,
+        },
+    )

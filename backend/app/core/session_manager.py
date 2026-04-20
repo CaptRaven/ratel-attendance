@@ -26,7 +26,7 @@ async def create_session(
     Create a new attendance session.
     Returns session metadata including the first QR token.
     """
-    session_id = f"session:{uuid.uuid4().hex}"
+    session_id = f"session-{uuid.uuid4().hex}"
 
     session_data = {
         "session_id": session_id,

@@ -1,0 +1,2 @@
+Name,Employee ID,Department,Session ID,Status,Check Status,Check-in Time,Check-out Time,Hours Clocked,Total Hours
+John Doe,EMP-001,—,session-b611642179d949fc85689d71c09e745d,present,checked_out,2026-04-19 14:50:29,2026-04-19 15:50:29,1.00h,1.00h

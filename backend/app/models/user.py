@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, Enum as SAEnum
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, Boolean, DateTime, Enum as SAEnum, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 import enum
@@ -32,6 +32,9 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False
     )
+    department_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True
+    )
     location_id: Mapped[str] = mapped_column(
         String(100), nullable=False, default="ratel-hq"
     )
@@ -43,4 +46,10 @@ class User(Base):
         default=datetime.utcnow,
         onupdate=datetime.utcnow,
         nullable=False,
+    )
+
+    department: Mapped["Department | None"] = relationship(  # noqa: F821
+        "Department",
+        back_populates="employees",
+        lazy="selectin",
     )

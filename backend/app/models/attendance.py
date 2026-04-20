@@ -12,6 +12,11 @@ class AttendanceStatus(str, enum.Enum):
     LATE = "late"
 
 
+class CheckStatus(str, enum.Enum):
+    CHECKED_IN = "checked_in"
+    CHECKED_OUT = "checked_out"
+
+
 class Attendance(Base):
     __tablename__ = "attendance"
 
@@ -28,10 +33,25 @@ class Attendance(Base):
     status: Mapped[AttendanceStatus] = mapped_column(
         SAEnum(AttendanceStatus), default=AttendanceStatus.PRESENT, nullable=False
     )
+    check_status: Mapped[CheckStatus] = mapped_column(
+        SAEnum(
+            CheckStatus,
+            name="checkstatus",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        default=CheckStatus.CHECKED_IN,
+        nullable=False,
+    )
     checked_in_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
-    # Store token used — full audit trail
+    checked_out_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Hours clocked — computed on checkout
+    hours_clocked: Mapped[float | None] = mapped_column(
+        nullable=True
+    )
     token_used: Mapped[str] = mapped_column(String(512), nullable=False)
 
     employee: Mapped["User"] = relationship("User", lazy="selectin")  # noqa: F821

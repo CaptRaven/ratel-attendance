@@ -3,8 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.core.logging import setup_logging, logger
-from app.api.v1 import auth, employees
-from app.api.v1 import auth, employees, sessions, checkin
+from fastapi.templating import Jinja2Templates  
+from app.api.v1 import auth, employees, sessions, checkin, websocket, mobile, reports, department, analytics
 
 settings = get_settings()
 
@@ -26,7 +26,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["tauri://localhost", "http://localhost:1420"],
+    allow_origins=["*"],  # Mobile browsers can come from any origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +36,11 @@ app.include_router(auth.router, prefix="/api/v1")
 app.include_router(employees.router, prefix="/api/v1")
 app.include_router(sessions.router, prefix="/api/v1")
 app.include_router(checkin.router, prefix="/api/v1")
+app.include_router(websocket.router)
+app.include_router(mobile.router)
+app.include_router(reports.router, prefix="/api/v1")
+app.include_router(department.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
 
 @app.get("/health")
 async def health():

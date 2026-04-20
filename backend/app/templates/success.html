@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ratel · {{ "Checked Out" if action == "checked_out" else "Checked In" }}!</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: linear-gradient(160deg, #0f0c29, #302b63, #24243e);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px; color: white;
+    }
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 28px; padding: 48px 32px;
+      width: 100%; max-width: 400px; text-align: center;
+    }
+    .icon {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 24px; font-size: 36px;
+      animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .icon-checkin {
+      background: rgba(34,197,94,0.15);
+      border: 2px solid rgba(34,197,94,0.3);
+    }
+    .icon-checkout {
+      background: rgba(245,158,11,0.15);
+      border: 2px solid rgba(245,158,11,0.3);
+    }
+    @keyframes popIn {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    h1 { font-size: 26px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; }
+    .name { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .checkin-color { color: #22c55e; }
+    .checkout-color { color: #f59e0b; }
+    .session { color: rgba(255,255,255,0.4); font-size: 14px; margin-bottom: 20px; }
+    .badge {
+      display: inline-block; padding: 8px 20px;
+      border-radius: 999px; font-size: 13px;
+      font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.8px; margin-bottom: 20px;
+    }
+    .badge-present {
+      background: rgba(34,197,94,0.15);
+      border: 1px solid rgba(34,197,94,0.3); color: #22c55e;
+    }
+    .badge-late {
+      background: rgba(245,158,11,0.15);
+      border: 1px solid rgba(245,158,11,0.3); color: #f59e0b;
+    }
+    .hours-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 16px;
+      margin-bottom: 20px;
+    }
+    .hours-label { color: rgba(255,255,255,0.35); font-size: 12px; margin-bottom: 4px; }
+    .hours-value { font-size: 28px; font-weight: 800; color: #f59e0b; }
+    .time { color: rgba(255,255,255,0.25); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if action == "checked_out" %}
+      <div class="icon icon-checkout">⏱</div>
+      <h1>Clocked Out!</h1>
+      <p class="name checkout-color">{{ name }}</p>
+      <p class="session">{{ session }}</p>
+      {% if hours %}
+      <div class="hours-card">
+        <div class="hours-label">Hours Clocked Today</div>
+        <div class="hours-value">{{ hours }}h</div>
+      </div>
+      {% endif %}
+    {% else %}
+      <div class="icon icon-checkin">✓</div>
+      <h1>You're checked in!</h1>
+      <p class="name checkin-color">{{ name }}</p>
+      <p class="session">{{ session }}</p>
+      <span class="badge badge-{{ status }}">{{ status }}</span>
+    {% endif %}
+    <p class="time">{{ time }}</p>
+  </div>
+</body>
+</html>

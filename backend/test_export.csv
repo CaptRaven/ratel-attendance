@@ -1,0 +1,7 @@
+Name,Employee ID,Department,Session ID,Status,Check Status,Check-in Time,Check-out Time,Hours Clocked,Total Hours
+John Doe,EMP-001,—,session:704f98a3639d48c4b32439fb95076e5a,present,checked_in,2026-04-16 08:53:12,—,0.00h,0.00h
+,,,session:66033ac4e7c94f7f92ff05df99be3b4c,present,checked_in,2026-04-16 12:19:45,—,0.00h,
+,,,session:3fbd32ee653f4618ab966a091fc3dec0,present,checked_in,2026-04-17 07:13:00,—,0.00h,
+,,,session-26d2145c6d4d4ab997f3498a494f3f84,present,checked_in,2026-04-17 07:39:32,—,0.00h,
+,,,session-9bfa9e1450384171aca43f4555e680fc,present,checked_in,2026-04-17 07:54:16,—,0.00h,
+,,,session-5fb1def0a3774e0db630e46532bc1ebe,present,checked_in,2026-04-19 10:40:47,—,0.00h,
