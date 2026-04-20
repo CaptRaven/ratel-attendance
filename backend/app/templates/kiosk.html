@@ -270,29 +270,30 @@
         } catch (e) {}
         localStorage.removeItem("kiosk_session");
       }
-      await createNewSession();
+      await loadActiveSession();
     }
 
-    async function createNewSession() {
-      const name = prompt("Session name (e.g. Morning Shift):", "Morning Shift");
-      if (!name) return createNewSession();
-
-      const res = await fetch(`${API_BASE}/sessions/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
-        body: JSON.stringify({ name, location_id: "ratel-hq" }),
+    async function loadActiveSession() {
+      const res = await fetch(`${API_BASE}/sessions/active`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
       });
+
+      if (res.status === 404) {
+        showNoActiveSession();
+        return;
+      }
+
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || "Failed to load active session");
+      }
+
       sessionId = data.session_id;
-      qrToken = data.qr_token;
-      localStorage.setItem("kiosk_session",
-        JSON.stringify({ session_id: sessionId }));
+      localStorage.setItem("kiosk_session", JSON.stringify({ session_id: sessionId }));
+      await rotateToken();
       showActiveSession(data.name);
-      renderQR();
       connectWebSocket();
+      await loadExistingAttendance();
       startCountdown();
     }
 
@@ -309,6 +310,22 @@
       const data = await res.json();
       qrToken = data.qr_token;
       renderQR();
+    }
+
+    async function loadExistingAttendance() {
+      const res = await fetch(`${API_BASE}/checkin/session/${sessionId}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      attendees = (data.records || []).map((record) => ({
+        employee: record.employee,
+        employee_id: record.employee_id,
+        status: record.status,
+        action: record.check_status === "checked_out" ? "checked_out" : "checked_in",
+        checked_in_at: record.checked_in_at,
+      }));
+      renderAttendees();
     }
 
     function renderQR() {
@@ -386,6 +403,20 @@
       document.getElementById("active-session").style.display = "flex";
       document.getElementById("no-session").style.display = "none";
       document.getElementById("session-name").textContent = name;
+      document.getElementById("subtitle").textContent =
+        "Scan QR code with your phone to check in";
+    }
+
+    function showNoActiveSession() {
+      attendees = [];
+      sessionId = null;
+      qrToken = null;
+      if (ws) {
+        ws.close();
+        ws = null;
+      }
+      document.getElementById("active-session").style.display = "none";
+      document.getElementById("no-session").style.display = "block";
       document.getElementById("subtitle").textContent =
         "Scan QR code with your phone to check in";
     }

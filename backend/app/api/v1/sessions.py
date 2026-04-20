@@ -6,6 +6,7 @@ from app.core.session_manager import (
     create_session,
     rotate_session_token,
     get_session,
+    get_active_session,
     close_session,
 )
 from app.api.deps import require_admin
@@ -71,6 +72,22 @@ async def rotate_token(
         location_id=session["location_id"],
     )
     return {"session_id": payload.session_id, "qr_token": token}
+
+
+@router.get("/active")
+async def get_current_active_session(
+    redis: Redis = Depends(get_redis),
+    admin: User = Depends(require_admin),
+):
+    """Get the current active attendance session."""
+    session = await get_active_session(redis)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active session found",
+        )
+    logger.info("active_session_requested", session_id=session["session_id"], admin=str(admin.id))
+    return session
 
 
 @router.get("/{session_id}")
