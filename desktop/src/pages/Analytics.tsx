@@ -4,6 +4,7 @@ import {
 } from "@/lib/api";
 import type { OverviewStats, DailyTrend, TopPerformer } from "@/lib/api";
 import { theme } from "@/lib/theme";
+import { BarChart3, CheckCircle2, Clock3, Users } from "lucide-react";
 
 type StatusBreakdown = {
   present: number;
@@ -107,7 +108,7 @@ export default function Analytics() {
             sub: "Active staff",
             color: theme.primary,
             bg: theme.accentSoft,
-            icon: "👥",
+            icon: Users,
           },
           {
             label: "Present Today",
@@ -115,7 +116,7 @@ export default function Analytics() {
             sub: `${overview?.attendance_rate ?? 0}% attendance rate`,
             color: theme.success,
             bg: theme.successSoft,
-            icon: "✓",
+            icon: CheckCircle2,
           },
           {
             label: "Late Today",
@@ -123,7 +124,7 @@ export default function Analytics() {
             sub: "After 15min grace",
             color: theme.warning,
             bg: theme.warningSoft,
-            icon: "⏱",
+            icon: Clock3,
           },
           {
             label: "Avg Hours",
@@ -131,7 +132,7 @@ export default function Analytics() {
             sub: "Clocked today",
             color: theme.accent,
             bg: theme.accentSoft,
-            icon: "📊",
+            icon: BarChart3,
           },
         ].map((card) => (
           <div key={card.label} style={{
@@ -161,8 +162,10 @@ export default function Analytics() {
                 width: "40px", height: "40px",
                 background: card.bg, borderRadius: "12px",
                 display: "flex", alignItems: "center",
-                justifyContent: "center", fontSize: "18px",
-              }}>{card.icon}</div>
+                justifyContent: "center",
+              }}>
+                <card.icon size={18} strokeWidth={2.2} color={card.color} />
+              </div>
             </div>
             <p style={{
               color: theme.textMuted,

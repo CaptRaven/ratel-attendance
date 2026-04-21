@@ -12,7 +12,7 @@ import { useAuthStore } from "@/store/authStore";
 import QRDisplay from "@/components/QRDisplay";
 import AttendeeList from "@/components/AttendeeList";
 import { theme } from "@/lib/theme";
-//import logo from "@/assets/rATEL-LOGO.png";
+import { Download, Play, Square } from "lucide-react";
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || "wss://ratel-attendance.onrender.com";
 
@@ -209,9 +209,14 @@ export default function Dashboard() {
                 fontWeight: "600",
                 cursor: loading || !sessionName.trim() ? "not-allowed" : "pointer",
                 letterSpacing: "0.3px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "10px",
               }}
             >
-              {loading ? "Starting..." : "▶ Start Session"}
+              {!loading && <Play size={16} strokeWidth={2.4} />}
+              {loading ? "Starting..." : "Start Session"}
             </button>
           </div>
         </div>
@@ -266,9 +271,13 @@ export default function Dashboard() {
                   cursor: "pointer",
                   fontSize: "13px",
                   fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
               >
-                ↓ Export CSV
+                <Download size={15} strokeWidth={2.2} />
+                Export CSV
               </button>
               <button
                 onClick={endSession}
@@ -281,9 +290,13 @@ export default function Dashboard() {
                   cursor: "pointer",
                   fontSize: "13px",
                   fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
                 }}
               >
-                ■ End Session
+                <Square size={13} fill="currentColor" strokeWidth={2.2} />
+                End Session
               </button>
             </div>
           </div>

@@ -6,6 +6,7 @@ import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
 import { theme } from "@/lib/theme";
 import logo from "@/assets/rATEL-LOGO.png";
+import { BarChart3, LayoutGrid, LogOut, Users } from "lucide-react";
 
 type Page = "dashboard" | "staff" | "analytics";
 
@@ -54,9 +55,9 @@ export default function App() {
 
         {/* Nav */}
         {[
-          { id: "dashboard", icon: "▦", label: "Attendance" },
-          { id: "analytics", icon: "📊", label: "Analytics" },
-          { id: "staff", icon: "👥", label: "Staff" },
+          { id: "dashboard", icon: LayoutGrid, label: "Attendance" },
+          { id: "analytics", icon: BarChart3, label: "Analytics" },
+          { id: "staff", icon: Users, label: "Staff" },
         ].map((item) => (
           <button
             key={item.id}
@@ -76,7 +77,7 @@ export default function App() {
               textAlign: "left", marginBottom: "4px",
             }}
           >
-            <span>{item.icon}</span>
+            <item.icon size={16} strokeWidth={2.2} />
             {item.label}
           </button>
         ))}
@@ -93,7 +94,7 @@ export default function App() {
             cursor: "pointer", width: "100%", textAlign: "left",
           }}
         >
-          <span>→</span> Logout
+          <LogOut size={16} strokeWidth={2.2} /> Logout
         </button>
       </div>
 
