@@ -5,7 +5,7 @@ import Dashboard from "@/pages/Dashboard";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
 import { theme } from "@/lib/theme";
-import logo from "@/assets/rATEL-LOGO.png";
+//import logo from "@/assets/rATEL-LOGO.png";
 
 type Page = "dashboard" | "staff" | "analytics";
 
