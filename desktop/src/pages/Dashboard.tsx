@@ -12,7 +12,7 @@ import { useAuthStore } from "@/store/authStore";
 import QRDisplay from "@/components/QRDisplay";
 import AttendeeList from "@/components/AttendeeList";
 import { theme } from "@/lib/theme";
-import logo from "@/assets/rATEL-LOGO.png";
+//import logo from "@/assets/rATEL-LOGO.png";
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || "wss://ratel-attendance.onrender.com";
 
@@ -128,7 +128,7 @@ export default function Dashboard() {
         marginBottom: "40px",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <img src={logo} alt="RATEL" style={{ width: "132px", height: "auto", display: "block" }} />
+          
           <div>
             <h1 style={{
               color: theme.text,

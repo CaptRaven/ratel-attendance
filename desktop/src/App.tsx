@@ -5,7 +5,7 @@ import Dashboard from "@/pages/Dashboard";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
 import { theme } from "@/lib/theme";
-//import logo from "@/assets/rATEL-LOGO.png";
+import logo from "@/assets/rATEL-LOGO.png";
 
 type Page = "dashboard" | "staff" | "analytics";
 
@@ -32,15 +32,24 @@ export default function App() {
         {/* Logo */}
         <div style={{
           display: "flex", alignItems: "center",
-          gap: "12px", marginBottom: "40px", padding: "0 8px",
+          gap: "12px", marginBottom: "40px", padding: "10px 25px",
+          background: "rgba(255,255,255,0.14)",
+          border: "1px solid rgba(255,255,255,0.18)",
+          borderRadius: "15px",
         }}>
-  <div style={{
-            width: "32px", height: "32px",
-            background: "linear-gradient(135deg, #e94560, #c23152)",
-            borderRadius: "10px", display: "flex",
-            alignItems: "center", justifyContent: "center",
-            fontWeight: "800", fontSize: "14px", color: "white",
-          }}>A</div>
+          <div style={{
+            background: "rgba(255,255,255,0.96)",
+            borderRadius: "12px",
+            padding: "8px 12px",
+            boxShadow: "0 10px 24px rgba(7, 33, 73, 0.16)",
+          }}>
+            <img
+              src={logo}
+              alt="RATEL"
+              style={{ width: "108px", height: "auto", display: "block" }}
+            />
+          </div>
+          
         </div>
 
         {/* Nav */}
