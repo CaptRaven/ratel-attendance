@@ -22,6 +22,9 @@ export default function Dashboard() {
   const [sessionName, setSessionName] = useState("");
   const [loading, setLoading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeSessionIdRef = useRef<string | null>(null);
+  const shouldReconnectRef = useRef(false);
 
   const loadSessionAttendance = async (sessionId: string) => {
     try {
@@ -47,9 +50,28 @@ export default function Dashboard() {
     }
   };
 
-  const connectWebSocket = (sessionId: string) => {
+  const clearReconnectTimeout = () => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+  };
+
+  const disconnectWebSocket = () => {
+    shouldReconnectRef.current = false;
+    clearReconnectTimeout();
     wsRef.current?.close();
+    wsRef.current = null;
+  };
+
+  const connectWebSocket = (sessionId: string) => {
+    activeSessionIdRef.current = sessionId;
+    shouldReconnectRef.current = true;
+    clearReconnectTimeout();
+    wsRef.current?.close();
+
     const ws = new WebSocket(`${WS_BASE_URL}/ws/sessions/${sessionId}?token=${token}`);
+
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       if (data.type === "checkin") {
@@ -61,6 +83,21 @@ export default function Dashboard() {
         });
       }
     };
+
+    ws.onerror = (err) => {
+      console.error("Dashboard websocket error:", err);
+    };
+
+    ws.onclose = () => {
+      wsRef.current = null;
+      if (!shouldReconnectRef.current || activeSessionIdRef.current !== sessionId) {
+        return;
+      }
+      reconnectTimeoutRef.current = setTimeout(() => {
+        connectWebSocket(sessionId);
+      }, 3000);
+    };
+
     wsRef.current = ws;
   };
 
@@ -68,7 +105,8 @@ export default function Dashboard() {
     if (!session) return;
     try {
       await closeSession(session.session_id);
-      wsRef.current?.close();
+      disconnectWebSocket();
+      activeSessionIdRef.current = null;
       clearSession();
       setSessionName("");
     } catch (err) {
@@ -107,7 +145,10 @@ export default function Dashboard() {
     };
   }, [session, setSession, addAttendee, token]);
 
-  useEffect(() => () => { wsRef.current?.close(); }, []);
+  useEffect(() => () => {
+    disconnectWebSocket();
+    activeSessionIdRef.current = null;
+  }, []);
 
   const baseStyle = {
     minHeight: "100vh",
