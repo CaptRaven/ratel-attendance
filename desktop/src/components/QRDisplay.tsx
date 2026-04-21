@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { rotateToken } from "@/lib/api";
 import { useSessionStore } from "@/store/sessionStore";
+import { theme } from "@/lib/theme";
 
 const CHECK_IN_BASE_URL =
   import.meta.env.VITE_CHECKIN_URL || "https://ratel-attendance.onrender.com/checkin";
@@ -42,22 +43,23 @@ export default function QRDisplay({ sessionId }: Props) {
 
   const qrValue = `${CHECK_IN_BASE_URL}?token=${encodeURIComponent(qrToken)}`;
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
-  const progressColor = timeLeft > 10 ? "#22c55e" : timeLeft > 5 ? "#f59e0b" : "#e94560";
+  const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
 
   return (
     <div style={{
-      background: "rgba(255,255,255,0.04)",
-      border: "1px solid rgba(255,255,255,0.08)",
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
       borderRadius: "24px",
       padding: "32px",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
       gap: "20px",
+      boxShadow: theme.shadow,
     }}>
       <div style={{ textAlign: "center" }}>
         <p style={{
-          color: "rgba(255,255,255,0.4)",
+          color: theme.textMuted,
           fontSize: "11px",
           fontWeight: "700",
           letterSpacing: "2px",
@@ -71,7 +73,7 @@ export default function QRDisplay({ sessionId }: Props) {
         background: "white",
         padding: "16px",
         borderRadius: "16px",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+        boxShadow: "0 16px 32px rgba(12, 54, 110, 0.14)",
       }}>
         <QRCodeSVG
           value={qrValue}
@@ -89,7 +91,7 @@ export default function QRDisplay({ sessionId }: Props) {
           alignItems: "center",
           marginBottom: "8px",
         }}>
-          <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "12px" }}>
+          <span style={{ color: theme.textMuted, fontSize: "12px" }}>
             Refreshes in
           </span>
           <span style={{ color: progressColor, fontSize: "13px", fontWeight: "700" }}>
@@ -100,7 +102,7 @@ export default function QRDisplay({ sessionId }: Props) {
         <div style={{
           width: "100%",
           height: "4px",
-          background: "rgba(255,255,255,0.08)",
+          background: "rgba(15, 79, 157, 0.08)",
           borderRadius: "999px",
           overflow: "hidden",
         }}>

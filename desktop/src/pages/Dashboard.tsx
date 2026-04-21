@@ -11,7 +11,8 @@ import { useSessionStore } from "@/store/sessionStore";
 import { useAuthStore } from "@/store/authStore";
 import QRDisplay from "@/components/QRDisplay";
 import AttendeeList from "@/components/AttendeeList";
-
+import { theme } from "@/lib/theme";
+import logo from "@/assets/rATEL-LOGO.png";
 
 const WS_BASE_URL = import.meta.env.VITE_WS_URL || "wss://ratel-attendance.onrender.com";
 
@@ -110,10 +111,10 @@ export default function Dashboard() {
 
   const baseStyle = {
     minHeight: "100vh",
-    background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
+    background: theme.page,
     padding: "32px",
     fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
-    color: "white",
+    color: theme.text,
     boxSizing: "border-box" as const,
   };
 
@@ -127,27 +128,17 @@ export default function Dashboard() {
         marginBottom: "40px",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{
-            width: "40px",
-            height: "40px",
-            background: "linear-gradient(135deg, #e94560, #c23152)",
-            borderRadius: "12px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: "800",
-            fontSize: "18px",
-          }}>R</div>
+          <img src={logo} alt="RATEL" style={{ width: "132px", height: "auto", display: "block" }} />
           <div>
             <h1 style={{
-              color: "white",
+              color: theme.text,
               fontSize: "20px",
               fontWeight: "700",
               margin: 0,
               letterSpacing: "-0.3px",
             }}>Ratel Attendance</h1>
             <p style={{
-              color: "rgba(255,255,255,0.35)",
+              color: theme.textMuted,
               fontSize: "13px",
               margin: 0,
             }}>Welcome, {user?.full_name}</p>
@@ -163,20 +154,21 @@ export default function Dashboard() {
           margin: "80px auto 0",
         }}>
           <div style={{
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: theme.panel,
+            border: `1px solid ${theme.panelBorder}`,
             borderRadius: "24px",
             padding: "48px",
+            boxShadow: theme.shadow,
           }}>
             <h2 style={{
-              color: "white",
+              color: theme.text,
               fontSize: "22px",
               fontWeight: "700",
               margin: "0 0 8px 0",
               textAlign: "center",
             }}>Start Attendance Session</h2>
             <p style={{
-              color: "rgba(255,255,255,0.35)",
+              color: theme.textMuted,
               fontSize: "14px",
               textAlign: "center",
               margin: "0 0 32px 0",
@@ -190,11 +182,11 @@ export default function Dashboard() {
               onKeyDown={(e) => e.key === "Enter" && startSession()}
               style={{
                 width: "100%",
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: theme.panelStrong,
+                border: `1px solid ${theme.panelBorder}`,
                 borderRadius: "12px",
                 padding: "14px 16px",
-                color: "white",
+                color: theme.text,
                 fontSize: "15px",
                 outline: "none",
                 boxSizing: "border-box",
@@ -207,8 +199,8 @@ export default function Dashboard() {
               style={{
                 width: "100%",
                 background: loading || !sessionName.trim()
-                  ? "rgba(233,69,96,0.4)"
-                  : "linear-gradient(135deg, #e94560, #c23152)",
+                  ? "rgba(15, 79, 157, 0.4)"
+                  : `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
                 color: "white",
                 border: "none",
                 borderRadius: "12px",
@@ -231,11 +223,12 @@ export default function Dashboard() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
+            background: theme.panel,
+            border: `1px solid ${theme.panelBorder}`,
             borderRadius: "16px",
             padding: "16px 24px",
             marginBottom: "24px",
+            boxShadow: theme.shadow,
           }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -243,18 +236,18 @@ export default function Dashboard() {
                   width: "8px",
                   height: "8px",
                   borderRadius: "50%",
-                  background: "#22c55e",
-                  boxShadow: "0 0 8px #22c55e",
+                  background: theme.success,
+                  boxShadow: `0 0 8px ${theme.success}`,
                 }} />
                 <h2 style={{
-                  color: "white",
+                  color: theme.text,
                   fontSize: "18px",
                   fontWeight: "700",
                   margin: 0,
                 }}>{session.name}</h2>
               </div>
               <p style={{
-                color: "rgba(255,255,255,0.35)",
+                color: theme.textMuted,
                 fontSize: "13px",
                 margin: "4px 0 0 0",
               }}>
@@ -265,9 +258,9 @@ export default function Dashboard() {
               <button
                 onClick={() => session && exportAttendanceCSV(session.session_id)}
                 style={{
-                  background: "rgba(99,102,241,0.15)",
-                  border: "1px solid rgba(99,102,241,0.3)",
-                  color: "#818cf8",
+                  background: theme.accentSoft,
+                  border: `1px solid ${theme.panelBorder}`,
+                  color: theme.primary,
                   padding: "10px 20px",
                   borderRadius: "10px",
                   cursor: "pointer",
@@ -280,9 +273,9 @@ export default function Dashboard() {
               <button
                 onClick={endSession}
                 style={{
-                  background: "rgba(233,69,96,0.15)",
-                  border: "1px solid rgba(233,69,96,0.3)",
-                  color: "#e94560",
+                  background: theme.dangerSoft,
+                  border: `1px solid ${theme.dangerSoft}`,
+                  color: theme.danger,
                   padding: "10px 20px",
                   borderRadius: "10px",
                   cursor: "pointer",

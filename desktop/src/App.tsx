@@ -4,6 +4,8 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
+import { theme } from "@/lib/theme";
+import logo from "@/assets/rATEL-LOGO.png";
 
 type Page = "dashboard" | "staff" | "analytics";
 
@@ -14,33 +16,31 @@ export default function App() {
   if (!token) return <Login />;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: theme.page }}>
       {/* Sidebar */}
       <div style={{
         width: "220px",
-        background: "rgba(0,0,0,0.3)",
-        borderRight: "1px solid rgba(255,255,255,0.06)",
+        background: theme.sidebar,
+        borderRight: `1px solid ${theme.sidebarBorder}`,
         display: "flex",
         flexDirection: "column",
         padding: "24px 16px",
         flexShrink: 0,
         fontFamily: "'SF Pro Display', -apple-system, sans-serif",
+        boxShadow: "inset -1px 0 0 rgba(255,255,255,0.06)",
       }}>
         {/* Logo */}
         <div style={{
           display: "flex", alignItems: "center",
-          gap: "10px", marginBottom: "40px", padding: "0 8px",
+          gap: "12px", marginBottom: "40px", padding: "0 8px",
         }}>
-          <div style={{
+  <div style={{
             width: "32px", height: "32px",
             background: "linear-gradient(135deg, #e94560, #c23152)",
             borderRadius: "10px", display: "flex",
             alignItems: "center", justifyContent: "center",
             fontWeight: "800", fontSize: "14px", color: "white",
-          }}>R</div>
-          <span style={{
-            color: "white", fontWeight: "700", fontSize: "15px",
-          }}>Ratel</span>
+          }}>A</div>
         </div>
 
         {/* Nav */}
@@ -55,12 +55,12 @@ export default function App() {
             style={{
               display: "flex", alignItems: "center", gap: "10px",
               background: page === item.id
-                ? "rgba(233,69,96,0.15)" : "transparent",
+                ? "rgba(255,255,255,0.16)" : "transparent",
               border: page === item.id
-                ? "1px solid rgba(233,69,96,0.25)"
+                ? "1px solid rgba(255,255,255,0.24)"
                 : "1px solid transparent",
               color: page === item.id
-                ? "#e94560" : "rgba(255,255,255,0.5)",
+                ? "#ffffff" : "rgba(255,255,255,0.68)",
               borderRadius: "10px", padding: "10px 12px",
               fontSize: "13px", fontWeight: "600",
               cursor: "pointer", width: "100%",
@@ -79,7 +79,7 @@ export default function App() {
             marginTop: "auto",
             display: "flex", alignItems: "center", gap: "10px",
             background: "transparent", border: "1px solid transparent",
-            color: "rgba(255,255,255,0.3)", borderRadius: "10px",
+            color: "rgba(255,255,255,0.6)", borderRadius: "10px",
             padding: "10px 12px", fontSize: "13px",
             cursor: "pointer", width: "100%", textAlign: "left",
           }}
@@ -89,7 +89,7 @@ export default function App() {
       </div>
 
       {/* Main */}
-      <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ flex: 1, overflow: "auto", background: theme.page }}>
         {page === "dashboard" && <Dashboard />}
         {page === "analytics" && <Analytics />}
         {page === "staff" && <Staff />}

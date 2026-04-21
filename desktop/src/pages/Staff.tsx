@@ -4,6 +4,7 @@ import {
   getEmployees, createEmployee, deactivateEmployee,
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
+import { theme } from "@/lib/theme";
 
 type View = "employees" | "add_employee" | "departments" | "add_department";
 
@@ -100,25 +101,26 @@ export default function Staff() {
   const s = {
     page: {
       minHeight: "100vh",
-      background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
+      background: theme.page,
       padding: "32px",
       fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
-      color: "white",
+      color: theme.text,
       boxSizing: "border-box" as const,
     },
     card: {
-      background: "rgba(255,255,255,0.05)",
-      border: "1px solid rgba(255,255,255,0.08)",
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
       borderRadius: "20px",
       padding: "32px",
+      boxShadow: theme.shadow,
     },
     input: {
       width: "100%",
-      background: "rgba(255,255,255,0.07)",
-      border: "1px solid rgba(255,255,255,0.1)",
+      background: theme.panelStrong,
+      border: `1px solid ${theme.panelBorder}`,
       borderRadius: "12px",
       padding: "13px 16px",
-      color: "white",
+      color: theme.text,
       fontSize: "14px",
       outline: "none",
       boxSizing: "border-box" as const,
@@ -126,7 +128,7 @@ export default function Staff() {
     },
     label: {
       display: "block" as const,
-      color: "rgba(255,255,255,0.4)",
+      color: theme.textMuted,
       fontSize: "11px",
       fontWeight: "700" as const,
       letterSpacing: "0.8px",
@@ -134,16 +136,16 @@ export default function Staff() {
       marginBottom: "6px",
     },
     btnPrimary: {
-      background: "linear-gradient(135deg, #e94560, #c23152)",
+      background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
       color: "white", border: "none",
       borderRadius: "12px", padding: "13px 24px",
       fontSize: "14px", fontWeight: "600" as const,
       cursor: "pointer", width: "100%",
     },
     btnGhost: {
-      background: "rgba(255,255,255,0.06)",
-      border: "1px solid rgba(255,255,255,0.1)",
-      color: "rgba(255,255,255,0.7)",
+      background: theme.panelMuted,
+      border: `1px solid ${theme.panelBorder}`,
+      color: theme.textMuted,
       borderRadius: "10px", padding: "10px 18px",
       fontSize: "13px", fontWeight: "500" as const,
       cursor: "pointer",
@@ -162,7 +164,7 @@ export default function Staff() {
         <h1 style={{ fontSize: "22px", fontWeight: "700", margin: "0 0 4px 0" }}>
           Staff Management
         </h1>
-        <p style={{ color: "rgba(255,255,255,0.35)", fontSize: "13px", margin: 0 }}>
+        <p style={{ color: theme.textMuted, fontSize: "13px", margin: 0 }}>
           Register employees and manage departments
         </p>
       </div>
@@ -177,12 +179,12 @@ export default function Staff() {
               style={{
                 ...s.btnGhost,
                 background: view === tab.id
-                  ? "rgba(233,69,96,0.15)"
-                  : "rgba(255,255,255,0.05)",
+                  ? theme.accentSoft
+                  : theme.panelMuted,
                 borderColor: view === tab.id
-                  ? "rgba(233,69,96,0.4)"
-                  : "rgba(255,255,255,0.08)",
-                color: view === tab.id ? "#e94560" : "rgba(255,255,255,0.6)",
+                  ? theme.accent
+                  : theme.panelBorder,
+                color: view === tab.id ? theme.primary : theme.textMuted,
               }}
             >
               {tab.label}
@@ -211,7 +213,7 @@ export default function Staff() {
           {employees.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "60px 0",
-              color: "rgba(255,255,255,0.2)",
+              color: theme.textSoft,
             }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}></div>
               <p>No employees yet. Add your first employee.</p>
@@ -223,11 +225,11 @@ export default function Staff() {
                 display: "grid",
                 gridTemplateColumns: "2fr 1.5fr 1fr 1fr 80px",
                 padding: "0 16px 12px",
-                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                borderBottom: `1px solid ${theme.panelBorder}`,
               }}>
                 {["Name", "Email", "Employee ID", "Department", ""].map((h) => (
                   <span key={h} style={{
-                    color: "rgba(255,255,255,0.3)",
+                    color: theme.textMuted,
                     fontSize: "11px", fontWeight: "700",
                     textTransform: "uppercase", letterSpacing: "0.8px",
                   }}>{h}</span>
@@ -240,8 +242,8 @@ export default function Staff() {
                   display: "grid",
                   gridTemplateColumns: "2fr 1.5fr 1fr 1fr 80px",
                   alignItems: "center",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  background: theme.panelStrong,
+                  border: `1px solid ${theme.panelBorder}`,
                   borderRadius: "12px",
                   padding: "14px 16px",
                 }}>
@@ -249,7 +251,7 @@ export default function Staff() {
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <div style={{
                       width: "32px", height: "32px", borderRadius: "50%",
-                      background: "linear-gradient(135deg, #e94560, #302b63)",
+                      background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
                       display: "flex", alignItems: "center",
                       justifyContent: "center", fontSize: "13px",
                       fontWeight: "700", flexShrink: 0,
@@ -262,7 +264,7 @@ export default function Staff() {
                       </p>
                       <p style={{
                         margin: 0, fontSize: "11px",
-                        color: emp.is_active ? "#22c55e" : "#e94560",
+                        color: emp.is_active ? theme.success : theme.danger,
                       }}>
                         {emp.is_active ? "Active" : "Inactive"}
                       </p>
@@ -270,7 +272,7 @@ export default function Staff() {
                   </div>
 
                   <span style={{
-                    fontSize: "13px", color: "rgba(255,255,255,0.5)",
+                    fontSize: "13px", color: theme.textMuted,
                     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                   }}>
                     {emp.email}
@@ -278,7 +280,7 @@ export default function Staff() {
 
                   <span style={{
                     fontSize: "13px",
-                    background: "rgba(255,255,255,0.06)",
+                    background: theme.panelMuted,
                     padding: "4px 10px", borderRadius: "8px",
                     width: "fit-content",
                   }}>
@@ -286,7 +288,7 @@ export default function Staff() {
                   </span>
 
                   <span style={{
-                    fontSize: "12px", color: "rgba(255,255,255,0.4)",
+                    fontSize: "12px", color: theme.textMuted,
                   }}>
                     {emp.department_name || "—"}
                   </span>
@@ -295,9 +297,9 @@ export default function Staff() {
                     <button
                       onClick={() => handleDeactivate(emp.employee_id, emp.full_name)}
                       style={{
-                        background: "rgba(233,69,96,0.1)",
-                        border: "1px solid rgba(233,69,96,0.2)",
-                        color: "#e94560", borderRadius: "8px",
+                        background: theme.dangerSoft,
+                        border: `1px solid ${theme.dangerSoft}`,
+                        color: theme.danger, borderRadius: "8px",
                         padding: "6px 10px", fontSize: "11px",
                         cursor: "pointer", fontWeight: "600",
                       }}
@@ -318,7 +320,7 @@ export default function Staff() {
           {departments.length === 0 ? (
             <div style={{
               textAlign: "center", padding: "60px 0",
-              color: "rgba(255,255,255,0.2)",
+              color: theme.textSoft,
             }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}></div>
               <p>No departments yet. Create your first department.</p>
@@ -329,8 +331,8 @@ export default function Staff() {
                 <div key={dept.id} style={{
                   display: "flex", alignItems: "center",
                   justifyContent: "space-between",
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  background: theme.panelStrong,
+                  border: `1px solid ${theme.panelBorder}`,
                   borderRadius: "12px", padding: "16px 20px",
                 }}>
                   <div>
@@ -340,7 +342,7 @@ export default function Staff() {
                     {dept.description && (
                       <p style={{
                         margin: "4px 0 0", fontSize: "13px",
-                        color: "rgba(255,255,255,0.35)",
+                        color: theme.textMuted,
                       }}>
                         {dept.description}
                       </p>
@@ -349,9 +351,9 @@ export default function Staff() {
                   <span style={{
                     fontSize: "11px", fontWeight: "700",
                     padding: "4px 12px", borderRadius: "999px",
-                    background: "rgba(34,197,94,0.12)",
-                    border: "1px solid rgba(34,197,94,0.25)",
-                    color: "#22c55e", textTransform: "uppercase",
+                    background: theme.successSoft,
+                    border: `1px solid ${theme.successSoft}`,
+                    color: theme.success, textTransform: "uppercase",
                     letterSpacing: "0.5px",
                   }}>Active</span>
                 </div>
@@ -423,17 +425,17 @@ export default function Staff() {
 
             {error && (
               <div style={{
-                background: "rgba(233,69,96,0.1)", border: "1px solid rgba(233,69,96,0.25)",
+                background: theme.dangerSoft, border: `1px solid ${theme.dangerSoft}`,
                 borderRadius: "10px", padding: "12px 16px",
-                color: "#e94560", fontSize: "13px", marginBottom: "16px",
+                color: theme.danger, fontSize: "13px", marginBottom: "16px",
               }}>{error}</div>
             )}
 
             {success && (
               <div style={{
-                background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)",
+                background: theme.successSoft, border: `1px solid ${theme.successSoft}`,
                 borderRadius: "10px", padding: "12px 16px",
-                color: "#22c55e", fontSize: "13px", marginBottom: "16px",
+                color: theme.success, fontSize: "13px", marginBottom: "16px",
               }}>{success}</div>
             )}
 
@@ -480,17 +482,17 @@ export default function Staff() {
 
             {error && (
               <div style={{
-                background: "rgba(233,69,96,0.1)", border: "1px solid rgba(233,69,96,0.25)",
+                background: theme.dangerSoft, border: `1px solid ${theme.dangerSoft}`,
                 borderRadius: "10px", padding: "12px 16px",
-                color: "#e94560", fontSize: "13px", marginBottom: "16px",
+                color: theme.danger, fontSize: "13px", marginBottom: "16px",
               }}>{error}</div>
             )}
 
             {success && (
               <div style={{
-                background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.25)",
+                background: theme.successSoft, border: `1px solid ${theme.successSoft}`,
                 borderRadius: "10px", padding: "12px 16px",
-                color: "#22c55e", fontSize: "13px", marginBottom: "16px",
+                color: theme.success, fontSize: "13px", marginBottom: "16px",
               }}>{success}</div>
             )}
 

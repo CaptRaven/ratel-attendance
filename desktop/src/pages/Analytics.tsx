@@ -3,6 +3,7 @@ import {
   getOverview, getDailyTrend, getTopPerformers, getStatusBreakdown,
 } from "@/lib/api";
 import type { OverviewStats, DailyTrend, TopPerformer } from "@/lib/api";
+import { theme } from "@/lib/theme";
 
 type StatusBreakdown = {
   present: number;
@@ -34,17 +35,18 @@ export default function Analytics() {
   const s = {
     page: {
       minHeight: "100vh",
-      background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
+      background: theme.page,
       padding: "32px",
       fontFamily: "'SF Pro Display', -apple-system, sans-serif",
-      color: "white",
+      color: theme.text,
       boxSizing: "border-box" as const,
     },
     card: {
-      background: "rgba(255,255,255,0.05)",
-      border: "1px solid rgba(255,255,255,0.08)",
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
       borderRadius: "20px",
       padding: "24px",
+      boxShadow: theme.shadow,
     },
   };
 
@@ -53,7 +55,7 @@ export default function Analytics() {
       <div style={{
         ...s.page, display: "flex",
         alignItems: "center", justifyContent: "center",
-        color: "rgba(255,255,255,0.3)", fontSize: "14px",
+        color: theme.textMuted, fontSize: "14px",
       }}>
         Loading analytics...
       </div>
@@ -85,7 +87,7 @@ export default function Analytics() {
           fontSize: "22px", fontWeight: "700", margin: "0 0 4px 0",
         }}>Analytics</h1>
         <p style={{
-          color: "rgba(255,255,255,0.35)", fontSize: "13px", margin: 0,
+          color: theme.textMuted, fontSize: "13px", margin: 0,
         }}>
           Attendance overview and trends
         </p>
@@ -103,32 +105,32 @@ export default function Analytics() {
             label: "Total Employees",
             value: overview?.total_employees ?? 0,
             sub: "Active staff",
-            color: "#818cf8",
-            bg: "rgba(129,140,248,0.1)",
+            color: theme.primary,
+            bg: theme.accentSoft,
             icon: "👥",
           },
           {
             label: "Present Today",
             value: overview?.present_today ?? 0,
             sub: `${overview?.attendance_rate ?? 0}% attendance rate`,
-            color: "#22c55e",
-            bg: "rgba(34,197,94,0.1)",
+            color: theme.success,
+            bg: theme.successSoft,
             icon: "✓",
           },
           {
             label: "Late Today",
             value: overview?.late_today ?? 0,
             sub: "After 15min grace",
-            color: "#f59e0b",
-            bg: "rgba(245,158,11,0.1)",
+            color: theme.warning,
+            bg: theme.warningSoft,
             icon: "⏱",
           },
           {
             label: "Avg Hours",
             value: `${overview?.avg_hours_today ?? 0}h`,
             sub: "Clocked today",
-            color: "#e94560",
-            bg: "rgba(233,69,96,0.1)",
+            color: theme.accent,
+            bg: theme.accentSoft,
             icon: "📊",
           },
         ].map((card) => (
@@ -145,7 +147,7 @@ export default function Analytics() {
             }}>
               <div>
                 <p style={{
-                  color: "rgba(255,255,255,0.4)",
+                  color: theme.textMuted,
                   fontSize: "11px", fontWeight: "700",
                   letterSpacing: "0.8px",
                   textTransform: "uppercase", margin: "0 0 8px 0",
@@ -163,7 +165,7 @@ export default function Analytics() {
               }}>{card.icon}</div>
             </div>
             <p style={{
-              color: "rgba(255,255,255,0.3)",
+              color: theme.textMuted,
               fontSize: "12px", margin: 0,
             }}>{card.sub}</p>
           </div>
@@ -181,7 +183,7 @@ export default function Analytics() {
         <div style={s.card}>
           <h3 style={{
             fontSize: "14px", fontWeight: "700",
-            margin: "0 0 24px 0", color: "white",
+            margin: "0 0 24px 0", color: theme.text,
           }}>7-Day Attendance Trend</h3>
 
           <div style={{
@@ -214,7 +216,7 @@ export default function Analytics() {
                     {day.total === 0 ? (
                       <div style={{
                         width: "100%", height: "4px",
-                        background: "rgba(255,255,255,0.05)",
+                        background: "rgba(15, 79, 157, 0.08)",
                         borderRadius: "4px",
                       }} />
                     ) : (
@@ -223,7 +225,7 @@ export default function Analytics() {
                           <div style={{
                             width: "100%",
                             height: `${lateH}px`,
-                            background: "rgba(245,158,11,0.7)",
+                            background: theme.warning,
                             borderRadius: "4px 4px 0 0",
                             transition: "height 0.5s ease",
                           }} />
@@ -231,7 +233,7 @@ export default function Analytics() {
                         <div style={{
                           width: "100%",
                           height: `${presentH}px`,
-                          background: "linear-gradient(180deg, #22c55e, #16a34a)",
+                          background: `linear-gradient(180deg, ${theme.success}, #167e54)`,
                           borderRadius: lateH > 0
                             ? "0 0 4px 4px" : "4px",
                           transition: "height 0.5s ease",
@@ -242,13 +244,13 @@ export default function Analytics() {
                   {/* Label */}
                   <span style={{
                     fontSize: "11px",
-                    color: "rgba(255,255,255,0.3)",
+                    color: theme.textMuted,
                     fontWeight: "600",
                   }}>{day.date}</span>
                   {day.total > 0 && (
                     <span style={{
                       fontSize: "11px",
-                      color: "rgba(255,255,255,0.5)",
+                      color: theme.text,
                       fontWeight: "700",
                     }}>{day.total}</span>
                   )}
@@ -261,11 +263,11 @@ export default function Analytics() {
           <div style={{
             display: "flex", gap: "16px",
             marginTop: "16px", paddingTop: "16px",
-            borderTop: "1px solid rgba(255,255,255,0.06)",
+            borderTop: `1px solid ${theme.panelBorder}`,
           }}>
             {[
-              { color: "#22c55e", label: "On time" },
-              { color: "#f59e0b", label: "Late" },
+              { color: theme.success, label: "On time" },
+              { color: theme.warning, label: "Late" },
             ].map((l) => (
               <div key={l.label} style={{
                 display: "flex", alignItems: "center", gap: "6px",
@@ -276,7 +278,7 @@ export default function Analytics() {
                 }} />
                 <span style={{
                   fontSize: "12px",
-                  color: "rgba(255,255,255,0.4)",
+                  color: theme.textMuted,
                 }}>{l.label}</span>
               </div>
             ))}
@@ -298,7 +300,7 @@ export default function Analytics() {
           }}>
             {total === 0 ? (
               <p style={{
-                color: "rgba(255,255,255,0.2)",
+                color: theme.textSoft,
                 fontSize: "13px", textAlign: "center",
               }}>No data this week</p>
             ) : (
@@ -308,11 +310,11 @@ export default function Analytics() {
                   <svg width="140" height="140" viewBox="0 0 140 140">
                     {/* Background circle */}
                     <circle cx="70" cy="70" r="54"
-                      fill="none" stroke="rgba(255,255,255,0.05)"
+                      fill="none" stroke="rgba(15, 79, 157, 0.08)"
                       strokeWidth="16" />
                     {/* Present arc */}
                     <circle cx="70" cy="70" r="54"
-                      fill="none" stroke="#22c55e" strokeWidth="16"
+                      fill="none" stroke={theme.success} strokeWidth="16"
                       strokeDasharray={`${presentDash} ${circumference}`}
                       strokeDashoffset={circumference * 0.25}
                       strokeLinecap="round"
@@ -320,7 +322,7 @@ export default function Analytics() {
                     />
                     {/* Late arc */}
                     <circle cx="70" cy="70" r="54"
-                      fill="none" stroke="#f59e0b" strokeWidth="16"
+                      fill="none" stroke={theme.warning} strokeWidth="16"
                       strokeDasharray={`${lateDash} ${circumference}`}
                       strokeDashoffset={
                         circumference * 0.25 - presentDash
@@ -338,11 +340,11 @@ export default function Analytics() {
                   }}>
                     <p style={{
                       fontSize: "22px", fontWeight: "800",
-                      margin: 0, color: "white",
+                      margin: 0, color: theme.text,
                     }}>{total}</p>
                     <p style={{
                       fontSize: "10px", margin: 0,
-                      color: "rgba(255,255,255,0.3)",
+                      color: theme.textMuted,
                       textTransform: "uppercase",
                       letterSpacing: "0.5px",
                     }}>Total</p>
@@ -356,13 +358,13 @@ export default function Analytics() {
                 }}>
                   {[
                     {
-                      color: "#22c55e",
+                      color: theme.success,
                       label: "On Time",
                       value: presentCount,
                       pct: presentPct,
                     },
                     {
-                      color: "#f59e0b",
+                      color: theme.warning,
                       label: "Late",
                       value: lateCount,
                       pct: latePct,
@@ -375,7 +377,7 @@ export default function Analytics() {
                       }}>{item.value}</p>
                       <p style={{
                         fontSize: "11px",
-                        color: "rgba(255,255,255,0.3)", margin: 0,
+                        color: theme.textMuted, margin: 0,
                       }}>{item.label} ({item.pct}%)</p>
                     </div>
                   ))}
@@ -395,7 +397,7 @@ export default function Analytics() {
 
         {performers.length === 0 ? (
           <p style={{
-            color: "rgba(255,255,255,0.2)",
+            color: theme.textSoft,
             fontSize: "13px", textAlign: "center",
             padding: "32px 0",
           }}>No completed shifts this week yet.</p>
@@ -406,8 +408,8 @@ export default function Analytics() {
             {performers.map((p, i) => (
               <div key={p.employee_id} style={{
                 display: "flex", alignItems: "center", gap: "16px",
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.06)",
+                background: theme.panelStrong,
+                border: `1px solid ${theme.panelBorder}`,
                 borderRadius: "14px", padding: "14px 18px",
               }}>
                 {/* Rank */}
@@ -415,14 +417,14 @@ export default function Analytics() {
                   width: "28px", height: "28px",
                   borderRadius: "50%", flexShrink: 0,
                   background: i === 0
-                    ? "linear-gradient(135deg, #f59e0b, #d97706)"
+                    ? `linear-gradient(135deg, ${theme.warning}, #b9760f)`
                     : i === 1
-                    ? "rgba(156,163,175,0.2)"
-                    : "rgba(255,255,255,0.05)",
+                    ? "rgba(15, 79, 157, 0.12)"
+                    : "rgba(15, 79, 157, 0.06)",
                   display: "flex", alignItems: "center",
                   justifyContent: "center",
                   fontSize: "12px", fontWeight: "800",
-                  color: i === 0 ? "white" : "rgba(255,255,255,0.5)",
+                  color: i === 0 ? "white" : theme.textMuted,
                 }}>
                   {i + 1}
                 </div>
@@ -431,7 +433,7 @@ export default function Analytics() {
                 <div style={{
                   width: "36px", height: "36px",
                   borderRadius: "50%", flexShrink: 0,
-                  background: "linear-gradient(135deg, #e94560, #302b63)",
+                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
                   display: "flex", alignItems: "center",
                   justifyContent: "center",
                   fontSize: "14px", fontWeight: "700",
@@ -446,7 +448,7 @@ export default function Analytics() {
                   }}>{p.name}</p>
                   <p style={{
                     margin: 0, fontSize: "12px",
-                    color: "rgba(255,255,255,0.35)",
+                    color: theme.textMuted,
                   }}>
                     {p.employee_id} · {p.days_present} day
                     {p.days_present !== 1 ? "s" : ""} present
@@ -457,11 +459,11 @@ export default function Analytics() {
                 <div style={{ textAlign: "right" }}>
                   <p style={{
                     margin: 0, fontSize: "18px",
-                    fontWeight: "800", color: "#22c55e",
+                    fontWeight: "800", color: theme.success,
                   }}>{p.total_hours.toFixed(1)}h</p>
                   <p style={{
                     margin: 0, fontSize: "11px",
-                    color: "rgba(255,255,255,0.3)",
+                    color: theme.textMuted,
                   }}>this week</p>
                 </div>
 
@@ -469,7 +471,7 @@ export default function Analytics() {
                 <div style={{ width: "80px" }}>
                   <div style={{
                     height: "4px",
-                    background: "rgba(255,255,255,0.08)",
+                    background: "rgba(15, 79, 157, 0.08)",
                     borderRadius: "999px", overflow: "hidden",
                   }}>
                     <div style={{
@@ -479,8 +481,8 @@ export default function Analytics() {
                         100
                       )}%`,
                       background: i === 0
-                        ? "linear-gradient(90deg, #f59e0b, #22c55e)"
-                        : "#22c55e",
+                        ? `linear-gradient(90deg, ${theme.warning}, ${theme.success})`
+                        : theme.success,
                       borderRadius: "999px",
                     }} />
                   </div>

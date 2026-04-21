@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { login } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { theme } from "@/lib/theme";
+import logo from "@/assets/rATEL-LOGO.png";
 
 export default function Login() {
   const { setAuth } = useAuthStore();
@@ -25,45 +27,43 @@ export default function Login() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "linear-gradient(135deg, #0f0c29, #302b63, #24243e)",
+      background: theme.pageAlt,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
+      padding: "24px",
     }}>
       <div style={{
-        background: "rgba(255,255,255,0.05)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid rgba(255,255,255,0.1)",
+        background: theme.panel,
+        backdropFilter: "blur(18px)",
+        border: `1px solid ${theme.panelBorder}`,
         borderRadius: "24px",
         padding: "48px",
         width: "100%",
         maxWidth: "420px",
-        boxShadow: "0 32px 64px rgba(0,0,0,0.4)",
+        boxShadow: theme.shadow,
       }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "40px" }}>
-          <div style={{
-            width: "56px",
-            height: "56px",
-            background: "linear-gradient(135deg, #e94560, #c23152)",
-            borderRadius: "16px",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: "16px",
-            fontSize: "24px",
-            fontWeight: "800",
-            color: "white",
-          }}>R</div>
+          <img
+            src={logo}
+            alt="RATEL"
+            style={{
+              width: "160px",
+              maxWidth: "100%",
+              height: "auto",
+              marginBottom: "16px",
+            }}
+          />
           <h1 style={{
-            color: "white",
+            color: theme.text,
             fontSize: "28px",
             fontWeight: "700",
             margin: "0 0 6px 0",
             letterSpacing: "-0.5px",
           }}>Ratel Attendance</h1>
-          <p style={{ color: "rgba(255,255,255,0.4)", fontSize: "14px", margin: 0 }}>
+          <p style={{ color: theme.textMuted, fontSize: "14px", margin: 0 }}>
             Admin Portal
           </p>
         </div>
@@ -72,7 +72,7 @@ export default function Login() {
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div>
             <label style={{
-              color: "rgba(255,255,255,0.5)",
+              color: theme.textMuted,
               fontSize: "12px",
               fontWeight: "600",
               letterSpacing: "0.8px",
@@ -87,11 +87,11 @@ export default function Login() {
               placeholder="admin@ratel.com"
               style={{
                 width: "100%",
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: theme.panelStrong,
+                border: `1px solid ${theme.panelBorder}`,
                 borderRadius: "12px",
                 padding: "14px 16px",
-                color: "white",
+                color: theme.text,
                 fontSize: "15px",
                 outline: "none",
                 boxSizing: "border-box",
@@ -101,7 +101,7 @@ export default function Login() {
 
           <div>
             <label style={{
-              color: "rgba(255,255,255,0.5)",
+              color: theme.textMuted,
               fontSize: "12px",
               fontWeight: "600",
               letterSpacing: "0.8px",
@@ -117,11 +117,11 @@ export default function Login() {
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
               style={{
                 width: "100%",
-                background: "rgba(255,255,255,0.07)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: theme.panelStrong,
+                border: `1px solid ${theme.panelBorder}`,
                 borderRadius: "12px",
                 padding: "14px 16px",
-                color: "white",
+                color: theme.text,
                 fontSize: "15px",
                 outline: "none",
                 boxSizing: "border-box",
@@ -131,14 +131,14 @@ export default function Login() {
 
           {error && (
             <p style={{
-              color: "#e94560",
+              color: theme.danger,
               fontSize: "13px",
               textAlign: "center",
               margin: 0,
-              background: "rgba(233,69,96,0.1)",
+              background: theme.dangerSoft,
               padding: "10px",
               borderRadius: "8px",
-              border: "1px solid rgba(233,69,96,0.2)",
+              border: `1px solid ${theme.dangerSoft}`,
             }}>{error}</p>
           )}
 
@@ -148,8 +148,8 @@ export default function Login() {
             style={{
               width: "100%",
               background: loading
-                ? "rgba(233,69,96,0.5)"
-                : "linear-gradient(135deg, #e94560, #c23152)",
+                ? "rgba(15, 79, 157, 0.45)"
+                : `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
               color: "white",
               border: "none",
               borderRadius: "12px",

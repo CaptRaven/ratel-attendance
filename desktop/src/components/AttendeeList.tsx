@@ -1,18 +1,20 @@
 import type { AttendanceRecord } from "@/lib/api";
+import { theme } from "@/lib/theme";
 
 interface Props { attendees: AttendanceRecord[]; }
 
 export default function AttendeeList({ attendees }: Props) {
   return (
     <div style={{
-      background: "rgba(255,255,255,0.04)",
-      border: "1px solid rgba(255,255,255,0.08)",
+      background: theme.panel,
+      border: `1px solid ${theme.panelBorder}`,
       borderRadius: "24px",
       padding: "32px",
       display: "flex",
       flexDirection: "column",
       gap: "16px",
       height: "100%",
+      boxShadow: theme.shadow,
     }}>
       {/* Header */}
       <div style={{
@@ -21,16 +23,16 @@ export default function AttendeeList({ attendees }: Props) {
         alignItems: "center",
       }}>
         <h2 style={{
-          color: "white",
+          color: theme.text,
           fontSize: "16px",
           fontWeight: "700",
           margin: 0,
           letterSpacing: "-0.3px",
         }}>Live Attendance</h2>
         <span style={{
-          background: "rgba(34,197,94,0.15)",
-          color: "#22c55e",
-          border: "1px solid rgba(34,197,94,0.3)",
+          background: theme.successSoft,
+          color: theme.success,
+          border: `1px solid ${theme.successSoft}`,
           borderRadius: "999px",
           padding: "4px 12px",
           fontSize: "13px",
@@ -55,7 +57,7 @@ export default function AttendeeList({ attendees }: Props) {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            color: "rgba(255,255,255,0.2)",
+            color: theme.textSoft,
             fontSize: "14px",
             gap: "8px",
             padding: "40px 0",
@@ -69,8 +71,8 @@ export default function AttendeeList({ attendees }: Props) {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.07)",
+              background: theme.panelStrong,
+              border: `1px solid ${theme.panelBorder}`,
               borderRadius: "14px",
               padding: "14px 16px",
               animation: "fadeIn 0.3s ease",
@@ -81,7 +83,7 @@ export default function AttendeeList({ attendees }: Props) {
                   width: "36px",
                   height: "36px",
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #e94560, #302b63)",
+                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -94,13 +96,13 @@ export default function AttendeeList({ attendees }: Props) {
                 </div>
                 <div>
                   <p style={{
-                    color: "white",
+                    color: theme.text,
                     fontSize: "14px",
                     fontWeight: "600",
                     margin: "0 0 2px 0",
                   }}>{a.employee}</p>
                   <p style={{
-                    color: "rgba(255,255,255,0.35)",
+                    color: theme.textMuted,
                     fontSize: "12px",
                     margin: 0,
                   }}>{a.employee_id}</p>
@@ -113,19 +115,19 @@ export default function AttendeeList({ attendees }: Props) {
                   padding: "4px 10px",
                   borderRadius: "999px",
                   background: a.status === "present"
-                    ? "rgba(34,197,94,0.15)"
-                    : "rgba(245,158,11,0.15)",
-                  color: a.status === "present" ? "#22c55e" : "#f59e0b",
+                    ? theme.successSoft
+                    : theme.warningSoft,
+                  color: a.status === "present" ? theme.success : theme.warning,
                   border: `1px solid ${a.status === "present"
-                    ? "rgba(34,197,94,0.3)"
-                    : "rgba(245,158,11,0.3)"}`,
+                    ? theme.successSoft
+                    : theme.warningSoft}`,
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
                 }}>
                   {a.status}
                 </span>
                 <p style={{
-                  color: "rgba(255,255,255,0.25)",
+                  color: theme.textSoft,
                   fontSize: "11px",
                   margin: "4px 0 0 0",
                 }}>
