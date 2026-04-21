@@ -193,6 +193,7 @@ async def check_in_or_out(
             httponly=True,
             secure=not settings.DEBUG,
             samesite="none" if not settings.DEBUG else "lax",
+            domain=None,  # Let browser handle domain scoping
             path="/",
         )
 
