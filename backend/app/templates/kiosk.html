@@ -395,11 +395,11 @@
 
     function renderQR() {
       if (!qrToken) return;
-      const checkInUrl = `${window.location.origin}/checkin?token=${encodeURIComponent(qrToken)}&type=attendance`;
+      // Use raw encrypted token only — blocks generic QR scanners from opening URLs
       const container = document.getElementById("qrcode");
       container.innerHTML = "";
       qrCode = new QRCode(container, {
-        text: checkInUrl,
+        text: qrToken,
         width: 240, height: 240,
         colorDark: "#000000",
         colorLight: "#ffffff",

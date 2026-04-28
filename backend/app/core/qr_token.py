@@ -64,9 +64,8 @@ def decode_qr_token(token: str) -> dict | None:
         try:
             decrypted_token = cipher.decrypt(token.encode()).decode()
         except Exception:
-            # Fallback for old tokens during transition (optional)
-            # If decryption fails, it might be an unencrypted token
-            decrypted_token = token
+            logger.warning("qr_token_decryption_failed")
+            return None
 
         # 2. Decode and verify signature
         # max_age enforces the TTL at the signature level
