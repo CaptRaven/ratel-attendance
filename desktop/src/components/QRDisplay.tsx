@@ -4,8 +4,6 @@ import { rotateToken } from "@/lib/api";
 import { useSessionStore } from "@/store/sessionStore";
 import { theme } from "@/lib/theme";
 
-const CHECK_IN_BASE_URL =
-  import.meta.env.VITE_CHECKIN_URL || "https://ratel-attendance.onrender.com/checkin";
 const ROTATE_INTERVAL_MS = 25000;
 const TOKEN_TTL_MS = 25000;
 
@@ -41,7 +39,10 @@ export default function QRDisplay({ sessionId }: Props) {
 
   if (!qrToken) return null;
 
-  const qrValue = `${CHECK_IN_BASE_URL}?token=${encodeURIComponent(qrToken)}&type=attendance`;
+  // The QR value is now JUST the encrypted token.
+  // This prevents generic QR scanners from "opening" it as a URL.
+  // The official mobile app will scan this, decrypt it, and handle the flow.
+  const qrValue = qrToken;
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
   const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
 

@@ -1,5 +1,8 @@
 import time
 import uuid
+import hashlib
+import base64
+from cryptography.fernet import Fernet
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from redis.asyncio import Redis
 from app.config import get_settings
@@ -9,6 +12,12 @@ settings = get_settings()
 
 # Serializer uses QR_SESSION_SECRET — separate from JWT secret
 serializer = URLSafeTimedSerializer(settings.QR_SESSION_SECRET)
+
+# Fernet key derived from the same secret for encryption
+_fernet_key = base64.urlsafe_b64encode(
+    hashlib.sha256(settings.QR_SESSION_SECRET.encode()).digest()
+)
+cipher = Fernet(_fernet_key)
 
 # Redis key patterns
 QR_SESSION_KEY = "qr:session:{session_id}"        # Active session metadata
@@ -32,23 +41,36 @@ def _make_token_payload(session_id: str, location_id: str) -> dict:
 
 def generate_qr_token(session_id: str, location_id: str) -> str:
     """
-    Generate a signed, time-bound QR token.
-    Returns a signed string safe for embedding in a QR code URL.
+    Generate a signed and ENCRYPTED time-bound QR token.
+    Returns an encrypted string that generic scanners cannot read.
     """
     payload = _make_token_payload(session_id, location_id)
-    token = serializer.dumps(payload)
+    signed_token = serializer.dumps(payload)
+    
+    # Encrypt the signed token
+    encrypted_token = cipher.encrypt(signed_token.encode()).decode()
+    
     logger.info("qr_token_generated", session_id=session_id, location_id=location_id)
-    return token
+    return encrypted_token
 
 
 def decode_qr_token(token: str) -> dict | None:
     """
-    Decode and validate a QR token.
+    Decrypt and decode a QR token.
     Returns the payload dict or None if invalid/expired.
     """
     try:
+        # 1. Decrypt first
+        try:
+            decrypted_token = cipher.decrypt(token.encode()).decode()
+        except Exception:
+            # Fallback for old tokens during transition (optional)
+            # If decryption fails, it might be an unencrypted token
+            decrypted_token = token
+
+        # 2. Decode and verify signature
         # max_age enforces the TTL at the signature level
-        return serializer.loads(token, max_age=settings.QR_TOKEN_TTL_SECONDS)
+        return serializer.loads(decrypted_token, max_age=settings.QR_TOKEN_TTL_SECONDS)
     except SignatureExpired:
         logger.warning("qr_token_expired")
         return None
