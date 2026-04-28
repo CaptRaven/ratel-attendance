@@ -15,7 +15,20 @@ export default function QRDisplay({ sessionId }: Props) {
   const [timeLeft, setTimeLeft] = useState(TOKEN_TTL_MS / 1000);
 
   useEffect(() => {
-    // Token rotation
+    // Initial rotation on mount to ensure we have an encrypted token
+    const initialRotate = async () => {
+      try {
+        const data = await rotateToken(sessionId);
+        setQrToken(data.qr_token);
+        setTimeLeft(TOKEN_TTL_MS / 1000);
+      } catch (err) {
+        console.error("Initial token rotation failed:", err);
+      }
+    };
+
+    void initialRotate();
+
+    // Token rotation interval
     intervalRef.current = setInterval(async () => {
       try {
         const data = await rotateToken(sessionId);
