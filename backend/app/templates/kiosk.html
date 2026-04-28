@@ -395,7 +395,7 @@
 
     function renderQR() {
       if (!qrToken) return;
-      const checkInUrl = `${window.location.origin}/checkin?token=${encodeURIComponent(qrToken)}`;
+      const checkInUrl = `${window.location.origin}/checkin?token=${encodeURIComponent(qrToken)}&type=attendance`;
       const container = document.getElementById("qrcode");
       container.innerHTML = "";
       qrCode = new QRCode(container, {

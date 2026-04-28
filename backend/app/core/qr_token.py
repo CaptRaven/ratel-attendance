@@ -15,10 +15,14 @@ QR_SESSION_KEY = "qr:session:{session_id}"        # Active session metadata
 QR_TOKEN_KEY = "qr:token:{token_hash}"            # Active token
 QR_USED_KEY = "qr:used:{token_hash}"              # Used token (anti-replay)
 
+# Type identifier for the QR code — ensures only our app processes these tokens
+QR_TYPE = "ratel-attendance"
+
 
 def _make_token_payload(session_id: str, location_id: str) -> dict:
     """Build the payload embedded in the QR token."""
     return {
+        "type": QR_TYPE,
         "session_id": session_id,
         "location_id": location_id,
         "nonce": uuid.uuid4().hex,  # Unique per token — prevents replay

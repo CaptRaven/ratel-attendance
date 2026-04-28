@@ -9,7 +9,12 @@ import uuid
 
 from app.database import get_db
 from app.redis_client import get_redis
-from app.core.qr_token import decode_qr_token, is_token_active
+from app.core.qr_token import (
+    decode_qr_token,
+    is_token_active,
+    consume_token,
+    QR_TYPE,
+)
 from app.core.session_manager import get_session
 from app.models.user import User
 from app.models.attendance import Attendance, AttendanceStatus, CheckStatus
@@ -49,7 +54,7 @@ async def check_in_or_out(
 
     # ── 1. Decode and validate QR token ──────────────────────────────────
     token_data = decode_qr_token(payload.qr_token)
-    if not token_data:
+    if not token_data or token_data.get("type") != QR_TYPE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired QR code. Please scan the latest code.",

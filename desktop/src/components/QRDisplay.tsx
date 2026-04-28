@@ -41,7 +41,7 @@ export default function QRDisplay({ sessionId }: Props) {
 
   if (!qrToken) return null;
 
-  const qrValue = `${CHECK_IN_BASE_URL}?token=${encodeURIComponent(qrToken)}`;
+  const qrValue = `${CHECK_IN_BASE_URL}?token=${encodeURIComponent(qrToken)}&type=attendance`;
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
   const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
 

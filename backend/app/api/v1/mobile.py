@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import Cookie, Depends
 from app.database import get_db
-from app.core.qr_token import decode_qr_token
+from app.core.qr_token import decode_qr_token, QR_TYPE
 from app.core.session_manager import get_session
 from app.redis_client import get_redis_pool
 from app.models.device import DeviceBinding
@@ -31,12 +31,12 @@ async def mobile_checkin_page(
 ):
     # Validate token
     token_data = decode_qr_token(token)
-    if not token_data:
+    if not token_data or token_data.get("type") != QR_TYPE:
         return templates.TemplateResponse(
             request=request, name="error.html",
             context={
-                "title": "QR Code Expired",
-                "message": "This QR code has expired. Please scan the latest code.",
+                "title": "Invalid QR Code",
+                "message": "This QR code is invalid or has expired. Please scan the latest code.",
             }, status_code=400,
         )
 
