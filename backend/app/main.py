@@ -51,3 +51,7 @@ app.include_router(analytics.router, prefix="/api/v1")
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": settings.APP_VERSION}
+
+@app.get("/api/v1/health")
+async def health_v1():
+    return {"status": "ok", "version": settings.APP_VERSION}
