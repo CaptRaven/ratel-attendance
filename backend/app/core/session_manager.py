@@ -12,8 +12,8 @@ import json
 
 settings = get_settings()
 
-# Session TTL — how long an attendance session stays open (e.g. 4 hours)
-SESSION_TTL_SECONDS = 60 * 60 * 4
+# Session TTL — how long an attendance session stays open (e.g. 24 hours)
+SESSION_TTL_SECONDS = 60 * 60 * 24
 ACTIVE_SESSION_KEY = "attendance:active_session"
 
 

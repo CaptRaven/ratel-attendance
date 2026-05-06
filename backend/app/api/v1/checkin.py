@@ -112,13 +112,9 @@ async def check_in_or_out(
 
     if not attendance:
         # ── 7a. No record → CHECK IN ──────────────────────────────────────
-        late_threshold = 60 * 15  # 15 minutes
-        session_created_at = datetime.fromisoformat(session["created_at"])
-        attendance_status = (
-            AttendanceStatus.LATE
-            if (now - session_created_at).total_seconds() > late_threshold
-            else AttendanceStatus.PRESENT
-        )
+        # For a 24-hour session covering multiple shifts, we default to PRESENT.
+        # Shift-based lateness can be added here in the future.
+        attendance_status = AttendanceStatus.PRESENT
 
         attendance = Attendance(
             employee_id=employee.id,
