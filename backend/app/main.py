@@ -29,6 +29,7 @@ app.add_middleware(
     allow_origins=[
         "https://ratel-attendance.onrender.com",
         "https://ratel-admin.vercel.app",
+        "http://102.214.241.12",
         "http://localhost:1420",
         "http://localhost:8000",
         "tauri://localhost",
