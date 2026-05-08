@@ -54,7 +54,7 @@ def generate_qr_token(session_id: str, location_id: str) -> str:
     return encrypted_token
 
 
-def decode_qr_token(token: str) -> dict | None:
+def decode_qr_token(token: str, max_age: int | None = None) -> dict | None:
     """
     Decrypt and decode a QR token.
     Returns the payload dict or None if invalid/expired.
@@ -69,7 +69,8 @@ def decode_qr_token(token: str) -> dict | None:
 
         # 2. Decode and verify signature
         # max_age enforces the TTL at the signature level
-        return serializer.loads(decrypted_token, max_age=settings.QR_TOKEN_TTL_SECONDS)
+        age = max_age or settings.QR_TOKEN_TTL_SECONDS
+        return serializer.loads(decrypted_token, max_age=age)
     except SignatureExpired:
         logger.warning("qr_token_expired")
         return None

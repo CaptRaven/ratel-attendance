@@ -35,6 +35,7 @@ class CheckInRequest(BaseModel):
     qr_token: str = Field(..., min_length=10)
     employee_id: Optional[str] = Field(None, min_length=2, max_length=50)
     fingerprint: Optional[str] = Field(None, max_length=255)
+    offline_scanned_at: Optional[datetime] = None
 
 
 @router.post("/", status_code=201)
@@ -53,7 +54,10 @@ async def check_in_or_out(
     """
 
     # ── 1. Decode and validate QR token ──────────────────────────────────
-    token_data = decode_qr_token(payload.qr_token)
+    # If it's an offline scan, we allow a larger grace period (2 hours)
+    grace_period = 3600 * 2 if payload.offline_scanned_at else None
+    token_data = decode_qr_token(payload.qr_token, max_age=grace_period)
+    
     if not token_data or token_data.get("type") != QR_TYPE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -64,11 +68,15 @@ async def check_in_or_out(
     location_id = token_data["location_id"]
 
     # ── 2. Verify token is active in Redis ───────────────────────────────
-    if not await is_token_active(redis, payload.qr_token):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="QR code has expired. Please scan the latest code.",
-        )
+    # For offline scans, we skip the "is_token_active" check because the token
+    # is definitely no longer the "current" active token in Redis.
+    # Anti-replay is still handled by the database check below.
+    if not payload.offline_scanned_at:
+        if not await is_token_active(redis, payload.qr_token):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="QR code has expired. Please scan the latest code.",
+            )
 
     # ── 3. Verify session is open ────────────────────────────────────────
     session = await get_session(redis, session_id)
@@ -108,7 +116,8 @@ async def check_in_or_out(
     )
     attendance = existing.scalar_one_or_none()
 
-    now = datetime.now(timezone.utc)
+    # Use offline timestamp if available, otherwise current time
+    now = payload.offline_scanned_at or datetime.now(timezone.utc)
 
     if not attendance:
         # ── 7a. No record → CHECK IN ──────────────────────────────────────

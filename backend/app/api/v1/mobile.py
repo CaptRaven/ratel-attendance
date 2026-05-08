@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Request, Query
-from fastapi.responses import HTMLResponse
+from fastapi import APIRouter, Request, Query, Response
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone
 from typing import Optional
@@ -15,11 +15,47 @@ from app.models.user import User
 from app.models.attendance import Attendance, CheckStatus
 from redis.asyncio import Redis
 from app.core.logging import logger
+import os
 
 router = APIRouter(tags=["Mobile Check-in"])
 templates = Jinja2Templates(directory="app/templates")
 
 DEVICE_COOKIE_NAME = "ratel_device"
+
+
+@router.get("/sw.js")
+async def get_service_worker():
+    """Serve the service worker for offline support."""
+    content = """
+    const CACHE_NAME = 'ratel-offline-v1';
+    const OFFLINE_URL = '/checkin';
+
+    self.addEventListener('install', (event) => {
+        event.waitUntil(
+            caches.open(CACHE_NAME).then((cache) => {
+                return cache.addAll([
+                    OFFLINE_URL,
+                ]);
+            })
+        );
+        self.skipWaiting();
+    });
+
+    self.addEventListener('activate', (event) => {
+        event.waitUntil(self.clients.claim());
+    });
+
+    self.addEventListener('fetch', (event) => {
+        if (event.request.mode === 'navigate') {
+            event.respondWith(
+                fetch(event.request).catch(() => {
+                    return caches.match(OFFLINE_URL);
+                })
+            );
+        }
+    });
+    """
+    return Response(content=content, media_type="application/javascript")
 
 
 @router.get("/checkin", response_class=HTMLResponse)

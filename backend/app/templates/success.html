@@ -87,7 +87,7 @@
   </style>
 </head>
 <body>
-  <div class="card">
+  <div class="card" id="success-card">
     {% if action == "checked_out" %}
       <div class="icon icon-checkout">⏱</div>
       <h1>Clocked Out!</h1>
@@ -100,13 +100,33 @@
       </div>
       {% endif %}
     {% else %}
-      <div class="icon icon-checkin">✓</div>
-      <h1>You're checked in!</h1>
+      <div class="icon icon-checkin">✅</div>
+      <h1>Checked In!</h1>
       <p class="name checkin-color">{{ name }}</p>
       <p class="session">{{ session }}</p>
-      <span class="badge badge-{{ status }}">{{ status }}</span>
+      <div class="badge badge-{{ status.lower() if status else 'present' }}">
+        {{ status if status else 'PRESENT' }}
+      </div>
     {% endif %}
-    <p class="time">{{ time }}</p>
+    <p class="time">Recorded at {{ time }}</p>
   </div>
+
+  <script>
+    // Handle offline view
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('offline') === 'true') {
+      const card = document.getElementById('success-card');
+      card.innerHTML = `
+        <div class="icon" style="background:rgba(15,79,157,0.1); border:2px solid rgba(15,79,157,0.2);">💾</div>
+        <h1>Scan Saved!</h1>
+        <p class="name" style="color:var(--primary)">Offline Mode</p>
+        <p class="session">Your attendance was saved locally.</p>
+        <div class="hours-card">
+          <p class="hours-label">It will sync automatically when your internet returns.</p>
+        </div>
+        <p class="time">You can safely close this page.</p>
+      `;
+    }
+  </script>
 </body>
 </html>
