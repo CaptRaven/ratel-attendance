@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.config import get_settings
 from app.core.logging import setup_logging, logger
 from fastapi.templating import Jinja2Templates  
@@ -23,6 +24,8 @@ app = FastAPI(
     docs_url="/docs" if settings.DEBUG else None,
     lifespan=lifespan,
 )
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -53,6 +56,12 @@ app.include_router(analytics.router, prefix="/api/v1")
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": settings.APP_VERSION}
+
+@app.get("/kiosk/sw.js")
+async def kiosk_service_worker():
+    with open("app/static/sw.js", "r") as f:
+        content = f.read()
+    return Response(content=content, media_type="application/javascript")
 
 @app.get("/api/v1/health")
 async def health_v1():
