@@ -28,6 +28,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://ratel-attendance.onrender.com",
+        "https://attendance.ratelplus.net.ng",
         "https://ratel-admin.vercel.app",
         "http://102.214.241.12",
         "http://localhost:1420",
