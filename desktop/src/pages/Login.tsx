@@ -3,11 +3,13 @@ import { login } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
 import { theme } from "@/lib/theme";
 import logo from "@/assets/rATEL-LOGO.png";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const { setAuth } = useAuthStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -109,24 +111,46 @@ export default function Login() {
               display: "block",
               marginBottom: "8px",
             }}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              style={{
-                width: "100%",
-                background: theme.panelStrong,
-                border: `1px solid ${theme.panelBorder}`,
-                borderRadius: "12px",
-                padding: "14px 16px",
-                color: theme.text,
-                fontSize: "15px",
-                outline: "none",
-                boxSizing: "border-box",
-              }}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                style={{
+                  width: "100%",
+                  background: theme.panelStrong,
+                  border: `1px solid ${theme.panelBorder}`,
+                  borderRadius: "12px",
+                  padding: "14px 48px 14px 16px",
+                  color: theme.text,
+                  fontSize: "15px",
+                  outline: "none",
+                  boxSizing: "border-box",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "14px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  background: "none",
+                  border: "none",
+                  color: theme.textSoft,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "4px",
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {error && (
