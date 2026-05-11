@@ -193,6 +193,32 @@
       min-width: min(420px, 100%);
     }
 
+    /* Enrollment UI */
+    .enroll-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(14, 44, 82, 0.95);
+      z-index: 1000; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      color: white; padding: 24px; text-align: center;
+    }
+    .enroll-video-wrapper {
+      position: relative; width: 320px; height: 320px;
+      border-radius: 50%; overflow: hidden;
+      border: 4px solid var(--accent);
+      margin-bottom: 24px; box-shadow: 0 0 40px rgba(47, 125, 225, 0.4);
+    }
+    #enroll-video {
+      width: 100%; height: 100%; object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .enroll-status {
+      font-size: 18px; font-weight: 600; margin-bottom: 12px;
+    }
+    .enroll-sub {
+      font-size: 14px; color: rgba(255,255,255,0.7);
+      max-width: 300px; line-height: 1.5;
+    }
+
     #qrcode canvas, #qrcode img {
       display: block;
     }
@@ -239,6 +265,15 @@
     <p style="font-size:13px; margin-top:8px">Ask your admin to start an attendance session</p>
   </div>
 
+  <div id="enroll-overlay" class="enroll-overlay">
+    <div class="enroll-status" id="enroll-status">Hi John! Let's set up your Face Check-in</div>
+    <div class="enroll-video-wrapper">
+      <video id="enroll-video" autoplay playsinline muted></video>
+    </div>
+    <div class="enroll-sub">Look directly at the camera. We're capturing your face for future check-ins.</div>
+    <div id="enroll-countdown" style="font-size:32px; font-weight:800; margin-top:20px; color:var(--accent)"></div>
+  </div>
+
   <script>
     const API_BASE = window.location.origin + "/api/v1";
     const TOKEN_TTL = 25;
@@ -256,6 +291,8 @@
     let activeSessionPollInterval = null;
     let reconnectTimeout = null;
     let shouldReconnect = false;
+    let enrollmentActive = false;
+    let enrollmentStream = null;
 
     // ── Auth ──────────────────────────────────────────────────────────────
     async function authenticate() {
@@ -474,6 +511,13 @@
       ));
       attendees.unshift(data);
       renderAttendees();
+
+      // Trigger face enrollment if needed
+      if (data.needs_enrollment && data.action === "checked_in") {
+        setTimeout(() => {
+          startEnrollment(data.user_id, data.employee);
+        }, 1000);
+      }
     }
 
     function renderAttendees() {
@@ -496,6 +540,90 @@
       document.getElementById("attendee-count").textContent = attendees.length;
       document.getElementById("subtitle").textContent =
         "Scan QR code with your phone to check in";
+    }
+
+    // ── Face Enrollment ───────────────────────────────────────────────────
+    async function startEnrollment(userId, name) {
+      if (enrollmentActive) return;
+      enrollmentActive = true;
+
+      const overlay = document.getElementById("enroll-overlay");
+      const statusText = document.getElementById("enroll-status");
+      const video = document.getElementById("enroll-video");
+      const countdownEl = document.getElementById("enroll-countdown");
+
+      statusText.textContent = `Hi ${name.split(" ")[0]}! Let's set up your Face Check-in`;
+      overlay.style.display = "flex";
+
+      try {
+        enrollmentStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 640, facingMode: "user" }
+        });
+        video.srcObject = enrollmentStream;
+
+        // Start countdown
+        let count = 3;
+        countdownEl.textContent = count;
+        const timer = setInterval(async () => {
+          count--;
+          if (count > 0) {
+            countdownEl.textContent = count;
+          } else {
+            clearInterval(timer);
+            countdownEl.textContent = "Capturing...";
+            await captureFace(userId);
+          }
+        }, 1000);
+
+      } catch (err) {
+        console.error("Camera access failed", err);
+        stopEnrollment();
+      }
+    }
+
+    async function captureFace(userId) {
+      const video = document.getElementById("enroll-video");
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0);
+
+      const imageData = canvas.toDataURL("image/jpeg", 0.9);
+
+      try {
+        const res = await fetch(`${API_BASE}/checkin/enroll`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({ user_id: userId, face_image: imageData }),
+        });
+
+        if (res.ok) {
+          document.getElementById("enroll-status").textContent = "Enrollment Complete!";
+          document.getElementById("enroll-countdown").textContent = "✓";
+          setTimeout(stopEnrollment, 2000);
+        } else {
+          throw new Error("Enrollment failed");
+        }
+      } catch (err) {
+        alert("Enrollment failed. Please try again later.");
+        stopEnrollment();
+      }
+    }
+
+    function stopEnrollment() {
+      enrollmentActive = false;
+      document.getElementById("enroll-overlay").style.display = "none";
+      document.getElementById("enroll-countdown").textContent = "";
+      if (enrollmentStream) {
+        enrollmentStream.getTracks().forEach(track => track.stop());
+        enrollmentStream = null;
+      }
     }
 
     function showNoActiveSession() {

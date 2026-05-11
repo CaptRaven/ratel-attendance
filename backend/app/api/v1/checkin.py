@@ -22,6 +22,7 @@ from app.models.device import DeviceBinding
 from app.core.events import publish_checkin_event
 from app.core.logging import logger
 from app.config import get_settings
+from app.api.deps import require_admin
 
 router = APIRouter(prefix="/checkin", tags=["Check-in"])
 
@@ -36,6 +37,39 @@ class CheckInRequest(BaseModel):
     employee_id: Optional[str] = Field(None, min_length=2, max_length=50)
     fingerprint: Optional[str] = Field(None, max_length=255)
     offline_scanned_at: Optional[datetime] = None
+
+
+class EnrollFaceRequest(BaseModel):
+    user_id: uuid.UUID
+    face_image: str  # Base64 encoded image
+
+
+@router.post("/enroll", status_code=200)
+async def enroll_face(
+    payload: EnrollFaceRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Enroll an employee's face encoding.
+    In a real implementation, we would extract the encoding from the image here.
+    """
+    result = await db.execute(select(User).where(User.id == payload.user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Placeholder for face encoding extraction
+    # import face_recognition
+    # image_data = base64.b64decode(payload.face_image.split(",")[1])
+    # ... extraction logic ...
+    
+    user.is_face_enrolled = True
+    user.face_encoding = "placeholder_encoding" # We will implement real encoding later
+    await db.flush()
+    
+    logger.info("face_enrolled", user_id=str(user.id), employee_id=user.employee_id)
+    return {"message": f"Face enrolled successfully for {user.full_name}"}
 
 
 @router.post("/", status_code=201)
@@ -185,12 +219,14 @@ async def check_in_or_out(
         event={
             "employee": employee.full_name,
             "employee_id": employee.employee_id,
+            "user_id": str(employee.id),
             "session_id": session_id,
             "status": attendance.status,
             "action": action,
             "checked_in_at": attendance.checked_in_at.isoformat(),
             "checked_out_at": attendance.checked_out_at.isoformat()
             if attendance.checked_out_at else None,
+            "needs_enrollment": not employee.is_face_enrolled,
         },
     )
 

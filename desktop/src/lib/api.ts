@@ -140,6 +140,11 @@ export const deactivateEmployee = async (employee_id: string): Promise<User> => 
   return res.data;
 };
 
+export const activateEmployee = async (employee_id: string): Promise<User> => {
+  const res = await api.patch(`/employees/${employee_id}/activate`);
+  return res.data;
+};
+
 export interface OverviewStats {
   total_employees: number;
   present_today: number;

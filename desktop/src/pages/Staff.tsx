@@ -1,12 +1,12 @@
 import { useState, useEffect, useEffectEvent } from "react";
 import {
   getDepartments, createDepartment,
-  getEmployees, createEmployee, deactivateEmployee,
+  getEmployees, createEmployee, deactivateEmployee, activateEmployee
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
 
-type View = "employees" | "add_employee" | "departments" | "add_department";
+type View = "employees" | "add_employee" | "departments" | "add_department" | "removed_employees";
 
 export default function Staff() {
   const [view, setView] = useState<View>("employees");
@@ -98,6 +98,16 @@ export default function Staff() {
     }
   };
 
+  const handleActivate = async (employeeId: string, name: string) => {
+    if (!confirm(`Restore ${name}?`)) return;
+    try {
+      await activateEmployee(employeeId);
+      await fetchEmployees();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to restore employee");
+    }
+  };
+
   const s = {
     page: {
       minHeight: "100vh",
@@ -152,8 +162,12 @@ export default function Staff() {
     },
   };
 
+  const activeEmployees = employees.filter(e => e.is_active);
+  const deactivatedEmployees = employees.filter(e => !e.is_active);
+
   const navTabs = [
-    { id: "employees", label: `Employees (${employees.length})` },
+    { id: "employees", label: `Active (${activeEmployees.length})` },
+    { id: "removed_employees", label: `Removed (${deactivatedEmployees.length})` },
     { id: "departments", label: `Departments (${departments.length})` },
   ] as const;
 
@@ -170,12 +184,12 @@ export default function Staff() {
       </div>
 
       {/* Nav tabs */}
-      {(view === "employees" || view === "departments") && (
+      {(view === "employees" || view === "departments" || view === "removed_employees") && (
         <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
           {navTabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setView(tab.id)}
+              onClick={() => setView(tab.id as View)}
               style={{
                 ...s.btnGhost,
                 background: view === tab.id
@@ -190,40 +204,46 @@ export default function Staff() {
               {tab.label}
             </button>
           ))}
-          <button
-            onClick={() => setView(
-              view === "employees" ? "add_employee" : "add_department"
-            )}
-            style={{
-              ...s.btnPrimary,
-              width: "auto",
-              marginLeft: "auto",
-              padding: "10px 20px",
-              fontSize: "13px",
-            }}
-          >
-            + {view === "employees" ? "Add Employee" : "Add Department"}
-          </button>
+          {(view === "employees" || view === "departments") && (
+            <button
+              onClick={() => setView(
+                view === "employees" ? "add_employee" : "add_department"
+              )}
+              style={{
+                ...s.btnPrimary,
+                width: "auto",
+                marginLeft: "auto",
+                padding: "10px 20px",
+                fontSize: "13px",
+              }}
+            >
+              + {view === "employees" ? "Add Employee" : "Add Department"}
+            </button>
+          )}
         </div>
       )}
 
       {/* ── Employees List ── */}
-      {view === "employees" && (
+      {(view === "employees" || view === "removed_employees") && (
         <div style={s.card}>
-          {employees.length === 0 ? (
+          {(view === "employees" ? activeEmployees : deactivatedEmployees).length === 0 ? (
             <div style={{
               textAlign: "center", padding: "60px 0",
               color: theme.textSoft,
             }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}></div>
-              <p>No employees yet. Add your first employee.</p>
+              <p>
+                {view === "employees" 
+                  ? "No active employees yet. Add your first employee."
+                  : "No removed employees found."}
+              </p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {/* Table header */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 80px",
+                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 100px",
                 padding: "0 16px 12px",
                 borderBottom: `1px solid ${theme.panelBorder}`,
               }}>
@@ -237,15 +257,16 @@ export default function Staff() {
               </div>
 
               {/* Rows */}
-              {employees.map((emp) => (
+              {(view === "employees" ? activeEmployees : deactivatedEmployees).map((emp) => (
                 <div key={emp.id} style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 80px",
+                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 100px",
                   alignItems: "center",
                   background: theme.panelStrong,
                   border: `1px solid ${theme.panelBorder}`,
                   borderRadius: "12px",
                   padding: "14px 16px",
+                  opacity: emp.is_active ? 1 : 0.7,
                 }}>
                   {/* Name + avatar */}
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -293,7 +314,7 @@ export default function Staff() {
                     {emp.department_name || "—"}
                   </span>
 
-                  {emp.is_active && (
+                  {emp.is_active ? (
                     <button
                       onClick={() => handleDeactivate(emp.employee_id, emp.full_name)}
                       style={{
@@ -305,6 +326,19 @@ export default function Staff() {
                       }}
                     >
                       Remove
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleActivate(emp.employee_id, emp.full_name)}
+                      style={{
+                        background: theme.successSoft,
+                        border: `1px solid ${theme.successSoft}`,
+                        color: theme.success, borderRadius: "8px",
+                        padding: "6px 10px", fontSize: "11px",
+                        cursor: "pointer", fontWeight: "600",
+                      }}
+                    >
+                      Restore
                     </button>
                   )}
                 </div>

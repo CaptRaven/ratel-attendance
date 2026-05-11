@@ -48,6 +48,12 @@ class User(Base):
         nullable=False,
     )
 
+    # Face Recognition
+    face_encoding: Mapped[str | None] = mapped_column(String, nullable=True)  # Store as JSON string of list
+    is_face_enrolled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+
     department: Mapped["Department | None"] = relationship(  # noqa: F821
         "Department",
         back_populates="employees",

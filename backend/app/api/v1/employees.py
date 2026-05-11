@@ -15,8 +15,13 @@ router = APIRouter(prefix="/employees", tags=["Employees"])
 async def list_employees(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
+    include_deactivated: bool = True,
 ):
-    result = await db.execute(select(User))
+    query = select(User)
+    if not include_deactivated:
+        query = query.where(User.is_active == True)  # noqa: E712
+    
+    result = await db.execute(query)
     return [UserResponse.from_orm_with_dept(u) for u in result.scalars().all()]
 
 
@@ -73,4 +78,25 @@ async def deactivate_employee(
     await db.refresh(user)
 
     logger.info("employee_deactivated", employee_id=employee_id, by=str(_admin.id))
+    return UserResponse.from_orm_with_dept(user)
+
+
+@router.patch("/{employee_id}/activate", response_model=UserResponse)
+async def activate_employee(
+    employee_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    result = await db.execute(
+        select(User).where(User.employee_id == employee_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    user.is_active = True
+    await db.flush()
+    await db.refresh(user)
+
+    logger.info("employee_activated", employee_id=employee_id, by=str(_admin.id))
     return UserResponse.from_orm_with_dept(user)
