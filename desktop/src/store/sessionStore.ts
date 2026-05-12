@@ -22,9 +22,17 @@ export const useSessionStore = create<SessionState>((set) => ({
   setQrToken: (token) => set({ qrToken: token }),
 
   addAttendee: (record) =>
-    set((state) => ({
-      attendees: [record, ...state.attendees],
-    })),
+    set((state) => {
+      const exists = state.attendees.findIndex(
+        (a) => a.employee_id === record.employee_id
+      );
+      if (exists !== -1) {
+        const newAttendees = [...state.attendees];
+        newAttendees[exists] = record;
+        return { attendees: newAttendees };
+      }
+      return { attendees: [record, ...state.attendees] };
+    }),
 
   clearSession: () => set({ session: null, qrToken: null, attendees: [] }),
 }));

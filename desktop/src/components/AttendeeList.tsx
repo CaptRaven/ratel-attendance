@@ -114,24 +114,34 @@ export default function AttendeeList({ attendees }: Props) {
                   fontWeight: "700",
                   padding: "4px 10px",
                   borderRadius: "999px",
-                  background: a.status === "present"
-                    ? theme.successSoft
-                    : theme.warningSoft,
-                  color: a.status === "present" ? theme.success : theme.warning,
-                  border: `1px solid ${a.status === "present"
-                    ? theme.successSoft
-                    : theme.warningSoft}`,
+                  background: a.check_status === "checked_out"
+                    ? theme.dangerSoft
+                    : a.status === "present"
+                      ? theme.successSoft
+                      : theme.warningSoft,
+                  color: a.check_status === "checked_out"
+                    ? theme.danger
+                    : a.status === "present"
+                      ? theme.success
+                      : theme.warning,
+                  border: `1px solid ${a.check_status === "checked_out"
+                    ? theme.dangerSoft
+                    : a.status === "present"
+                      ? theme.successSoft
+                      : theme.warningSoft}`,
                   textTransform: "uppercase",
                   letterSpacing: "0.5px",
                 }}>
-                  {a.status}
+                  {a.check_status === "checked_out" ? "Out" : a.status}
                 </span>
                 <p style={{
                   color: theme.textSoft,
                   fontSize: "11px",
                   margin: "4px 0 0 0",
                 }}>
-                  {new Date(a.checked_in_at).toLocaleTimeString()}
+                  {a.check_status === "checked_out" && a.checked_out_at
+                    ? `Out: ${new Date(a.checked_out_at).toLocaleTimeString()}`
+                    : `In: ${new Date(a.checked_in_at).toLocaleTimeString()}`}
                 </p>
               </div>
             </div>

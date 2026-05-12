@@ -43,7 +43,9 @@ export interface AttendanceRecord {
   employee: string;
   employee_id: string;
   status: "present" | "late";
+  check_status: "checked_in" | "checked_out";
   checked_in_at: string;
+  checked_out_at?: string | null;
 }
 
 // Auth

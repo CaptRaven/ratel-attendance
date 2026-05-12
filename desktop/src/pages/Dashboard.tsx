@@ -80,7 +80,9 @@ export default function Dashboard() {
           employee: data.employee,
           employee_id: data.employee_id,
           status: data.status,
+          check_status: data.action, // 'checked_in' or 'checked_out'
           checked_in_at: data.checked_in_at,
+          checked_out_at: data.checked_out_at,
         });
       }
     };
