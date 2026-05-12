@@ -3,6 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
 from app.models.user import User
+from app.models.attendance import Attendance
+from app.models.device import DeviceBinding
 from app.schemas.user import UserResponse, UserCreate
 from app.api.deps import require_admin
 from app.core.security import hash_password
@@ -109,6 +111,8 @@ async def purge_employee(
     _admin: User = Depends(require_admin),
 ):
     """Permanently delete an employee and all their data."""
+    from sqlalchemy import delete
+    
     result = await db.execute(
         select(User).where(User.employee_id == employee_id)
     )
@@ -116,14 +120,23 @@ async def purge_employee(
     if not user:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # This will also delete attendance due to CASCADE or we can do it manually
-    # For safety, let's delete attendance records first if not configured in DB
-    from app.models.attendance import Attendance
-    from sqlalchemy import delete
+    user_uuid = user.id
     
-    await db.execute(delete(Attendance).where(Attendance.employee_id == user.id))
-    await db.delete(user)
-    await db.commit()
-
-    logger.info("employee_purged", employee_id=employee_id, by=str(_admin.id))
-    return {"message": "Employee and all associated records purged permanently"}
+    try:
+        # Delete related records first
+        await db.execute(delete(Attendance).where(Attendance.employee_id == user_uuid))
+        await db.execute(delete(DeviceBinding).where(DeviceBinding.employee_id == user_uuid))
+        
+        # Now delete the user
+        await db.delete(user)
+        await db.commit()
+        
+        logger.info("employee_purged", employee_id=employee_id, by=str(_admin.id))
+        return {"message": "Employee and all associated records purged permanently"}
+    except Exception as e:
+        await db.rollback()
+        logger.error("employee_purge_failed", employee_id=employee_id, error=str(e))
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to purge employee: {str(e)}"
+        )
