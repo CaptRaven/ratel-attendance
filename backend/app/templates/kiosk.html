@@ -93,11 +93,27 @@
       color: var(--success); font-size: 15px; font-weight: 700;
     }
 
-    .qr-wrapper {
+    .qr-container {
       background: white;
-      padding: 20px; border-radius: 24px;
-      box-shadow: 0 20px 60px rgba(12,54,110,0.16);
-      margin-bottom: 28px;
+      padding: 24px;
+      border-radius: 32px;
+      box-shadow: 0 20px 50px rgba(15, 79, 157, 0.15);
+      margin-bottom: 32px;
+      display: inline-block;
+      border: 1px solid var(--border);
+    }
+    #qrcode {
+      width: 320px;
+      height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #qrcode canvas, #qrcode img {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+      image-rendering: pixelated; /* Ensures sharp edges */
     }
 
     .timer-section {
@@ -228,9 +244,7 @@
       max-width: 300px; line-height: 1.5;
     }
 
-    #qrcode canvas, #qrcode img {
-      display: block;
-    }
+
   </style>
 </head>
 <body>
@@ -244,7 +258,7 @@
       <span class="session-name" id="session-name">Loading...</span>
     </div>
 
-    <div class="qr-wrapper">
+    <div class="qr-container">
       <div id="qrcode"></div>
     </div>
 
@@ -446,10 +460,11 @@
       container.innerHTML = "";
       qrCode = new QRCode(container, {
         text: qrToken,
-        width: 240, height: 240,
+        width: 400, // Render at high resolution
+        height: 400,
         colorDark: "#000000",
         colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.H,
+        correctLevel: QRCode.CorrectLevel.M, // Medium error correction for faster lock-on
       });
     }
 
