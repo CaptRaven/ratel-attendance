@@ -288,11 +288,11 @@ export default function Staff() {
                       justifyContent: "center", fontSize: "13px",
                       fontWeight: "700", flexShrink: 0,
                     }}>
-                      {emp.full_name.charAt(0).toUpperCase()}
+                      {emp.full_name ? emp.full_name.charAt(0).toUpperCase() : "?"}
                     </div>
                     <div>
                       <p style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>
-                        {emp.full_name}
+                        {emp.full_name || "Unknown Staff"}
                       </p>
                       <p style={{
                         margin: 0, fontSize: "11px",
@@ -456,10 +456,15 @@ export default function Staff() {
               value={empForm.email}
               onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} />
 
-            <label style={s.label}>Password</label>
+            <label style={s.label}>Password (optional)</label>
             <input style={s.input} type="password" placeholder="Min 8 characters"
               value={empForm.password}
               onChange={(e) => setEmpForm({ ...empForm, password: e.target.value })} />
+            {empForm.password && empForm.password.length > 0 && empForm.password.length < 8 && (
+              <p style={{ color: theme.danger, fontSize: "11px", marginTop: "-10px", marginBottom: "10px" }}>
+                Password must be at least 8 characters if provided.
+              </p>
+            )}
 
             <label style={s.label}>Department</label>
             <select
@@ -501,11 +506,11 @@ export default function Staff() {
             <button
               onClick={handleCreateEmployee}
               disabled={loading || !empForm.full_name || !empForm.email ||
-                !empForm.employee_id || !empForm.password}
+                !empForm.employee_id || (empForm.password !== "" && empForm.password.length < 8)}
               style={{
                 ...s.btnPrimary,
                 opacity: loading || !empForm.full_name || !empForm.email ||
-                  !empForm.employee_id || !empForm.password ? 0.5 : 1,
+                  !empForm.employee_id || (empForm.password !== "" && empForm.password.length < 8) ? 0.5 : 1,
                 cursor: loading ? "not-allowed" : "pointer",
               }}
             >

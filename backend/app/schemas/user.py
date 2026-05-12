@@ -9,7 +9,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     full_name: str = Field(..., min_length=2, max_length=255)
     employee_id: str = Field(..., min_length=2, max_length=50)
-    password: str = Field(..., min_length=8, max_length=128)
+    password: Optional[str] = Field(None, min_length=8, max_length=128)
     role: UserRole = UserRole.EMPLOYEE
     location_id: str = Field(default="ratel-hq", max_length=100)
     department_id: Optional[UUID] = None

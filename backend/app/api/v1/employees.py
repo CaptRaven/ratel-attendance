@@ -33,23 +33,39 @@ async def create_employee(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    # Check duplicates
-    existing = await db.execute(
-        select(User).where(
-            (User.email == payload.email) | (User.employee_id == payload.employee_id)
-        )
+    # Check if user exists (even if inactive)
+    existing_query = select(User).where(
+        (User.email == payload.email) | (User.employee_id == payload.employee_id)
     )
-    if existing.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Email or Employee ID already exists",
-        )
+    result = await db.execute(existing_query)
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user:
+        if not existing_user.is_active:
+            # Re-activate and update existing user instead of failing
+            existing_user.is_active = True
+            existing_user.full_name = payload.full_name
+            if payload.password:
+                existing_user.hashed_password = hash_password(payload.password)
+            existing_user.department_id = payload.department_id
+            existing_user.location_id = payload.location_id
+            existing_user.role = payload.role
+            
+            await db.flush()
+            await db.refresh(existing_user)
+            logger.info("employee_reactivated", employee_id=existing_user.employee_id, by=str(_admin.id))
+            return UserResponse.from_orm_with_dept(existing_user)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="An active employee with this Email or Employee ID already exists",
+            )
 
     user = User(
         email=payload.email,
         full_name=payload.full_name,
         employee_id=payload.employee_id,
-        hashed_password=hash_password(payload.password),
+        hashed_password=hash_password(payload.password) if payload.password else "no_password_set",
         role=payload.role,
         location_id=payload.location_id,
         department_id=payload.department_id,
