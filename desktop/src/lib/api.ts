@@ -145,6 +145,16 @@ export const activateEmployee = async (employee_id: string): Promise<User> => {
   return res.data;
 };
 
+export const purgeEmployee = async (employee_id: string): Promise<{ message: string }> => {
+  const res = await api.delete(`/employees/${employee_id}/purge`);
+  return res.data;
+};
+
+export const clearAllAttendance = async (): Promise<{ message: string }> => {
+  const res = await api.delete("/reports/clear");
+  return res.data;
+};
+
 export interface OverviewStats {
   total_employees: number;
   present_today: number;

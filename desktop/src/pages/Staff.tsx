@@ -1,7 +1,7 @@
 import { useState, useEffect, useEffectEvent } from "react";
 import {
   getDepartments, createDepartment,
-  getEmployees, createEmployee, deactivateEmployee, activateEmployee
+  getEmployees, createEmployee, deactivateEmployee, activateEmployee, purgeEmployee
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
@@ -105,6 +105,17 @@ export default function Staff() {
       await fetchEmployees();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to restore employee");
+    }
+  };
+
+  const handlePurge = async (employeeId: string, name: string) => {
+    if (!confirm(`PERMANENTLY DELETE ${name}? This will remove all their data and attendance history forever.`)) return;
+    if (!confirm(`Are you absolutely sure? This cannot be undone.`)) return;
+    try {
+      await purgeEmployee(employeeId);
+      await fetchEmployees();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to purge employee");
     }
   };
 
@@ -328,18 +339,32 @@ export default function Staff() {
                       Remove
                     </button>
                   ) : (
-                    <button
-                      onClick={() => handleActivate(emp.employee_id, emp.full_name)}
-                      style={{
-                        background: theme.successSoft,
-                        border: `1px solid ${theme.successSoft}`,
-                        color: theme.success, borderRadius: "8px",
-                        padding: "6px 10px", fontSize: "11px",
-                        cursor: "pointer", fontWeight: "600",
-                      }}
-                    >
-                      Restore
-                    </button>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button
+                        onClick={() => handleActivate(emp.employee_id, emp.full_name)}
+                        style={{
+                          background: theme.successSoft,
+                          border: `1px solid ${theme.successSoft}`,
+                          color: theme.success, borderRadius: "8px",
+                          padding: "6px 10px", fontSize: "11px",
+                          cursor: "pointer", fontWeight: "600",
+                        }}
+                      >
+                        Restore
+                      </button>
+                      <button
+                        onClick={() => handlePurge(emp.employee_id, emp.full_name)}
+                        style={{
+                          background: theme.dangerSoft,
+                          border: `1px solid ${theme.dangerSoft}`,
+                          color: theme.danger, borderRadius: "8px",
+                          padding: "6px 10px", fontSize: "11px",
+                          cursor: "pointer", fontWeight: "600",
+                        }}
+                      >
+                        Purge
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}

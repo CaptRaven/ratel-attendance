@@ -6,6 +6,7 @@ import {
   exportAttendanceCSV,
   getActiveSession,
   rotateToken,
+  clearAllAttendance,
 } from "@/lib/api";
 import { useSessionStore } from "@/store/sessionStore";
 import { useAuthStore } from "@/store/authStore";
@@ -111,6 +112,23 @@ export default function Dashboard() {
       setSessionName("");
     } catch (err) {
       console.error("Failed to close session:", err);
+    }
+  };
+
+  const handleClearAttendance = async () => {
+    if (!confirm("Are you sure you want to PERMANENTLY delete ALL attendance logs from all sessions? This cannot be undone.")) return;
+    if (!confirm("Final confirmation: Delete all records now?")) return;
+    
+    try {
+      await clearAllAttendance();
+      alert("All attendance records have been cleared.");
+      if (session) {
+        // If there's an active session, clear the local list too
+        useSessionStore.getState().attendees = [];
+        window.location.reload(); // Quickest way to refresh all states
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to clear attendance");
     }
   };
 
@@ -301,6 +319,21 @@ export default function Dashboard() {
               </p>
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={handleClearAttendance}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${theme.dangerSoft}`,
+                  color: theme.danger,
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                }}
+              >
+                Clear All Logs
+              </button>
               <button
                 onClick={() => session && exportAttendanceCSV(session.session_id)}
                 style={{

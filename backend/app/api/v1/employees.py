@@ -100,3 +100,30 @@ async def activate_employee(
 
     logger.info("employee_activated", employee_id=employee_id, by=str(_admin.id))
     return UserResponse.from_orm_with_dept(user)
+
+
+@router.delete("/{employee_id}/purge")
+async def purge_employee(
+    employee_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Permanently delete an employee and all their data."""
+    result = await db.execute(
+        select(User).where(User.employee_id == employee_id)
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    # This will also delete attendance due to CASCADE or we can do it manually
+    # For safety, let's delete attendance records first if not configured in DB
+    from app.models.attendance import Attendance
+    from sqlalchemy import delete
+    
+    await db.execute(delete(Attendance).where(Attendance.employee_id == user.id))
+    await db.delete(user)
+    await db.commit()
+
+    logger.info("employee_purged", employee_id=employee_id, by=str(_admin.id))
+    return {"message": "Employee and all associated records purged permanently"}

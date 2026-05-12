@@ -168,3 +168,16 @@ async def get_attendance_summary(
     )
 
     return {"total_employees": len(sorted_data), "records": sorted_data}
+
+
+@router.delete("/clear")
+async def clear_all_attendance(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Permanently delete ALL attendance records."""
+    from sqlalchemy import delete
+    await db.execute(delete(Attendance))
+    await db.commit()
+    logger.info("all_attendance_cleared", by=str(_admin.id))
+    return {"message": "All attendance records have been cleared permanently"}
