@@ -91,91 +91,133 @@ export default function QRDisplay({ sessionId }: Props) {
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      gap: "24px",
+      gap: "32px",
       boxShadow: theme.shadow,
-      position: "relative",
+      width: "100%",
+      boxSizing: "border-box",
     }}>
-      {/* Shift Selector Carousel */}
-      <div style={{
-        width: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        background: theme.panelMuted,
-        padding: "12px 16px",
-        borderRadius: "16px",
-        border: `1px solid ${theme.panelBorder}`,
-      }}>
-        <button onClick={prevShift} title="Previous Shift" style={{
-          background: theme.primary, border: "none", borderRadius: "50%",
-          width: "40px", height: "40px", display: "flex", alignItems: "center",
-          justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          color: "white"
+      {/* Shift Selection Header */}
+      <div style={{ width: "100%" }}>
+        <h3 style={{ 
+          margin: "0 0 16px 0", 
+          fontSize: "14px", 
+          fontWeight: "700", 
+          color: theme.text,
+          textAlign: "center",
+          textTransform: "uppercase",
+          letterSpacing: "1px"
         }}>
-          <ChevronLeft size={24} />
-        </button>
+          Select Your Shift
+        </h3>
+        
+        {/* Grid of Shift Buttons */}
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "1fr 1fr", 
+          gap: "12px",
+          width: "100%"
+        }}>
+          {shiftIds.map((id) => {
+            const shift = SHIFTS[id];
+            const isActive = activeShift === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveShift(id)}
+                style={{
+                  padding: "16px 12px",
+                  borderRadius: "16px",
+                  border: `2px solid ${isActive ? theme.primary : theme.panelBorder}`,
+                  background: isActive ? theme.primarySoft : "white",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: "4px",
+                  boxShadow: isActive ? `0 4px 12px ${theme.primarySoft}` : "none",
+                }}
+              >
+                <span style={{ 
+                  fontSize: "13px", 
+                  fontWeight: "700", 
+                  color: isActive ? theme.primary : theme.text 
+                }}>
+                  {shift.label}
+                </span>
+                <span style={{ 
+                  fontSize: "11px", 
+                  color: isActive ? theme.primary : theme.textMuted 
+                }}>
+                  {shift.start} - {shift.end}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-        <div style={{ textAlign: "center", flex: 1 }}>
-          <div style={{ 
-            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-            color: theme.primary, fontWeight: "800", fontSize: "18px",
-            textTransform: "uppercase", letterSpacing: "0.5px"
-          }}>
-            <Clock size={20} />
-            {currentShift.label}
-          </div>
-          <div style={{ color: theme.textMuted, fontSize: "13px", fontWeight: "600", marginTop: "4px" }}>
-            {currentShift.start} — {currentShift.end}
-          </div>
+      {/* QR Code Section */}
+      <div style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "20px",
+        width: "100%"
+      }}>
+        <div style={{
+          background: "white",
+          padding: "24px",
+          borderRadius: "24px",
+          boxShadow: "0 20px 40px rgba(12, 54, 110, 0.16)",
+          border: `1px solid ${theme.panelBorder}`,
+        }}>
+          <QRCodeSVG
+            value={qrValue}
+            size={240}
+            level="H"
+            includeMargin={false}
+          />
         </div>
 
-        <button onClick={nextShift} title="Next Shift" style={{
-          background: theme.primary, border: "none", borderRadius: "50%",
-          width: "40px", height: "40px", display: "flex", alignItems: "center",
-          justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          color: "white"
-        }}>
-          <ChevronRight size={24} />
-        </button>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            justifyContent: "center", 
+            gap: "8px",
+            color: theme.primary,
+            fontWeight: "800",
+            fontSize: "16px",
+            marginBottom: "4px"
+          }}>
+            <Clock size={18} />
+            READY FOR {SHIFTS[activeShift].label.toUpperCase()}
+          </div>
+          <p style={{
+            color: theme.textMuted,
+            fontSize: "12px",
+            margin: 0,
+          }}>Scan this code to record attendance</p>
+        </div>
       </div>
 
-      {/* QR Code */}
-      <div style={{
-        background: "white",
-        padding: "24px",
-        borderRadius: "24px",
-        boxShadow: "0 20px 40px rgba(12, 54, 110, 0.16)",
-        position: "relative",
-      }}>
-        <QRCodeSVG
-          value={qrValue}
-          size={240}
-          level="H"
-          includeMargin={false}
-        />
-        
-        {/* Success Overlay could go here when a scan is detected */}
-      </div>
-
-      <div style={{ textAlign: "center" }}>
-        <p style={{
-          color: theme.textMuted,
-          fontSize: "12px",
-          fontWeight: "600",
-          margin: 0,
-        }}>Select your shift and scan the QR</p>
-      </div>
-
-      {/* Countdown Progress */}
-      <div style={{ width: "100%", textAlign: "center", marginTop: "8px" }}>
+      {/* Security Countdown */}
+      <div style={{ width: "100%" }}>
         <div style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "8px",
+          marginBottom: "10px",
         }}>
-          <span style={{ color: theme.textSoft, fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "1px" }}>
-            Security Refresh
+          <span style={{ 
+            color: theme.textSoft, 
+            fontSize: "11px", 
+            fontWeight: "700", 
+            textTransform: "uppercase", 
+            letterSpacing: "1px" 
+          }}>
+            Token Security
           </span>
           <span style={{ color: progressColor, fontSize: "13px", fontWeight: "700" }}>
             {timeLeft}s
