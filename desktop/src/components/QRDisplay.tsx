@@ -60,19 +60,14 @@ export default function QRDisplay({ sessionId }: Props) {
     };
   }, [sessionId]);
 
-  if (!qrToken) return null;
-
-  // We append shift info to the token if the backend expects it, 
-  // or we just keep it as is if the backend handles it via session context.
-  // For now, let's keep the token as is but visually show the shift.
-  const qrValue = qrToken; 
+  const qrValue = qrToken || ""; 
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
   const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
 
   return (
     <div style={{
       background: theme.panel,
-      border: `1px solid ${theme.panelBorder}`,
+      border: `2px solid ${theme.panelBorder}`,
       borderRadius: "24px",
       padding: "32px",
       display: "flex",
@@ -82,26 +77,26 @@ export default function QRDisplay({ sessionId }: Props) {
       boxShadow: theme.shadow,
       width: "100%",
       boxSizing: "border-box",
+      minHeight: "500px",
     }}>
       {/* Shift Selection Header */}
       <div style={{ width: "100%" }}>
         <h3 style={{ 
-          margin: "0 0 16px 0", 
-          fontSize: "14px", 
-          fontWeight: "700", 
-          color: theme.text,
+          margin: "0 0 20px 0", 
+          fontSize: "16px", 
+          fontWeight: "800", 
+          color: theme.primary,
           textAlign: "center",
           textTransform: "uppercase",
-          letterSpacing: "1px"
+          letterSpacing: "1.5px"
         }}>
-          Select Your Shift
+          1. SELECT YOUR SHIFT
         </h3>
         
-        {/* Grid of Shift Buttons */}
         <div style={{ 
           display: "grid", 
           gridTemplateColumns: "1fr 1fr", 
-          gap: "12px",
+          gap: "16px",
           width: "100%"
         }}>
           {shiftIds.map((id) => {
@@ -112,29 +107,31 @@ export default function QRDisplay({ sessionId }: Props) {
                 key={id}
                 onClick={() => setActiveShift(id)}
                 style={{
-                  padding: "16px 12px",
-                  borderRadius: "16px",
-                  border: `2px solid ${isActive ? theme.primary : theme.panelBorder}`,
-                  background: isActive ? theme.primarySoft : "white",
+                  padding: "20px 12px",
+                  borderRadius: "18px",
+                  border: `3px solid ${isActive ? theme.primary : theme.panelBorder}`,
+                  background: isActive ? theme.primary : "white",
+                  color: isActive ? "white" : theme.text,
                   cursor: "pointer",
-                  transition: "all 0.2s ease",
+                  transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: "4px",
-                  boxShadow: isActive ? `0 4px 12px ${theme.primarySoft}` : "none",
+                  gap: "6px",
+                  boxShadow: isActive ? `0 8px 20px ${theme.primarySoft}` : "0 2px 4px rgba(0,0,0,0.04)",
+                  transform: isActive ? "scale(1.02)" : "scale(1)",
                 }}
               >
                 <span style={{ 
-                  fontSize: "13px", 
-                  fontWeight: "700", 
-                  color: isActive ? theme.primary : theme.text 
+                  fontSize: "15px", 
+                  fontWeight: "800", 
                 }}>
                   {shift.label}
                 </span>
                 <span style={{ 
-                  fontSize: "11px", 
-                  color: isActive ? theme.primary : theme.textMuted 
+                  fontSize: "12px", 
+                  opacity: isActive ? 0.9 : 0.6,
+                  fontWeight: "600"
                 }}>
                   {shift.start} - {shift.end}
                 </span>
@@ -149,23 +146,56 @@ export default function QRDisplay({ sessionId }: Props) {
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: "20px",
-        width: "100%"
+        gap: "24px",
+        width: "100%",
+        paddingTop: "10px",
+        borderTop: `1px dashed ${theme.panelBorder}`
       }}>
-        <div style={{
-          background: "white",
-          padding: "24px",
-          borderRadius: "24px",
-          boxShadow: "0 20px 40px rgba(12, 54, 110, 0.16)",
-          border: `1px solid ${theme.panelBorder}`,
+        <h3 style={{ 
+          margin: 0, 
+          fontSize: "16px", 
+          fontWeight: "800", 
+          color: theme.primary,
+          textAlign: "center",
+          textTransform: "uppercase",
+          letterSpacing: "1.5px"
         }}>
-          <QRCodeSVG
-            value={qrValue}
-            size={240}
-            level="H"
-            includeMargin={false}
-          />
-        </div>
+          2. SCAN QR CODE
+        </h3>
+
+        {!qrToken ? (
+          <div style={{
+            width: "240px",
+            height: "240px",
+            background: theme.panelMuted,
+            borderRadius: "24px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: theme.textSoft,
+            fontSize: "14px",
+            textAlign: "center",
+            padding: "20px",
+            border: `2px dashed ${theme.panelBorder}`
+          }}>
+            Loading secure token...
+          </div>
+        ) : (
+          <div style={{
+            background: "white",
+            padding: "24px",
+            borderRadius: "28px",
+            boxShadow: "0 25px 50px rgba(12, 54, 110, 0.18)",
+            border: `1px solid ${theme.panelBorder}`,
+          }}>
+            <QRCodeSVG
+              value={qrValue}
+              size={240}
+              level="H"
+              includeMargin={false}
+            />
+          </div>
+        )}
 
         <div style={{ textAlign: "center" }}>
           <div style={{ 
@@ -174,45 +204,46 @@ export default function QRDisplay({ sessionId }: Props) {
             justifyContent: "center", 
             gap: "8px",
             color: theme.primary,
-            fontWeight: "800",
-            fontSize: "16px",
-            marginBottom: "4px"
+            fontWeight: "900",
+            fontSize: "18px",
+            marginBottom: "6px"
           }}>
-            <Clock size={18} />
-            READY FOR {SHIFTS[activeShift].label.toUpperCase()}
+            <Clock size={22} />
+            {activeShift.toUpperCase()} SHIFT READY
           </div>
           <p style={{
             color: theme.textMuted,
-            fontSize: "12px",
+            fontSize: "13px",
+            fontWeight: "500",
             margin: 0,
-          }}>Scan this code to record attendance</p>
+          }}>Please ensure your shift matches the selection above</p>
         </div>
       </div>
 
       {/* Security Countdown */}
-      <div style={{ width: "100%" }}>
+      <div style={{ width: "100%", marginTop: "auto" }}>
         <div style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "10px",
+          marginBottom: "12px",
         }}>
           <span style={{ 
             color: theme.textSoft, 
-            fontSize: "11px", 
-            fontWeight: "700", 
+            fontSize: "12px", 
+            fontWeight: "800", 
             textTransform: "uppercase", 
-            letterSpacing: "1px" 
+            letterSpacing: "1.5px" 
           }}>
-            Token Security
+            Security Token
           </span>
-          <span style={{ color: progressColor, fontSize: "13px", fontWeight: "700" }}>
+          <span style={{ color: progressColor, fontSize: "14px", fontWeight: "800" }}>
             {timeLeft}s
           </span>
         </div>
         <div style={{
           width: "100%",
-          height: "6px",
+          height: "8px",
           background: "rgba(15, 79, 157, 0.08)",
           borderRadius: "999px",
           overflow: "hidden",
