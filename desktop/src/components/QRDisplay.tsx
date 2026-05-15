@@ -3,7 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { rotateToken, SHIFTS, type ShiftType } from "@/lib/api";
 import { useSessionStore } from "@/store/sessionStore";
 import { theme } from "@/lib/theme";
-import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { Clock } from "lucide-react";
 
 const ROTATE_INTERVAL_MS = 25000;
 const TOKEN_TTL_MS = 25000;
@@ -26,17 +26,6 @@ export default function QRDisplay({ sessionId }: Props) {
   const [timeLeft, setTimeLeft] = useState(TOKEN_TTL_MS / 1000);
 
   const shiftIds = Object.keys(SHIFTS) as ShiftType[];
-  const activeShiftIndex = shiftIds.indexOf(activeShift);
-
-  const nextShift = () => {
-    const nextIndex = (activeShiftIndex + 1) % shiftIds.length;
-    setActiveShift(shiftIds[nextIndex]);
-  };
-
-  const prevShift = () => {
-    const prevIndex = (activeShiftIndex - 1 + shiftIds.length) % shiftIds.length;
-    setActiveShift(shiftIds[prevIndex]);
-  };
 
   useEffect(() => {
     const initialRotate = async () => {
@@ -79,8 +68,6 @@ export default function QRDisplay({ sessionId }: Props) {
   const qrValue = qrToken; 
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
   const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
-
-  const currentShift = SHIFTS[activeShift];
 
   return (
     <div style={{
