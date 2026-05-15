@@ -12,7 +12,16 @@ interface Props { sessionId: string; }
 
 export default function QRDisplay({ sessionId }: Props) {
   const { qrToken, setQrToken } = useSessionStore();
-  const [activeShift, setActiveShift] = useState<ShiftType>("morning");
+  
+  // Smart Defaulting: Pick the shift based on current time
+  const getDefaultShift = (): ShiftType => {
+    const hour = new Date().getHours();
+    if (hour >= 6 && hour < 15) return "morning";
+    if (hour >= 15 && hour < 22) return "evening";
+    return "night"; // 10 PM to 6 AM
+  };
+
+  const [activeShift, setActiveShift] = useState<ShiftType>(getDefaultShift());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [timeLeft, setTimeLeft] = useState(TOKEN_TTL_MS / 1000);
 
@@ -98,32 +107,35 @@ export default function QRDisplay({ sessionId }: Props) {
         border: `1px solid ${theme.panelBorder}`,
       }}>
         <button onClick={prevShift} title="Previous Shift" style={{
-          background: "white", border: "none", borderRadius: "50%",
-          width: "32px", height: "32px", display: "flex", alignItems: "center",
-          justifyContent: "center", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+          background: theme.primary, border: "none", borderRadius: "50%",
+          width: "40px", height: "40px", display: "flex", alignItems: "center",
+          justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          color: "white"
         }}>
-          <ChevronLeft size={18} />
+          <ChevronLeft size={24} />
         </button>
 
         <div style={{ textAlign: "center", flex: 1 }}>
           <div style={{ 
-            display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
-            color: theme.primary, fontWeight: "700", fontSize: "15px"
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+            color: theme.primary, fontWeight: "800", fontSize: "18px",
+            textTransform: "uppercase", letterSpacing: "0.5px"
           }}>
-            <Clock size={16} />
+            <Clock size={20} />
             {currentShift.label}
           </div>
-          <div style={{ color: theme.textMuted, fontSize: "11px", fontWeight: "600", marginTop: "2px" }}>
+          <div style={{ color: theme.textMuted, fontSize: "13px", fontWeight: "600", marginTop: "4px" }}>
             {currentShift.start} — {currentShift.end}
           </div>
         </div>
 
         <button onClick={nextShift} title="Next Shift" style={{
-          background: "white", border: "none", borderRadius: "50%",
-          width: "32px", height: "32px", display: "flex", alignItems: "center",
-          justifyContent: "center", cursor: "pointer", boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+          background: theme.primary, border: "none", borderRadius: "50%",
+          width: "40px", height: "40px", display: "flex", alignItems: "center",
+          justifyContent: "center", cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          color: "white"
         }}>
-          <ChevronRight size={18} />
+          <ChevronRight size={24} />
         </button>
       </div>
 
