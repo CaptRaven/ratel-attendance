@@ -30,17 +30,25 @@ export default function Dashboard() {
   const loadSessionAttendance = async (sessionId: string) => {
     try {
       const data = await getSessionAttendance(sessionId);
+      // Filter out duplicates and add
       data.records.forEach(addAttendee);
     } catch (err) {
       console.error("Failed to load session attendance:", err);
     }
   };
 
-  const startSession = async () => {
-    if (!sessionName.trim()) return;
+  const getBusinessDayName = () => {
+    const now = new Date();
+    // If before 6 AM, it's still "yesterday's" business day
+    const date = now.getHours() < 6 ? new Date(now.getTime() - 24 * 60 * 60 * 1000) : now;
+    return `Session ${date.toLocaleDateString("en-GB", { day: '2-digit', month: 'short', year: 'numeric' })}`;
+  };
+
+  const startSession = async (customName?: string) => {
+    const name = typeof customName === "string" ? customName : getBusinessDayName();
     setLoading(true);
     try {
-      const newSession = await createSession(sessionName, "ratel-hq");
+      const newSession = await createSession(name, "ratel-hq");
       setSession(newSession);
       connectWebSocket(newSession.session_id);
       await loadSessionAttendance(newSession.session_id);
@@ -80,15 +88,11 @@ export default function Dashboard() {
           employee: data.employee,
           employee_id: data.employee_id,
           status: data.status,
-          check_status: data.action, // 'checked_in' or 'checked_out'
+          check_status: data.action,
           checked_in_at: data.checked_in_at,
           checked_out_at: data.checked_out_at,
         });
       }
-    };
-
-    ws.onerror = (err) => {
-      console.error("Dashboard websocket error:", err);
     };
 
     ws.onclose = () => {
@@ -118,52 +122,66 @@ export default function Dashboard() {
   };
 
   const handleClearAttendance = async () => {
-    if (!confirm("Are you sure you want to PERMANENTLY delete ALL attendance logs from all sessions? This cannot be undone.")) return;
-    if (!confirm("Final confirmation: Delete all records now?")) return;
-    
+    if (!confirm("Are you sure you want to PERMANENTLY delete ALL attendance logs?")) return;
     try {
       await clearAllAttendance();
-      alert("All attendance records have been cleared.");
-      if (session) {
-        // If there's an active session, clear the local list too
-        useSessionStore.getState().attendees = [];
-        window.location.reload(); // Quickest way to refresh all states
-      }
+      alert("All records cleared.");
+      window.location.reload();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to clear attendance");
+      alert(err.response?.data?.detail || "Failed to clear");
+    }
+  };
+
+  const checkAndRotateSession = async () => {
+    try {
+      const activeSession = await getActiveSession();
+      const now = new Date();
+      const createdAt = new Date(activeSession.created_at);
+      
+      const last6AM = new Date();
+      if (now.getHours() < 6) last6AM.setDate(now.getDate() - 1);
+      last6AM.setHours(6, 0, 0, 0);
+
+      if (createdAt < last6AM) {
+        await closeSession(activeSession.session_id);
+        await startSession();
+      } else {
+        const rotated = await rotateToken(activeSession.session_id);
+        setSession({ ...activeSession, qr_token: rotated.qr_token });
+        connectWebSocket(activeSession.session_id);
+        await loadSessionAttendance(activeSession.session_id);
+      }
+    } catch (err) {
+      await startSession();
     }
   };
 
   useEffect(() => {
-    if (session) return;
-
-    let cancelled = false;
-
-    const restoreActiveSession = async () => {
-      try {
-        const activeSession = await getActiveSession();
-        if (cancelled) return;
-
-        const rotated = await rotateToken(activeSession.session_id);
-        if (cancelled) return;
-
-        setSession({
-          ...activeSession,
-          qr_token: rotated.qr_token,
-        });
-        connectWebSocket(activeSession.session_id);
-        await loadSessionAttendance(activeSession.session_id);
-      } catch (err) {
-        console.error("No active session restored:", err);
-      }
+    let interval: ReturnType<typeof setInterval>;
+    
+    const init = async () => {
+      await checkAndRotateSession();
+      
+      interval = setInterval(() => {
+        const now = new Date();
+        if (now.getHours() === 6 && now.getMinutes() === 0) {
+          void checkAndRotateSession();
+        }
+      }, 60000);
     };
 
-    void restoreActiveSession();
+    void init();
+    return () => clearInterval(interval);
+  }, []); // Only on mount
 
-    return () => {
-      cancelled = true;
-    };
-  }, [session, setSession, addAttendee, token]);
+  const handleExportMonthlySummary = async () => {
+    try {
+      alert("Generating Monthly Summary (1 row per employee)...");
+      await exportAttendanceCSV(); 
+    } catch (err) {
+      console.error("Export failed:", err);
+    }
+  };
 
   useEffect(() => () => {
     disconnectWebSocket();
@@ -255,7 +273,7 @@ export default function Dashboard() {
               }}
             />
             <button
-              onClick={startSession}
+              onClick={() => startSession()}
               disabled={loading || !sessionName.trim()}
               style={{
                 width: "100%",
@@ -335,6 +353,25 @@ export default function Dashboard() {
                 }}
               >
                 Clear All Logs
+              </button>
+              <button
+                onClick={handleExportMonthlySummary}
+                style={{
+                  background: theme.successSoft,
+                  border: `1px solid ${theme.panelBorder}`,
+                  color: theme.success,
+                  padding: "10px 20px",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <Download size={15} strokeWidth={2.2} />
+                Monthly Summary
               </button>
               <button
                 onClick={() => session && exportAttendanceCSV(session.session_id)}

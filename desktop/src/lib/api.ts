@@ -39,6 +39,16 @@ export interface Session {
   qr_token: string;
 }
 
+// Shifts
+export type ShiftType = "morning" | "evening" | "night" | "all_rounder";
+
+export const SHIFTS: Record<ShiftType, { label: string; start: string; end: string }> = {
+  morning: { label: "Morning", start: "09:00", end: "15:00" },
+  evening: { label: "Evening", start: "15:00", end: "22:00" },
+  night: { label: "Night", start: "22:00", end: "06:00" },
+  all_rounder: { label: "All Rounder", start: "09:00", end: "17:00" },
+};
+
 export interface AttendanceRecord {
   employee: string;
   employee_id: string;
@@ -46,6 +56,7 @@ export interface AttendanceRecord {
   check_status: "checked_in" | "checked_out";
   checked_in_at: string;
   checked_out_at?: string | null;
+  shift?: ShiftType;
 }
 
 // Auth
