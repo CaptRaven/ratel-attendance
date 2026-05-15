@@ -1,3 +1,4 @@
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from redis.asyncio import Redis
 from pydantic import BaseModel, Field
@@ -23,6 +24,7 @@ class CreateSessionRequest(BaseModel):
 
 class RotateTokenRequest(BaseModel):
     session_id: str = Field(..., min_length=5)
+    shift: Optional[str] = None
 
 
 @router.post("/", status_code=201)
@@ -70,6 +72,7 @@ async def rotate_token(
         redis=redis,
         session_id=payload.session_id,
         location_id=session["location_id"],
+        shift=payload.shift,
     )
     return {"session_id": payload.session_id, "qr_token": token}
 

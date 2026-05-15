@@ -87,14 +87,15 @@ async def rotate_session_token(
     redis: Redis,
     session_id: str,
     location_id: str,
+    shift: str | None = None,
 ) -> str:
     """
     Generate a new QR token for the session and store in Redis.
     Called every QR_TOKEN_TTL_SECONDS by the desktop app.
     """
-    token = generate_qr_token(session_id, location_id)
+    token = generate_qr_token(session_id, location_id, shift)
     await store_active_token(redis, token, session_id)
-    logger.info("qr_token_rotated", session_id=session_id)
+    logger.info("qr_token_rotated", session_id=session_id, shift=shift)
     return token
 
 

@@ -100,6 +100,7 @@ async def check_in_or_out(
 
     session_id = token_data["session_id"]
     location_id = token_data["location_id"]
+    shift = token_data.get("shift")
 
     # ── 2. Verify token is active in Redis ───────────────────────────────
     # For offline scans, we skip the "is_token_active" check because the token
@@ -165,6 +166,7 @@ async def check_in_or_out(
             location_id=location_id,
             status=attendance_status,
             check_status=CheckStatus.CHECKED_IN,
+            shift=shift,
             token_used=payload.qr_token[:64],
         )
         db.add(attendance)

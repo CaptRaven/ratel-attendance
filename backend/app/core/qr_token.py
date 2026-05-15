@@ -28,23 +28,24 @@ QR_USED_KEY = "qr:used:{token_hash}"              # Used token (anti-replay)
 QR_TYPE = "ratel-attendance"
 
 
-def _make_token_payload(session_id: str, location_id: str) -> dict:
+def _make_token_payload(session_id: str, location_id: str, shift: str | None = None) -> dict:
     """Build the payload embedded in the QR token."""
     return {
         "type": QR_TYPE,
         "session_id": session_id,
         "location_id": location_id,
+        "shift": shift,
         "nonce": uuid.uuid4().hex,  # Unique per token — prevents replay
         "iat": int(time.time()),
     }
 
 
-def generate_qr_token(session_id: str, location_id: str) -> str:
+def generate_qr_token(session_id: str, location_id: str, shift: str | None = None) -> str:
     """
     Generate a signed and ENCRYPTED time-bound QR token.
     Returns an encrypted string that generic scanners cannot read.
     """
-    payload = _make_token_payload(session_id, location_id)
+    payload = _make_token_payload(session_id, location_id, shift)
     signed_token = serializer.dumps(payload)
     
     # Encrypt the signed token

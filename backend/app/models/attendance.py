@@ -52,6 +52,7 @@ class Attendance(Base):
     hours_clocked: Mapped[float | None] = mapped_column(
         nullable=True
     )
+    shift: Mapped[str | None] = mapped_column(String(50), nullable=True)
     token_used: Mapped[str] = mapped_column(String(512), nullable=False)
 
     employee: Mapped["User"] = relationship("User", lazy="selectin")  # noqa: F821

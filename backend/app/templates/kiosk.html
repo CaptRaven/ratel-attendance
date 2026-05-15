@@ -218,6 +218,26 @@
       min-width: min(420px, 100%);
     }
 
+    /* Shift Selector Grid */
+    .shift-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; width: 100%; margin-bottom: 32px;
+    }
+    .shift-btn {
+      padding: 16px 12px; border-radius: 16px;
+      border: 2px solid var(--border); background: white;
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; gap: 4px; transition: all 0.2s ease;
+    }
+    .shift-btn.active {
+      border-color: var(--primary); background: var(--bg-3);
+      box-shadow: 0 4px 12px rgba(15, 79, 157, 0.1);
+    }
+    .shift-label { font-size: 13px; font-weight: 700; color: var(--text); }
+    .shift-btn.active .shift-label { color: var(--primary); }
+    .shift-time { font-size: 11px; color: var(--muted); }
+    .shift-btn.active .shift-time { color: var(--primary); opacity: 0.8; }
+
     /* Enrollment UI */
     .enroll-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -256,6 +276,26 @@
     <div class="session-badge">
       <div class="dot"></div>
       <span class="session-name" id="session-name">Loading...</span>
+    </div>
+
+    <!-- Shift Selector -->
+    <div class="shift-grid" id="shift-grid">
+      <button class="shift-btn" onclick="setShift('morning')" id="btn-morning">
+        <span class="shift-label">Morning</span>
+        <span class="shift-time">09:00 - 15:00</span>
+      </button>
+      <button class="shift-btn" onclick="setShift('evening')" id="btn-evening">
+        <span class="shift-label">Evening</span>
+        <span class="shift-time">15:00 - 22:00</span>
+      </button>
+      <button class="shift-btn" onclick="setShift('night')" id="btn-night">
+        <span class="shift-label">Night</span>
+        <span class="shift-time">22:00 - 06:00</span>
+      </button>
+      <button class="shift-btn" onclick="setShift('all_rounder')" id="btn-all_rounder">
+        <span class="shift-label">All Rounder</span>
+        <span class="shift-time">09:00 - 17:00</span>
+      </button>
     </div>
 
     <div class="qr-container">
@@ -316,6 +356,32 @@
     let shouldReconnect = false;
     let enrollmentActive = false;
     let enrollmentStream = null;
+    let activeShift = "morning";
+
+    const SHIFTS = {
+      morning: { start: 6, end: 15 },
+      evening: { start: 15, end: 22 },
+      night: { start: 22, end: 6 }
+    };
+
+    function getDefaultShift() {
+      const hour = new Date().getHours();
+      if (hour >= 6 && hour < 15) return "morning";
+      if (hour >= 15 && hour < 22) return "evening";
+      return "night";
+    }
+
+    function setShift(shift) {
+      activeShift = shift;
+      updateShiftUI();
+      void rotateToken();
+    }
+
+    function updateShiftUI() {
+      document.querySelectorAll(".shift-btn").forEach(btn => btn.classList.remove("active"));
+      const activeBtn = document.getElementById(`btn-${activeShift}`);
+      if (activeBtn) activeBtn.classList.add("active");
+    }
 
     // ── Auth ──────────────────────────────────────────────────────────────
     async function authenticate() {
@@ -382,6 +448,8 @@
       sessionId = activeSession.session_id;
       sessionName = activeSession.name;
       attendees = [];
+      activeShift = getDefaultShift();
+      updateShiftUI();
       await rotateToken();
       showActiveSession(sessionName);
       await loadExistingAttendance();
@@ -426,7 +494,10 @@
           "Content-Type": "application/json",
           Authorization: `Bearer ${adminToken}`,
         },
-        body: JSON.stringify({ session_id: sessionId }),
+        body: JSON.stringify({ 
+          session_id: sessionId,
+          shift: activeShift 
+        }),
       });
       const data = await res.json();
       if (!res.ok) {

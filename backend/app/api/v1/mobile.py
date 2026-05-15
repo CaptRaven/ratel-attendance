@@ -127,6 +127,7 @@ async def mobile_checkin_page(
         context={
             "qr_token": token,
             "session_name": session["name"],
+            "shift": token_data.get("shift"),
             "known_employee": known_employee,
             "check_status": check_status,
         },

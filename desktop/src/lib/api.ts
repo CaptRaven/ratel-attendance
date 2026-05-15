@@ -76,8 +76,8 @@ export const getActiveSession = async (): Promise<Session> => {
   return res.data as Session;
 };
 
-export const rotateToken = async (session_id: string) => {
-  const res = await api.post("/sessions/rotate-token", { session_id });
+export const rotateToken = async (session_id: string, shift?: string) => {
+  const res = await api.post("/sessions/rotate-token", { session_id, shift });
   return res.data as { session_id: string; qr_token: string };
 };
 

@@ -30,7 +30,7 @@ export default function QRDisplay({ sessionId }: Props) {
   useEffect(() => {
     const initialRotate = async () => {
       try {
-        const data = await rotateToken(sessionId);
+        const data = await rotateToken(sessionId, activeShift);
         setQrToken(data.qr_token);
         setTimeLeft(TOKEN_TTL_MS / 1000);
       } catch (err) {
@@ -42,7 +42,7 @@ export default function QRDisplay({ sessionId }: Props) {
 
     intervalRef.current = setInterval(async () => {
       try {
-        const data = await rotateToken(sessionId);
+        const data = await rotateToken(sessionId, activeShift);
         setQrToken(data.qr_token);
         setTimeLeft(TOKEN_TTL_MS / 1000);
       } catch (err) {
@@ -58,7 +58,7 @@ export default function QRDisplay({ sessionId }: Props) {
       if (intervalRef.current) clearInterval(intervalRef.current);
       clearInterval(countdown);
     };
-  }, [sessionId]);
+  }, [sessionId, activeShift]);
 
   const qrValue = qrToken || ""; 
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
