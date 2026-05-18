@@ -92,7 +92,7 @@ export default function AttendeeList({ attendees }: Props) {
                   color: "white",
                   flexShrink: 0,
                 }}>
-                  {a.employee.charAt(0).toUpperCase()}
+                  {a.employee ? a.employee.charAt(0).toUpperCase() : "?"}
                 </div>
                 <div>
                   <p style={{
@@ -100,12 +100,12 @@ export default function AttendeeList({ attendees }: Props) {
                     fontSize: "14px",
                     fontWeight: "600",
                     margin: "0 0 2px 0",
-                  }}>{a.employee}</p>
+                  }}>{a.employee || "Unknown Staff"}</p>
                   <p style={{
                     color: theme.textMuted,
                     fontSize: "12px",
                     margin: 0,
-                  }}>{a.employee_id}</p>
+                  }}>{a.employee_id || "N/A"}</p>
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>

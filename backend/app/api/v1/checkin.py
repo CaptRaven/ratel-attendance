@@ -283,27 +283,31 @@ async def get_session_attendance(
     session_id: str,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(Attendance).where(Attendance.session_id == session_id)
-    )
-    records = result.scalars().all()
+    try:
+        result = await db.execute(
+            select(Attendance).where(Attendance.session_id == session_id)
+        )
+        records = result.scalars().all()
 
-    return {
-        "session_id": session_id,
-        "total": len(records),
-        "records": [
-            {
-                "employee": r.employee.full_name,
-                "employee_id": r.employee.employee_id,
-                "status": r.status,
-                "check_status": r.check_status,
-                "checked_in_at": r.checked_in_at,
-                "checked_out_at": r.checked_out_at,
-                "hours_clocked": r.hours_clocked,
-            }
-            for r in records
-        ],
-    }
+        return {
+            "session_id": session_id,
+            "total": len(records),
+            "records": [
+                {
+                    "employee": r.employee.full_name if r.employee else "Unknown",
+                    "employee_id": r.employee.employee_id if r.employee else "Unknown",
+                    "status": r.status,
+                    "check_status": r.check_status,
+                    "checked_in_at": r.checked_in_at,
+                    "checked_out_at": r.checked_out_at,
+                    "hours_clocked": r.hours_clocked,
+                }
+                for r in records
+            ],
+        }
+    except Exception as e:
+        logger.error("get_session_attendance_failed", session_id=session_id, error=str(e))
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
