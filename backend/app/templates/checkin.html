@@ -319,32 +319,41 @@
           fingerprint: getFingerprint(),
         };
 
-        const res = await fetch("/api/v1/checkin/", {
+        // Use absolute path for robustness
+        const apiURL = window.location.origin + "/api/v1/checkin/";
+        const res = await fetch(apiURL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          credentials: "include", // Send cookies
+          credentials: "include",
           body: JSON.stringify(payload),
         });
 
-        const data = await res.json();
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          console.error("Non-JSON response received");
+        }
 
         if (res.ok) {
           const params = new URLSearchParams({
-            name: data.employee,
-            status: data.status,
-            action: data.action,
-            session: data.session,
+            name: data.employee || "",
+            status: data.status || "",
+            action: data.action || "",
+            session: data.session || "",
             hours: data.hours_clocked || "",
           });
           window.location.href = `/checkin/success?${params}`;
         } else {
-          showError(data.detail || "Something went wrong. Please try again.");
+          const errorDetail = data.detail || "Server error (" + res.status + ")";
+          showError(errorDetail);
           btn.disabled = false;
           btn.textContent = IS_KNOWN && CHECK_STATUS === "checked_in"
             ? "Clock Out" : "Mark Attendance";
         }
       } catch (err) {
-        showError("Connection error. Please check your internet and try again.");
+        console.error("Fetch error:", err);
+        showError("Connection error: " + err.message + ". Please try again.");
         btn.disabled = false;
         btn.textContent = IS_KNOWN && CHECK_STATUS === "checked_in"
           ? "Clock Out" : "Mark Attendance";

@@ -85,197 +85,205 @@ async def check_in_or_out(
     - Second scan in session → CHECK OUT
     - Device binding: cookie identifies employee after first scan
     """
-
-    # ── 1. Decode and validate QR token ──────────────────────────────────
-    token_data = decode_qr_token(payload.qr_token)
-    
-    if not token_data or token_data.get("type") != QR_TYPE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired QR code. Please scan the latest code.",
-        )
-
-    session_id = token_data["session_id"]
-    location_id = token_data["location_id"]
-    shift = token_data.get("shift")
-
-    # ── 2. Verify token is active in Redis ───────────────────────────────
-    # Anti-replay is still handled by the database check below.
-    if not await is_token_active(redis, payload.qr_token):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="QR code has expired. Please scan the latest code.",
-        )
-
-    # ── 3. Verify session is open ────────────────────────────────────────
-    session = await get_session(redis, session_id)
-    if not session or not session.get("is_active"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Attendance session is closed.",
-        )
-
-    # ── 4. Resolve employee via device binding or employee_id ─────────────
-    employee = await _resolve_employee(
-        db=db,
-        device_token=device_token,
-        employee_id=payload.employee_id,
-    )
-
-    if not employee:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Employee not found. Please enter your Employee ID.",
-        )
-
-    # ── 5. Device binding — bind or verify ───────────────────────────────
-    new_device_token = await _handle_device_binding(
-        db=db,
-        employee=employee,
-        device_token=device_token,
-        fingerprint=payload.fingerprint,
-    )
-
-    # ── 6. Check existing attendance record for this session ──────────────
-    existing = await db.execute(
-        select(Attendance).where(
-            Attendance.employee_id == employee.id,
-            Attendance.session_id == session_id,
-        )
-    )
-    attendance = existing.scalar_one_or_none()
-
-    # ── 6b. Cross-Session Checkout Support ────────────────────────────────
-    # If no record in current session, look for an active "In" record from 
-    # a previous session (e.g., Night Shift workers clocking out after 6 AM).
-    if not attendance:
-        # Look for the most recent "checked_in" record for this employee
-        # created in the last 14 hours across any session.
-        cutoff = datetime.now(timezone.utc) - timedelta(hours=14)
+    try:
+        # ── 1. Decode and validate QR token ──────────────────────────────────
+        token_data = decode_qr_token(payload.qr_token)
         
-        recent_in = await db.execute(
-            select(Attendance)
-            .where(
-                Attendance.employee_id == employee.id,
-                Attendance.check_status == CheckStatus.CHECKED_IN,
-                Attendance.checked_in_at >= cutoff
+        if not token_data or token_data.get("type") != QR_TYPE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired QR code. Please scan the latest code.",
             )
-            .order_by(Attendance.checked_in_at.desc())
-            .limit(1)
+
+        session_id = token_data["session_id"]
+        location_id = token_data["location_id"]
+        shift = token_data.get("shift")
+
+        # ── 2. Verify token is active in Redis ───────────────────────────────
+        # Anti-replay is still handled by the database check below.
+        if not await is_token_active(redis, payload.qr_token):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="QR code has expired. Please scan the latest code.",
+            )
+
+        # ── 3. Verify session is open ────────────────────────────────────────
+        session = await get_session(redis, session_id)
+        if not session or not session.get("is_active"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Attendance session is closed.",
+            )
+
+        # ── 4. Resolve employee via device binding or employee_id ─────────────
+        employee = await _resolve_employee(
+            db=db,
+            device_token=device_token,
+            employee_id=payload.employee_id,
         )
-        attendance = recent_in.scalar_one_or_none()
-        
-        if attendance:
-            logger.info("cross_session_checkout_detected", 
-                        employee_id=employee.employee_id,
-                        old_session_id=attendance.session_id,
-                        new_session_id=session_id)
 
-    # Use current time
-    now = datetime.now(timezone.utc)
+        if not employee:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Employee not found. Please enter your Employee ID.",
+            )
 
-    if not attendance:
-        # ── 7a. No record → CHECK IN ──────────────────────────────────────
-        # For a 24-hour session covering multiple shifts, we default to PRESENT.
-        # Shift-based lateness can be added here in the future.
-        attendance_status = AttendanceStatus.PRESENT
+        # ── 5. Device binding — bind or verify ───────────────────────────────
+        new_device_token = await _handle_device_binding(
+            db=db,
+            employee=employee,
+            device_token=device_token,
+            fingerprint=payload.fingerprint,
+        )
 
-        attendance = Attendance(
-            employee_id=employee.id,
+        # ── 6. Check existing attendance record for this session ──────────────
+        existing = await db.execute(
+            select(Attendance).where(
+                Attendance.employee_id == employee.id,
+                Attendance.session_id == session_id,
+            )
+        )
+        attendance = existing.scalar_one_or_none()
+
+        # ── 6b. Cross-Session Checkout Support ────────────────────────────────
+        # If no record in current session, look for an active "In" record from 
+        # a previous session (e.g., Night Shift workers clocking out after 6 AM).
+        if not attendance:
+            # Look for the most recent "checked_in" record for this employee
+            # created in the last 14 hours across any session.
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=14)
+            
+            recent_in = await db.execute(
+                select(Attendance)
+                .where(
+                    Attendance.employee_id == employee.id,
+                    Attendance.check_status == CheckStatus.CHECKED_IN,
+                    Attendance.checked_in_at >= cutoff
+                )
+                .order_by(Attendance.checked_in_at.desc())
+                .limit(1)
+            )
+            attendance = recent_in.scalar_one_or_none()
+            
+            if attendance:
+                logger.info("cross_session_checkout_detected", 
+                            employee_id=employee.employee_id,
+                            old_session_id=attendance.session_id,
+                            new_session_id=session_id)
+
+        # Use current time
+        now = datetime.now(timezone.utc)
+
+        if not attendance:
+            # ── 7a. No record → CHECK IN ──────────────────────────────────────
+            # For a 24-hour session covering multiple shifts, we default to PRESENT.
+            # Shift-based lateness can be added here in the future.
+            attendance_status = AttendanceStatus.PRESENT
+
+            attendance = Attendance(
+                employee_id=employee.id,
+                session_id=session_id,
+                location_id=location_id,
+                status=attendance_status,
+                check_status=CheckStatus.CHECKED_IN,
+                shift=shift,
+                token_used=payload.qr_token[:64],
+            )
+            db.add(attendance)
+            await db.flush()
+            await db.refresh(attendance)
+
+            # Cache check-in in Redis
+            dedup_key = CHECKIN_DEDUP_KEY.format(
+                session_id=session_id, employee_id=str(employee.id)
+            )
+            await redis.setex(dedup_key, 60 * 60 * 8, "checked_in")
+
+            action = "checked_in"
+            message = f"Welcome, {employee.full_name}! You are checked in."
+
+            logger.info("checkin_success", employee_id=employee.employee_id,
+                        session_id=session_id, status=attendance_status)
+
+        elif attendance.check_status == CheckStatus.CHECKED_IN:
+            # ── 7b. Already checked in → CHECK OUT ───────────────────────────
+            hours = round(
+                (now - attendance.checked_in_at).total_seconds() / 3600, 2
+            )
+            attendance.checked_out_at = now
+            attendance.hours_clocked = hours
+            attendance.check_status = CheckStatus.CHECKED_OUT
+            await db.flush()
+
+            # Update Redis
+            dedup_key = CHECKIN_DEDUP_KEY.format(
+                session_id=session_id, employee_id=str(employee.id)
+            )
+            await redis.setex(dedup_key, 60 * 60 * 8, "checked_out")
+
+            action = "checked_out"
+            message = f"Goodbye, {employee.full_name}! Hours clocked: {hours}h"
+
+            logger.info("checkout_success", employee_id=employee.employee_id,
+                        session_id=session_id, hours=hours)
+
+        else:
+            # ── 7c. Already checked out → BLOCK ──────────────────────────────
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You have already checked in and out for this session.",
+            )
+
+        # ── 8. Publish WebSocket event ────────────────────────────────────────
+        await publish_checkin_event(
+            redis=redis,
             session_id=session_id,
-            location_id=location_id,
-            status=attendance_status,
-            check_status=CheckStatus.CHECKED_IN,
-            shift=shift,
-            token_used=payload.qr_token[:64],
-        )
-        db.add(attendance)
-        await db.flush()
-        await db.refresh(attendance)
-
-        # Cache check-in in Redis
-        dedup_key = CHECKIN_DEDUP_KEY.format(
-            session_id=session_id, employee_id=str(employee.id)
-        )
-        await redis.setex(dedup_key, 60 * 60 * 8, "checked_in")
-
-        action = "checked_in"
-        message = f"Welcome, {employee.full_name}! You are checked in."
-
-        logger.info("checkin_success", employee_id=employee.employee_id,
-                    session_id=session_id, status=attendance_status)
-
-    elif attendance.check_status == CheckStatus.CHECKED_IN:
-        # ── 7b. Already checked in → CHECK OUT ───────────────────────────
-        hours = round(
-            (now - attendance.checked_in_at).total_seconds() / 3600, 2
-        )
-        attendance.checked_out_at = now
-        attendance.hours_clocked = hours
-        attendance.check_status = CheckStatus.CHECKED_OUT
-        await db.flush()
-
-        # Update Redis
-        dedup_key = CHECKIN_DEDUP_KEY.format(
-            session_id=session_id, employee_id=str(employee.id)
-        )
-        await redis.setex(dedup_key, 60 * 60 * 8, "checked_out")
-
-        action = "checked_out"
-        message = f"Goodbye, {employee.full_name}! Hours clocked: {hours}h"
-
-        logger.info("checkout_success", employee_id=employee.employee_id,
-                    session_id=session_id, hours=hours)
-
-    else:
-        # ── 7c. Already checked out → BLOCK ──────────────────────────────
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="You have already checked in and out for this session.",
+            event={
+                "employee": employee.full_name,
+                "employee_id": employee.employee_id,
+                "user_id": str(employee.id),
+                "session_id": session_id,
+                "status": attendance.status,
+                "action": action,
+                "checked_in_at": attendance.checked_in_at.isoformat(),
+                "checked_out_at": attendance.checked_out_at.isoformat()
+                if attendance.checked_out_at else None,
+                "needs_enrollment": not employee.is_face_enrolled,
+            },
         )
 
-    # ── 8. Publish WebSocket event ────────────────────────────────────────
-    await publish_checkin_event(
-        redis=redis,
-        session_id=session_id,
-        event={
+        # ── 9. Set device cookie ──────────────────────────────────────────────
+        if new_device_token:
+            response.set_cookie(
+                key=DEVICE_COOKIE_NAME,
+                value=new_device_token,
+                max_age=COOKIE_MAX_AGE,
+                httponly=True,
+                secure=not settings.DEBUG,
+                samesite="none" if not settings.DEBUG else "lax",
+                domain=None,  # Let browser handle domain scoping
+                path="/",
+            )
+
+        return {
+            "action": action,
+            "message": message,
             "employee": employee.full_name,
             "employee_id": employee.employee_id,
-            "user_id": str(employee.id),
-            "session_id": session_id,
+            "session": session["name"],
             "status": attendance.status,
-            "action": action,
-            "checked_in_at": attendance.checked_in_at.isoformat(),
-            "checked_out_at": attendance.checked_out_at.isoformat()
-            if attendance.checked_out_at else None,
-            "needs_enrollment": not employee.is_face_enrolled,
-        },
-    )
-
-    # ── 9. Set device cookie ──────────────────────────────────────────────
-    if new_device_token:
-        response.set_cookie(
-            key=DEVICE_COOKIE_NAME,
-            value=new_device_token,
-            max_age=COOKIE_MAX_AGE,
-            httponly=True,
-            secure=not settings.DEBUG,
-            samesite="none" if not settings.DEBUG else "lax",
-            domain=None,  # Let browser handle domain scoping
-            path="/",
+            "checked_in_at": attendance.checked_in_at,
+            "checked_out_at": attendance.checked_out_at,
+            "hours_clocked": attendance.hours_clocked,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("checkin_error", error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal Server Error: {str(e)}"
         )
-
-    return {
-        "action": action,
-        "message": message,
-        "employee": employee.full_name,
-        "employee_id": employee.employee_id,
-        "session": session["name"],
-        "status": attendance.status,
-        "checked_in_at": attendance.checked_in_at,
-        "checked_out_at": attendance.checked_out_at,
-        "hours_clocked": attendance.hours_clocked,
-    }
 
 
 @router.get("/session/{session_id}")
