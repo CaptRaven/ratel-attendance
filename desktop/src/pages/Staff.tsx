@@ -1,5 +1,6 @@
-import { useState, useEffect, useEffectEvent } from "react";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserMinus, UserCheck, UserX, Edit2, Plus } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { AxiosError } from "axios";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus } from "lucide-react";
 import {
   getDepartments, createDepartment,
   getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee
@@ -31,28 +32,31 @@ export default function Staff() {
   // Department form state
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
 
-  const fetchEmployees = useEffectEvent(async () => {
+  const fetchEmployees = useCallback(async () => {
     try {
       const data = await getEmployees();
       setEmployees(data);
     } catch (err) {
       console.error("Failed to fetch employees", err);
     }
-  });
+  }, []);
 
-  const fetchDepartments = useEffectEvent(async () => {
+  const fetchDepartments = useCallback(async () => {
     try {
       const data = await getDepartments();
       setDepartments(data);
     } catch (err) {
       console.error("Failed to fetch departments", err);
     }
-  });
+  }, []);
 
   useEffect(() => {
-    fetchEmployees();
-    fetchDepartments();
-  }, []);
+    const load = async () => {
+      await fetchEmployees();
+      await fetchDepartments();
+    };
+    load();
+  }, [fetchEmployees, fetchDepartments]);
 
   const handleCreateEmployee = async () => {
     setError(""); setSuccess(""); setLoading(true);
@@ -68,8 +72,9 @@ export default function Staff() {
       });
       await fetchEmployees();
       setTimeout(() => setView("employees"), 1200);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to create employee");
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || "Failed to create employee");
     } finally {
       setLoading(false);
     }
@@ -94,11 +99,18 @@ export default function Staff() {
     if (!editingEmployee) return;
     setError(""); setSuccess(""); setLoading(true);
     try {
-      const updateData: any = {
+      const updateData: Partial<{
+        email: string;
+        full_name: string;
+        employee_id: string;
+        password?: string;
+        department_id?: string;
+        location_id?: string;
+      }> = {
         full_name: empForm.full_name,
         email: empForm.email,
         employee_id: empForm.employee_id,
-        department_id: empForm.department_id || null,
+        department_id: empForm.department_id || undefined,
         location_id: empForm.location_id,
       };
       if (empForm.password) {
@@ -109,8 +121,9 @@ export default function Staff() {
       setSuccess("Employee updated successfully.");
       await fetchEmployees();
       setTimeout(() => setView("employees"), 1200);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to update employee");
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || "Failed to update employee");
     } finally {
       setLoading(false);
     }
@@ -124,8 +137,9 @@ export default function Staff() {
       setDeptForm({ name: "", description: "" });
       await fetchDepartments();
       setTimeout(() => setView("departments"), 1200);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to create department");
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || "Failed to create department");
     } finally {
       setLoading(false);
     }
@@ -136,8 +150,9 @@ export default function Staff() {
     try {
       await deactivateEmployee(employeeId);
       await fetchEmployees();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to deactivate employee");
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      alert(axiosError.response?.data?.detail || "Failed to deactivate employee");
     }
   };
 
@@ -146,8 +161,9 @@ export default function Staff() {
     try {
       await activateEmployee(employeeId);
       await fetchEmployees();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to restore employee");
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      alert(axiosError.response?.data?.detail || "Failed to restore employee");
     }
   };
 
@@ -157,8 +173,9 @@ export default function Staff() {
     try {
       await purgeEmployee(employeeId);
       await fetchEmployees();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to purge employee");
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      alert(axiosError.response?.data?.detail || "Failed to purge employee");
     }
   };
 
