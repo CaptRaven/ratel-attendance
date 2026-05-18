@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from redis.asyncio import Redis
 from pydantic import BaseModel, Field
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 import uuid
 
@@ -150,6 +150,32 @@ async def check_in_or_out(
         )
     )
     attendance = existing.scalar_one_or_none()
+
+    # ── 6b. Cross-Session Checkout Support ────────────────────────────────
+    # If no record in current session, look for an active "In" record from 
+    # a previous session (e.g., Night Shift workers clocking out after 6 AM).
+    if not attendance:
+        # Look for the most recent "checked_in" record for this employee
+        # created in the last 14 hours across any session.
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=14)
+        
+        recent_in = await db.execute(
+            select(Attendance)
+            .where(
+                Attendance.employee_id == employee.id,
+                Attendance.check_status == CheckStatus.CHECKED_IN,
+                Attendance.checked_in_at >= cutoff
+            )
+            .order_by(Attendance.checked_in_at.desc())
+            .limit(1)
+        )
+        attendance = recent_in.scalar_one_or_none()
+        
+        if attendance:
+            logger.info("cross_session_checkout_detected", 
+                        employee_id=employee.employee_id,
+                        old_session_id=attendance.session_id,
+                        new_session_id=session_id)
 
     # Use offline timestamp if available, otherwise current time
     now = payload.offline_scanned_at or datetime.now(timezone.utc)

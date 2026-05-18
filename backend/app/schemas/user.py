@@ -15,6 +15,16 @@ class UserCreate(BaseModel):
     department_id: Optional[UUID] = None
 
 
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    full_name: Optional[str] = Field(None, min_length=2, max_length=255)
+    employee_id: Optional[str] = Field(None, min_length=2, max_length=50)
+    password: Optional[str] = Field(None, min_length=8, max_length=128)
+    role: Optional[UserRole] = None
+    location_id: Optional[str] = Field(None, max_length=100)
+    department_id: Optional[UUID] = None
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

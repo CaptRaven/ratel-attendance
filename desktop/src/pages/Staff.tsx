@@ -1,12 +1,12 @@
 import { useState, useEffect, useEffectEvent } from "react";
 import {
   getDepartments, createDepartment,
-  getEmployees, createEmployee, deactivateEmployee, activateEmployee, purgeEmployee
+  getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
 
-type View = "employees" | "add_employee" | "departments" | "add_department" | "removed_employees";
+type View = "employees" | "add_employee" | "edit_employee" | "departments" | "add_department" | "removed_employees";
 
 export default function Staff() {
   const [view, setView] = useState<View>("employees");
@@ -15,6 +15,7 @@ export default function Staff() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
 
   // Employee form state
   const [empForm, setEmpForm] = useState({
@@ -28,11 +29,6 @@ export default function Staff() {
 
   // Department form state
   const [deptForm, setDeptForm] = useState({ name: "", description: "" });
-
-  useEffect(() => {
-    fetchEmployees();
-    fetchDepartments();
-  }, []);
 
   const fetchEmployees = useEffectEvent(async () => {
     try {
@@ -52,6 +48,11 @@ export default function Staff() {
     }
   });
 
+  useEffect(() => {
+    fetchEmployees();
+    fetchDepartments();
+  }, []);
+
   const handleCreateEmployee = async () => {
     setError(""); setSuccess(""); setLoading(true);
     try {
@@ -68,6 +69,47 @@ export default function Staff() {
       setTimeout(() => setView("employees"), 1200);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to create employee");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditEmployee = (emp: User) => {
+    setEditingEmployee(emp);
+    setEmpForm({
+      full_name: emp.full_name,
+      email: emp.email,
+      employee_id: emp.employee_id,
+      password: "", // Don't show password
+      department_id: emp.department_id || "",
+      location_id: emp.location_id,
+    });
+    setView("edit_employee");
+    setError("");
+    setSuccess("");
+  };
+
+  const handleUpdateEmployee = async () => {
+    if (!editingEmployee) return;
+    setError(""); setSuccess(""); setLoading(true);
+    try {
+      const updateData: any = {
+        full_name: empForm.full_name,
+        email: empForm.email,
+        employee_id: empForm.employee_id,
+        department_id: empForm.department_id || null,
+        location_id: empForm.location_id,
+      };
+      if (empForm.password) {
+        updateData.password = empForm.password;
+      }
+
+      await updateEmployee(editingEmployee.employee_id, updateData);
+      setSuccess("Employee updated successfully.");
+      await fetchEmployees();
+      setTimeout(() => setView("employees"), 1200);
+    } catch (err: any) {
+      setError(err.response?.data?.detail || "Failed to update employee");
     } finally {
       setLoading(false);
     }
@@ -254,11 +296,11 @@ export default function Staff() {
               {/* Table header */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 100px",
+                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 150px",
                 padding: "0 16px 12px",
                 borderBottom: `1px solid ${theme.panelBorder}`,
               }}>
-                {["Name", "Email", "Employee ID", "Department", ""].map((h) => (
+                {["Name", "Email", "Employee ID", "Department", "Actions"].map((h) => (
                   <span key={h} style={{
                     color: theme.textMuted,
                     fontSize: "11px", fontWeight: "700",
@@ -271,7 +313,7 @@ export default function Staff() {
               {(view === "employees" ? activeEmployees : deactivatedEmployees).map((emp) => (
                 <div key={emp.id} style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 100px",
+                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 150px",
                   alignItems: "center",
                   background: theme.panelStrong,
                   border: `1px solid ${theme.panelBorder}`,
@@ -325,47 +367,63 @@ export default function Staff() {
                     {emp.department_name || "—"}
                   </span>
 
-                  {emp.is_active ? (
-                    <button
-                      onClick={() => handleDeactivate(emp.employee_id, emp.full_name)}
-                      style={{
-                        background: theme.dangerSoft,
-                        border: `1px solid ${theme.dangerSoft}`,
-                        color: theme.danger, borderRadius: "8px",
-                        padding: "6px 10px", fontSize: "11px",
-                        cursor: "pointer", fontWeight: "600",
-                      }}
-                    >
-                      Remove
-                    </button>
-                  ) : (
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <button
-                        onClick={() => handleActivate(emp.employee_id, emp.full_name)}
-                        style={{
-                          background: theme.successSoft,
-                          border: `1px solid ${theme.successSoft}`,
-                          color: theme.success, borderRadius: "8px",
-                          padding: "6px 10px", fontSize: "11px",
-                          cursor: "pointer", fontWeight: "600",
-                        }}
-                      >
-                        Restore
-                      </button>
-                      <button
-                        onClick={() => handlePurge(emp.employee_id, emp.full_name)}
-                        style={{
-                          background: theme.dangerSoft,
-                          border: `1px solid ${theme.dangerSoft}`,
-                          color: theme.danger, borderRadius: "8px",
-                          padding: "6px 10px", fontSize: "11px",
-                          cursor: "pointer", fontWeight: "600",
-                        }}
-                      >
-                        Purge
-                      </button>
-                    </div>
-                  )}
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    {emp.is_active ? (
+                      <>
+                        <button
+                          onClick={() => handleEditEmployee(emp)}
+                          style={{
+                            background: theme.accentSoft,
+                            border: `1px solid ${theme.accentSoft}`,
+                            color: theme.primary, borderRadius: "8px",
+                            padding: "6px 10px", fontSize: "11px",
+                            cursor: "pointer", fontWeight: "600",
+                          }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeactivate(emp.employee_id, emp.full_name)}
+                          style={{
+                            background: theme.dangerSoft,
+                            border: `1px solid ${theme.dangerSoft}`,
+                            color: theme.danger, borderRadius: "8px",
+                            padding: "6px 10px", fontSize: "11px",
+                            cursor: "pointer", fontWeight: "600",
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleActivate(emp.employee_id, emp.full_name)}
+                          style={{
+                            background: theme.successSoft,
+                            border: `1px solid ${theme.successSoft}`,
+                            color: theme.success, borderRadius: "8px",
+                            padding: "6px 10px", fontSize: "11px",
+                            cursor: "pointer", fontWeight: "600",
+                          }}
+                        >
+                          Restore
+                        </button>
+                        <button
+                          onClick={() => handlePurge(emp.employee_id, emp.full_name)}
+                          style={{
+                            background: theme.dangerSoft,
+                            border: `1px solid ${theme.dangerSoft}`,
+                            color: theme.danger, borderRadius: "8px",
+                            padding: "6px 10px", fontSize: "11px",
+                            cursor: "pointer", fontWeight: "600",
+                          }}
+                        >
+                          Purge
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -470,6 +528,7 @@ export default function Staff() {
             <select
               value={empForm.department_id}
               onChange={(e) => setEmpForm({ ...empForm, department_id: e.target.value })}
+              title="Select Department"
               style={{
                 ...s.input,
                 appearance: "none" as const,
@@ -515,6 +574,105 @@ export default function Staff() {
               }}
             >
               {loading ? "Registering..." : "Register Employee"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Employee Form ── */}
+      {view === "edit_employee" && (
+        <div style={{ maxWidth: "560px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
+            <button onClick={() => { setView("employees"); setError(""); setSuccess(""); }}
+              style={s.btnGhost}>
+              ← Back
+            </button>
+            <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>
+              Edit Employee: {editingEmployee?.full_name}
+            </h2>
+          </div>
+
+          <div style={s.card}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <div>
+                <label style={s.label}>Full Name</label>
+                <input style={s.input} placeholder="John Doe"
+                  value={empForm.full_name}
+                  onChange={(e) => setEmpForm({ ...empForm, full_name: e.target.value })} />
+              </div>
+              <div>
+                <label style={s.label}>Employee ID</label>
+                <input style={s.input} placeholder="EMP-002"
+                  value={empForm.employee_id}
+                  onChange={(e) => setEmpForm({ ...empForm, employee_id: e.target.value })} />
+              </div>
+            </div>
+
+            <label style={s.label}>Email</label>
+            <input style={s.input} type="email" placeholder="john@ratel.com"
+              value={empForm.email}
+              onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} />
+
+            <label style={s.label}>Update Password (optional)</label>
+            <input style={s.input} type="password" placeholder="Leave blank to keep current"
+              value={empForm.password}
+              onChange={(e) => setEmpForm({ ...empForm, password: e.target.value })} />
+            {empForm.password && empForm.password.length > 0 && empForm.password.length < 8 && (
+              <p style={{ color: theme.danger, fontSize: "11px", marginTop: "-10px", marginBottom: "10px" }}>
+                Password must be at least 8 characters if provided.
+              </p>
+            )}
+
+            <label style={s.label}>Department</label>
+            <select
+              value={empForm.department_id}
+              onChange={(e) => setEmpForm({ ...empForm, department_id: e.target.value })}
+              title="Select Department"
+              style={{
+                ...s.input,
+                appearance: "none" as const,
+                cursor: "pointer",
+              }}
+            >
+              <option value="">— Select Department —</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+
+            <label style={s.label}>Location ID</label>
+            <input style={s.input} placeholder="ratel-hq"
+              value={empForm.location_id}
+              onChange={(e) => setEmpForm({ ...empForm, location_id: e.target.value })} />
+
+            {error && (
+              <div style={{
+                background: theme.dangerSoft, border: `1px solid ${theme.dangerSoft}`,
+                borderRadius: "10px", padding: "12px 16px",
+                color: theme.danger, fontSize: "13px", marginBottom: "16px",
+              }}>{error}</div>
+            )}
+
+            {success && (
+              <div style={{
+                background: theme.successSoft, border: `1px solid ${theme.successSoft}`,
+                borderRadius: "10px", padding: "12px 16px",
+                color: theme.success, fontSize: "13px", marginBottom: "16px",
+              }}>{success}</div>
+            )}
+
+            <button
+              onClick={handleUpdateEmployee}
+              disabled={loading || !empForm.full_name || !empForm.email ||
+                !empForm.employee_id || (empForm.password !== "" && empForm.password.length < 8)}
+              style={{
+                ...s.btnPrimary,
+                opacity: loading || !empForm.full_name || !empForm.email ||
+                  !empForm.employee_id || (empForm.password !== "" && empForm.password.length < 8) ? 0.5 : 1,
+                cursor: loading ? "not-allowed" : "pointer",
+              }}
+            >
+              {loading ? "Updating..." : "Update Details"}
             </button>
           </div>
         </div>

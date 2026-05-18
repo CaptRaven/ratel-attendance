@@ -43,10 +43,10 @@ export interface Session {
 export type ShiftType = "morning" | "evening" | "night" | "all_rounder";
 
 export const SHIFTS: Record<ShiftType, { label: string; start: string; end: string }> = {
-  morning: { label: "Morning", start: "09:00", end: "15:00" },
+  morning: { label: "Morning", start: "08:00", end: "15:00" },
   evening: { label: "Evening", start: "15:00", end: "22:00" },
   night: { label: "Night", start: "22:00", end: "06:00" },
-  all_rounder: { label: "All Rounder", start: "09:00", end: "17:00" },
+  all_rounder: { label: "All Rounder", start: "08:00", end: "17:00" },
 };
 
 export interface AttendanceRecord {
@@ -145,6 +145,21 @@ export const createEmployee = async (data: {
   location_id?: string;
 }): Promise<User> => {
   const res = await api.post("/employees/", data);
+  return res.data;
+};
+
+export const updateEmployee = async (
+  employee_id: string,
+  data: Partial<{
+    email: string;
+    full_name: string;
+    employee_id: string;
+    password?: string;
+    department_id?: string;
+    location_id?: string;
+  }>
+): Promise<User> => {
+  const res = await api.patch(`/employees/${employee_id}`, data);
   return res.data;
 };
 
