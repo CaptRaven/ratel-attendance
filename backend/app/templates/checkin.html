@@ -317,7 +317,6 @@
           qr_token: QR_TOKEN,
           employee_id: employeeId,
           fingerprint: getFingerprint(),
-          offline_scanned_at: new Date().toISOString()
         };
 
         const res = await fetch("/api/v1/checkin/", {
@@ -345,23 +344,10 @@
             ? "Clock Out" : "Mark Attendance";
         }
       } catch (err) {
-        // Handle network error by saving to offline queue
-        const payload = {
-          qr_token: QR_TOKEN,
-          employee_id: employeeId,
-          fingerprint: getFingerprint(),
-          offline_scanned_at: new Date().toISOString()
-        };
-        const queue = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
-        queue.push(payload);
-        localStorage.setItem(OFFLINE_KEY, JSON.stringify(queue));
-
-        showError("Offline: Check-in saved and will sync when network returns.");
+        showError("Connection error. Please check your internet and try again.");
         btn.disabled = false;
-        btn.textContent = "Saved Offline";
-        setTimeout(() => {
-          window.location.href = "/checkin/success?offline=true";
-        }, 2000);
+        btn.textContent = IS_KNOWN && CHECK_STATUS === "checked_in"
+          ? "Clock Out" : "Mark Attendance";
       }
     }
 
@@ -377,52 +363,6 @@
       });
 
     initPage();
-
-    // Register Service Worker for offline support
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(reg => {
-          console.log('SW registered');
-        }).catch(err => {
-          console.error('SW registration failed', err);
-        });
-      });
-    }
-
-    // Offline storage and sync logic
-    const OFFLINE_KEY = 'ratel_offline_queue';
-
-    async function syncOfflineQueue() {
-      if (!navigator.onLine) return;
-      const queue = JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]');
-      if (queue.length === 0) return;
-
-      console.log(`Syncing ${queue.length} offline records...`);
-      const failed = [];
-
-      for (const item of queue) {
-        try {
-          const res = await fetch("/api/v1/checkin/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify(item),
-          });
-          if (!res.ok) failed.push(item);
-        } catch (err) {
-          failed.push(item);
-        }
-      }
-
-      localStorage.setItem(OFFLINE_KEY, JSON.stringify(failed));
-      if (failed.length === 0) {
-        console.log('All offline records synced!');
-      }
-    }
-
-    window.addEventListener('online', syncOfflineQueue);
-    // Try syncing on load too
-    syncOfflineQueue();
   </script>
 </body>
 </html>

@@ -110,23 +110,5 @@
     {% endif %}
     <p class="time">Recorded at {{ time }}</p>
   </div>
-
-  <script>
-    // Handle offline view
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('offline') === 'true') {
-      const card = document.getElementById('success-card');
-      card.innerHTML = `
-        <div class="icon" style="background:rgba(15,79,157,0.1); border:2px solid rgba(15,79,157,0.2);">💾</div>
-        <h1>Scan Saved!</h1>
-        <p class="name" style="color:var(--primary)">Offline Mode</p>
-        <p class="session">Your attendance was saved locally.</p>
-        <div class="hours-card">
-          <p class="hours-label">It will sync automatically when your internet returns.</p>
-        </div>
-        <p class="time">You can safely close this page.</p>
-      `;
-    }
-  </script>
 </body>
 </html>
