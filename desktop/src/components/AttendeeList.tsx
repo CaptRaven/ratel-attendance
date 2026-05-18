@@ -1,3 +1,4 @@
+import { User } from "lucide-react";
 import type { AttendanceRecord } from "@/lib/api";
 import { theme } from "@/lib/theme";
 
@@ -62,7 +63,7 @@ export default function AttendeeList({ attendees }: Props) {
             gap: "8px",
             padding: "40px 0",
           }}>
-            <span style={{ fontSize: "32px" }}></span>
+            <User size={32} strokeWidth={1.5} style={{ opacity: 0.2 }} />
             <span>Waiting for check-ins...</span>
           </div>
         ) : (
@@ -92,7 +93,7 @@ export default function AttendeeList({ attendees }: Props) {
                   color: "white",
                   flexShrink: 0,
                 }}>
-                  {a.employee ? a.employee.charAt(0).toUpperCase() : "?"}
+                  {a.employee ? a.employee.charAt(0).toUpperCase() : <User size={16} />}
                 </div>
                 <div>
                   <p style={{

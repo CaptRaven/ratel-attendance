@@ -1,4 +1,5 @@
 import { useState, useEffect, useEffectEvent } from "react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserMinus, UserCheck, UserX, Edit2, Plus } from "lucide-react";
 import {
   getDepartments, createDepartment,
   getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee
@@ -204,6 +205,7 @@ export default function Staff() {
       borderRadius: "12px", padding: "13px 24px",
       fontSize: "14px", fontWeight: "600" as const,
       cursor: "pointer", width: "100%",
+      display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
     },
     btnGhost: {
       background: theme.panelMuted,
@@ -212,6 +214,7 @@ export default function Staff() {
       borderRadius: "10px", padding: "10px 18px",
       fontSize: "13px", fontWeight: "500" as const,
       cursor: "pointer",
+      display: "flex", alignItems: "center", gap: "8px",
     },
   };
 
@@ -270,7 +273,8 @@ export default function Staff() {
                 fontSize: "13px",
               }}
             >
-              + {view === "employees" ? "Add Employee" : "Add Department"}
+              <Plus size={16} />
+              {view === "employees" ? "Add Employee" : "Add Department"}
             </button>
           )}
         </div>
@@ -283,9 +287,10 @@ export default function Staff() {
             <div style={{
               textAlign: "center", padding: "60px 0",
               color: theme.textSoft,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "16px",
             }}>
-              <div style={{ fontSize: "40px", marginBottom: "12px" }}></div>
-              <p>
+              <Users size={48} strokeWidth={1} style={{ opacity: 0.3 }} />
+              <p style={{ margin: 0 }}>
                 {view === "employees" 
                   ? "No active employees yet. Add your first employee."
                   : "No removed employees found."}
@@ -328,9 +333,9 @@ export default function Staff() {
                       background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
                       display: "flex", alignItems: "center",
                       justifyContent: "center", fontSize: "13px",
-                      fontWeight: "700", flexShrink: 0,
+                      fontWeight: "700", flexShrink: 0, color: "white",
                     }}>
-                      {emp.full_name ? emp.full_name.charAt(0).toUpperCase() : "?"}
+                      {emp.full_name ? emp.full_name.charAt(0).toUpperCase() : <Users size={16} />}
                     </div>
                     <div>
                       <p style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>
@@ -372,54 +377,62 @@ export default function Staff() {
                       <>
                         <button
                           onClick={() => handleEditEmployee(emp)}
+                          title="Edit Employee"
                           style={{
                             background: theme.accentSoft,
                             border: `1px solid ${theme.accentSoft}`,
                             color: theme.primary, borderRadius: "8px",
-                            padding: "6px 10px", fontSize: "11px",
+                            padding: "6px", fontSize: "11px",
                             cursor: "pointer", fontWeight: "600",
+                            display: "flex", alignItems: "center", justifyContent: "center",
                           }}
                         >
-                          Edit
+                          <Edit2 size={14} />
                         </button>
                         <button
                           onClick={() => handleDeactivate(emp.employee_id, emp.full_name)}
+                          title="Deactivate Employee"
                           style={{
                             background: theme.dangerSoft,
                             border: `1px solid ${theme.dangerSoft}`,
                             color: theme.danger, borderRadius: "8px",
-                            padding: "6px 10px", fontSize: "11px",
+                            padding: "6px", fontSize: "11px",
                             cursor: "pointer", fontWeight: "600",
+                            display: "flex", alignItems: "center", justifyContent: "center",
                           }}
                         >
-                          Remove
+                          <UserX size={14} />
                         </button>
                       </>
                     ) : (
                       <>
                         <button
                           onClick={() => handleActivate(emp.employee_id, emp.full_name)}
+                          title="Restore Employee"
                           style={{
                             background: theme.successSoft,
                             border: `1px solid ${theme.successSoft}`,
                             color: theme.success, borderRadius: "8px",
-                            padding: "6px 10px", fontSize: "11px",
+                            padding: "6px", fontSize: "11px",
                             cursor: "pointer", fontWeight: "600",
+                            display: "flex", alignItems: "center", justifyContent: "center",
                           }}
                         >
-                          Restore
+                          <RotateCcw size={14} />
                         </button>
                         <button
                           onClick={() => handlePurge(emp.employee_id, emp.full_name)}
+                          title="Purge Employee"
                           style={{
                             background: theme.dangerSoft,
                             border: `1px solid ${theme.dangerSoft}`,
                             color: theme.danger, borderRadius: "8px",
-                            padding: "6px 10px", fontSize: "11px",
+                            padding: "6px", fontSize: "11px",
                             cursor: "pointer", fontWeight: "600",
+                            display: "flex", alignItems: "center", justifyContent: "center",
                           }}
                         >
-                          Purge
+                          <Trash2 size={14} />
                         </button>
                       </>
                     )}
@@ -438,9 +451,10 @@ export default function Staff() {
             <div style={{
               textAlign: "center", padding: "60px 0",
               color: theme.textSoft,
+              display: "flex", flexDirection: "column", alignItems: "center", gap: "16px",
             }}>
-              <div style={{ fontSize: "40px", marginBottom: "12px" }}></div>
-              <p>No departments yet. Create your first department.</p>
+              <Building2 size={48} strokeWidth={1} style={{ opacity: 0.3 }} />
+              <p style={{ margin: 0 }}>No departments yet. Create your first department.</p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -452,18 +466,27 @@ export default function Staff() {
                   border: `1px solid ${theme.panelBorder}`,
                   borderRadius: "12px", padding: "16px 20px",
                 }}>
-                  <div>
-                    <p style={{ margin: 0, fontWeight: "600", fontSize: "15px" }}>
-                      {dept.name}
-                    </p>
-                    {dept.description && (
-                      <p style={{
-                        margin: "4px 0 0", fontSize: "13px",
-                        color: theme.textMuted,
-                      }}>
-                        {dept.description}
+                  <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                    <div style={{
+                      width: "40px", height: "40px", borderRadius: "12px",
+                      background: theme.panelMuted, display: "flex", alignItems: "center",
+                      justifyContent: "center", color: theme.primary,
+                    }}>
+                      <Building2 size={20} />
+                    </div>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: "600", fontSize: "15px" }}>
+                        {dept.name}
                       </p>
-                    )}
+                      {dept.description && (
+                        <p style={{
+                          margin: "4px 0 0", fontSize: "13px",
+                          color: theme.textMuted,
+                        }}>
+                          {dept.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <span style={{
                     fontSize: "11px", fontWeight: "700",
@@ -486,7 +509,8 @@ export default function Staff() {
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
             <button onClick={() => { setView("employees"); setError(""); setSuccess(""); }}
               style={s.btnGhost}>
-              ← Back
+              <ArrowLeft size={16} />
+              Back
             </button>
             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>
               Register Employee
@@ -573,6 +597,7 @@ export default function Staff() {
                 cursor: loading ? "not-allowed" : "pointer",
               }}
             >
+              <UserPlus size={18} />
               {loading ? "Registering..." : "Register Employee"}
             </button>
           </div>
@@ -585,7 +610,8 @@ export default function Staff() {
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
             <button onClick={() => { setView("employees"); setError(""); setSuccess(""); }}
               style={s.btnGhost}>
-              ← Back
+              <ArrowLeft size={16} />
+              Back
             </button>
             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>
               Edit Employee: {editingEmployee?.full_name}
@@ -672,6 +698,7 @@ export default function Staff() {
                 cursor: loading ? "not-allowed" : "pointer",
               }}
             >
+              <UserCheck size={18} />
               {loading ? "Updating..." : "Update Details"}
             </button>
           </div>
@@ -684,23 +711,27 @@ export default function Staff() {
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
             <button onClick={() => { setView("departments"); setError(""); setSuccess(""); }}
               style={s.btnGhost}>
-              ← Back
+              <ArrowLeft size={16} />
+              Back
             </button>
             <h2 style={{ margin: 0, fontSize: "18px", fontWeight: "700" }}>
-              Create Department
+              New Department
             </h2>
           </div>
 
           <div style={s.card}>
             <label style={s.label}>Department Name</label>
-            <input style={s.input} placeholder="e.g. Engineering"
+            <input style={s.input} placeholder="Engineering"
               value={deptForm.name}
               onChange={(e) => setDeptForm({ ...deptForm, name: e.target.value })} />
 
             <label style={s.label}>Description (optional)</label>
-            <input style={s.input} placeholder="Brief description"
+            <textarea
+              style={{ ...s.input, minHeight: "100px", resize: "none" }}
+              placeholder="Brief description of the department..."
               value={deptForm.description}
-              onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })} />
+              onChange={(e) => setDeptForm({ ...deptForm, description: e.target.value })}
+            />
 
             {error && (
               <div style={{
@@ -727,6 +758,7 @@ export default function Staff() {
                 cursor: loading ? "not-allowed" : "pointer",
               }}
             >
+              <Building2 size={18} />
               {loading ? "Creating..." : "Create Department"}
             </button>
           </div>
