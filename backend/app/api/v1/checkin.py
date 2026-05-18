@@ -181,14 +181,14 @@ async def check_in_or_out(
             attendance_status = AttendanceStatus.PRESENT
 
             attendance = Attendance(
-                employee_id=employee.id,
-                session_id=session_id,
-                location_id=location_id,
-                status=attendance_status,
-                check_status=CheckStatus.CHECKED_IN,
-                shift=shift,
-                token_used=payload.qr_token[:64],
-            )
+            employee_id=employee.id,
+            session_id=session_id,
+            location_id=location_id,
+            status=attendance_status,
+            check_status=CheckStatus.CHECKED_IN,
+            shift=shift,
+            token_used=payload.qr_token[:64],
+        )
             db.add(attendance)
             await db.flush()
             await db.refresh(attendance)
@@ -309,6 +309,7 @@ async def get_session_attendance(
                     "checked_in_at": r.checked_in_at,
                     "checked_out_at": r.checked_out_at,
                     "hours_clocked": r.hours_clocked,
+                    "shift": r.shift,
                 }
                 for r in records
             ],
