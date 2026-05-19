@@ -1,6 +1,15 @@
 import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const getBaseURL = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  // Fallback for production web if env is missing
+  if (window.location.hostname === "attendance.ratelplus.net.ng") {
+    return "https://attendance.ratelplus.net.ng/api/v1";
+  }
+  return "/api/v1";
+};
+
+const BASE_URL = getBaseURL();
 
 export const api = axios.create({
   baseURL: BASE_URL,

@@ -60,8 +60,27 @@ export default function QRDisplay({ sessionId }: Props) {
     };
   }, [sessionId, activeShift]);
 
-  const checkinUrl = import.meta.env.VITE_CHECKIN_URL || "";
+  const getCheckinUrl = () => {
+    if (import.meta.env.VITE_CHECKIN_URL) return import.meta.env.VITE_CHECKIN_URL;
+    // Fallback for production if env is missing
+    if (window.location.hostname === "attendance.ratelplus.net.ng") {
+      return "https://attendance.ratelplus.net.ng/checkin";
+    }
+    // If we're in Tauri or some other env without the variable, 
+    // we really need that variable. But we can try to guess.
+    return "";
+  };
+
+  const checkinUrl = getCheckinUrl();
   const qrValue = qrToken ? (checkinUrl ? `${checkinUrl}?token=${qrToken}` : qrToken) : "";
+
+  useEffect(() => {
+    if (qrValue) {
+      console.log("QR Content:", qrValue);
+      console.log("Checkin URL Env:", import.meta.env.VITE_CHECKIN_URL);
+    }
+  }, [qrValue]);
+
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
   const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
 

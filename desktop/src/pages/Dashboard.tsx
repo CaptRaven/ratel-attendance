@@ -15,7 +15,15 @@ import AttendeeList from "@/components/AttendeeList";
 import { theme } from "@/lib/theme";
 import { Download, Play, Square } from "lucide-react";
 
-const WS_BASE_URL = import.meta.env.VITE_WS_URL || "wss://ratel-attendance.onrender.com";
+const getWSBaseURL = () => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  if (window.location.hostname === "attendance.ratelplus.net.ng") {
+    return "wss://attendance.ratelplus.net.ng";
+  }
+  return "wss://ratel-attendance.onrender.com";
+};
+
+const WS_BASE_URL = getWSBaseURL();
 
 export default function Dashboard() {
   const { token, user } = useAuthStore();
@@ -180,7 +188,7 @@ export default function Dashboard() {
       alert("Generating Monthly Summary (1 row per employee)...");
       await exportAttendanceCSV(); 
     } catch (err) {
-      console.error("Export failed:", err);
+      console.error("Failed to export monthly summary:", err);
     }
   };
 
