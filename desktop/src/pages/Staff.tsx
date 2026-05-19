@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { AxiosError } from "axios";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   getDepartments, createDepartment,
   getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee
@@ -18,6 +20,7 @@ export default function Staff() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
+  const [downloadDeptId, setDownloadDeptId] = useState("");
 
   // Employee form state
   const [empForm, setEmpForm] = useState({
@@ -179,6 +182,45 @@ export default function Staff() {
     }
   };
 
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    const filteredEmployees = employees.filter(emp => 
+      emp.is_active && (!downloadDeptId || emp.department_id === downloadDeptId)
+    );
+
+    const deptName = downloadDeptId 
+      ? departments.find(d => d.id === downloadDeptId)?.name || "Selected Department"
+      : "All Departments";
+
+    doc.setFontSize(20);
+    doc.setTextColor(33, 33, 33);
+    doc.text("Staff Directory", 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Department: ${deptName}`, 14, 30);
+    doc.text(`Total Staff: ${filteredEmployees.length}`, 14, 35);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 40);
+
+    const tableData = filteredEmployees.map(emp => [
+      emp.full_name,
+      emp.email,
+      emp.employee_id,
+      emp.department_name || "—"
+    ]);
+
+    autoTable(doc, {
+      startY: 48,
+      head: [["Name", "Email", "Employee ID", "Department"]],
+      body: tableData,
+      headStyles: { fillColor: [79, 70, 229], textColor: 255 }, // theme.primary equivalent
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      margin: { top: 48 },
+    });
+
+    doc.save(`staff_list_${deptName.toLowerCase().replace(/\s+/g, '_')}.pdf`);
+  };
+
   const s = {
     page: {
       minHeight: "100vh",
@@ -278,21 +320,58 @@ export default function Staff() {
             </button>
           ))}
           {(view === "employees" || view === "departments") && (
-            <button
-              onClick={() => setView(
-                view === "employees" ? "add_employee" : "add_department"
+            <div style={{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: "center" }}>
+              {view === "employees" && (
+                <div style={{ display: "flex", gap: "8px", alignItems: "center", marginRight: "12px" }}>
+                  <select
+                    value={downloadDeptId}
+                    onChange={(e) => setDownloadDeptId(e.target.value)}
+                    title="Filter by Department for Download"
+                    style={{
+                      ...s.btnGhost,
+                      padding: "8px 12px",
+                      fontSize: "12px",
+                      appearance: "none",
+                      cursor: "pointer",
+                      background: theme.panelStrong,
+                    }}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleDownloadPDF}
+                    title="Download Staff List PDF"
+                    style={{
+                      ...s.btnGhost,
+                      padding: "8px 12px",
+                      background: theme.accentSoft,
+                      color: theme.primary,
+                      borderColor: theme.accent,
+                    }}
+                  >
+                    <Download size={16} />
+                    PDF
+                  </button>
+                </div>
               )}
-              style={{
-                ...s.btnPrimary,
-                width: "auto",
-                marginLeft: "auto",
-                padding: "10px 20px",
-                fontSize: "13px",
-              }}
-            >
-              <Plus size={16} />
-              {view === "employees" ? "Add Employee" : "Add Department"}
-            </button>
+              <button
+                onClick={() => setView(
+                  view === "employees" ? "add_employee" : "add_department"
+                )}
+                style={{
+                  ...s.btnPrimary,
+                  width: "auto",
+                  padding: "10px 20px",
+                  fontSize: "13px",
+                }}
+              >
+                <Plus size={16} />
+                {view === "employees" ? "Add Employee" : "Add Department"}
+              </button>
+            </div>
           )}
         </div>
       )}
