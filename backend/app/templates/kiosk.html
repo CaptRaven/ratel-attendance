@@ -532,11 +532,21 @@
 
     function renderQR() {
       if (!qrToken) return;
-      // Use raw encrypted token only — blocks generic QR scanners from opening URLs
+      
+      // Derive the check-in URL
+      let checkinUrl = "https://attendance.ratelplus.net.ng/checkin";
+      if (window.location.origin.includes("localhost") || window.location.origin.includes("127.0.0.1")) {
+        // Dev fallback
+      } else {
+        checkinUrl = window.location.origin + "/checkin";
+      }
+
+      const qrValue = `${checkinUrl}?token=${qrToken}`;
+      
       const container = document.getElementById("qrcode");
       container.innerHTML = "";
       qrCode = new QRCode(container, {
-        text: qrToken,
+        text: qrValue,
         width: 400, // Render at high resolution
         height: 400,
         colorDark: "#000000",

@@ -25,6 +25,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+@app.get("/manifest.json")
+async def get_manifest():
+    with open("app/static/manifest.json", "r") as f:
+        content = f.read()
+    return Response(content=content, media_type="application/json")
+
+@app.get("/static/manifest.json")
+async def get_static_manifest():
+    with open("app/static/manifest.json", "r") as f:
+        content = f.read()
+    return Response(content=content, media_type="application/json")
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.add_middleware(
