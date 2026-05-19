@@ -25,6 +25,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+@app.get("/.well-known/apple-app-site-association")
+async def get_apple_association():
+    with open("app/static/.well-known/apple-app-site-association", "r") as f:
+        content = f.read()
+    return Response(content=content, media_type="application/json")
+
+@app.get("/.well-known/assetlinks.json")
+async def get_android_association():
+    with open("app/static/.well-known/assetlinks.json", "r") as f:
+        content = f.read()
+    return Response(content=content, media_type="application/json")
+
 @app.get("/manifest.json")
 async def get_manifest():
     with open("app/static/manifest.json", "r") as f:

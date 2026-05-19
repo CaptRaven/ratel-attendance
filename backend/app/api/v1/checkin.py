@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from redis.asyncio import Redis
@@ -69,6 +69,44 @@ async def enroll_face(
     
     logger.info("face_enrolled", user_id=str(user.id), employee_id=user.employee_id)
     return {"message": f"Face enrolled successfully for {user.full_name}"}
+
+
+@router.get("/resolve-fingerprint")
+async def resolve_fingerprint(
+    fingerprint: str = Query(..., min_length=5),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Try to resolve an employee name from a browser fingerprint.
+    Used for 'consistency' when moving between App and Safari.
+    """
+    # Look for a device binding with this fingerprint
+    # We take the most recent one if multiple exist (though ideally they shouldn't)
+    result = await db.execute(
+        select(DeviceBinding)
+        .where(DeviceBinding.fingerprint == fingerprint)
+        .order_by(DeviceBinding.last_seen_at.desc())
+        .limit(1)
+    )
+    binding = result.scalar_one_or_none()
+    
+    if not binding:
+        return {"found": False}
+        
+    # Get employee details
+    emp_result = await db.execute(
+        select(User).where(User.id == binding.employee_id)
+    )
+    employee = emp_result.scalar_one_or_none()
+    
+    if not employee or not employee.is_active:
+        return {"found": False}
+        
+    return {
+        "found": True,
+        "full_name": employee.full_name,
+        "employee_id": employee.employee_id,
+    }
 
 
 @router.post("/", status_code=201)

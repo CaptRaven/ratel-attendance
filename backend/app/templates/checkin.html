@@ -238,9 +238,9 @@
       document.getElementById("checkin-data").textContent
     );
     const QR_TOKEN = pageData.qr_token;
-    const IS_KNOWN = pageData.is_known;
-    const KNOWN_NAME = pageData.known_name;
-    const KNOWN_ID = pageData.known_id;
+    let IS_KNOWN = pageData.is_known;
+    let KNOWN_NAME = pageData.known_name;
+    let KNOWN_ID = pageData.known_id;
     const CHECK_STATUS = pageData.check_status; // "none", "checked_in", "checked_out"
 
     // Generate simple browser fingerprint
@@ -258,6 +258,26 @@
         hash |= 0;
       }
       return Math.abs(hash).toString(16);
+    }
+
+    async function tryResolveFingerprint() {
+      if (IS_KNOWN) return;
+      
+      const fp = getFingerprint();
+      try {
+        const res = await fetch(`/api/v1/checkin/resolve-fingerprint?fingerprint=${fp}`);
+        const data = await res.json();
+        
+        if (data.found) {
+          IS_KNOWN = true;
+          KNOWN_NAME = data.full_name;
+          KNOWN_ID = data.employee_id;
+          initPage();
+          console.log("Consistency achieved: Resolved identity from device fingerprint.");
+        }
+      } catch (e) {
+        console.warn("Fingerprint resolution failed", e);
+      }
     }
 
     function initPage() {
@@ -282,11 +302,13 @@
         } else {
           document.getElementById("page-title").textContent = "Check In";
           document.getElementById("action-btn").textContent = "Clock In";
+          document.getElementById("known-sub").textContent = "Device recognized";
         }
       }
     }
 
     function showIdInput() {
+      IS_KNOWN = false;
       document.getElementById("known-employee").classList.remove("visible");
       document.getElementById("id-section").style.display = "block";
       document.getElementById("action-btn").textContent = "Mark Attendance";
@@ -306,6 +328,8 @@
           showError("Please enter your Employee ID");
           return;
         }
+      } else {
+        employeeId = KNOWN_ID;
       }
 
       btn.disabled = true;
@@ -348,15 +372,12 @@
           const errorDetail = data.detail || "Server error (" + res.status + ")";
           showError(errorDetail);
           btn.disabled = false;
-          btn.textContent = IS_KNOWN && CHECK_STATUS === "checked_in"
-            ? "Clock Out" : "Mark Attendance";
+          btn.textContent = CHECK_STATUS === "checked_in" ? "Clock Out" : "Clock In";
         }
       } catch (err) {
-        console.error("Fetch error:", err);
-        showError("Connection error: " + err.message + ". Please try again.");
+        showError("Network error. Please try again.");
         btn.disabled = false;
-        btn.textContent = IS_KNOWN && CHECK_STATUS === "checked_in"
-          ? "Clock Out" : "Mark Attendance";
+        btn.textContent = CHECK_STATUS === "checked_in" ? "Clock Out" : "Clock In";
       }
     }
 
@@ -372,6 +393,7 @@
       });
 
     initPage();
+    tryResolveFingerprint();
   </script>
 </body>
 </html>
