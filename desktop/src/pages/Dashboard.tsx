@@ -16,11 +16,19 @@ import { theme } from "@/lib/theme";
 import { Download, Play, Square } from "lucide-react";
 
 const getWSBaseURL = () => {
+  // 1. Try Environment Variable
   if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
-  if (window.location.hostname === "attendance.ratelplus.net.ng") {
-    return "wss://attendance.ratelplus.net.ng";
+
+  // 2. Try to derive from current origin if we are on the web
+  if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    if (window.location.origin.includes("ratelplus.net.ng")) {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return `${proto}//${window.location.host}`;
+    }
   }
-  return "wss://ratel-attendance.onrender.com";
+
+  // 3. Absolute Fallback to Production
+  return "wss://attendance.ratelplus.net.ng";
 };
 
 const WS_BASE_URL = getWSBaseURL();

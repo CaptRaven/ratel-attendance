@@ -1,12 +1,18 @@
 import axios from "axios";
 
 const getBaseURL = () => {
+  // 1. Try Environment Variable
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
-  // Fallback for production web if env is missing
-  if (window.location.hostname === "attendance.ratelplus.net.ng") {
-    return "https://attendance.ratelplus.net.ng/api/v1";
+
+  // 2. Try to derive from current origin if we are on the web
+  if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    if (window.location.origin.includes("ratelplus.net.ng")) {
+      return `${window.location.origin}/api/v1`;
+    }
   }
-  return "/api/v1";
+
+  // 3. Absolute Fallback to Production
+  return "https://attendance.ratelplus.net.ng/api/v1";
 };
 
 const BASE_URL = getBaseURL();

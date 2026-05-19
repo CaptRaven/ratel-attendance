@@ -61,25 +61,22 @@ export default function QRDisplay({ sessionId }: Props) {
   }, [sessionId, activeShift]);
 
   const getCheckinUrl = () => {
+    // 1. Try Environment Variable
     if (import.meta.env.VITE_CHECKIN_URL) return import.meta.env.VITE_CHECKIN_URL;
-    // Fallback for production if env is missing
-    if (window.location.hostname === "attendance.ratelplus.net.ng") {
-      return "https://attendance.ratelplus.net.ng/checkin";
+    
+    // 2. Try to derive from current origin if we are on the web
+    if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+       if (window.location.origin.includes("ratelplus.net.ng")) {
+         return `${window.location.origin}/checkin`;
+       }
     }
-    // If we're in Tauri or some other env without the variable, 
-    // we really need that variable. But we can try to guess.
-    return "";
+
+    // 3. Absolute Fallback to Production (Most likely what they need)
+    return "https://attendance.ratelplus.net.ng/checkin";
   };
 
   const checkinUrl = getCheckinUrl();
   const qrValue = qrToken ? (checkinUrl ? `${checkinUrl}?token=${qrToken}` : qrToken) : "";
-
-  useEffect(() => {
-    if (qrValue) {
-      console.log("QR Content:", qrValue);
-      console.log("Checkin URL Env:", import.meta.env.VITE_CHECKIN_URL);
-    }
-  }, [qrValue]);
 
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
   const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
