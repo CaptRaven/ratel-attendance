@@ -60,7 +60,8 @@ export default function QRDisplay({ sessionId }: Props) {
     };
   }, [sessionId, activeShift]);
 
-  const qrValue = qrToken || ""; 
+  const checkinUrl = import.meta.env.VITE_CHECKIN_URL || "";
+  const qrValue = qrToken ? (checkinUrl ? `${checkinUrl}?token=${qrToken}` : qrToken) : "";
   const progress = (timeLeft / (TOKEN_TTL_MS / 1000)) * 100;
   const progressColor = timeLeft > 10 ? theme.success : timeLeft > 5 ? theme.warning : theme.primary;
 

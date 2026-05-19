@@ -59,13 +59,25 @@ def decode_qr_token(token: str, max_age: int | None = None) -> dict | None:
     """
     Decrypt and decode a QR token.
     Returns the payload dict or None if invalid/expired.
+    
+    Robustness: Handles both raw tokens and full URLs.
     """
+    if not token:
+        return None
+
+    # Handle case where full URL is passed instead of just the token
+    if "token=" in token:
+        try:
+            token = token.split("token=")[-1].split("&")[0]
+        except Exception:
+            pass
+
     try:
         # 1. Decrypt first
         try:
             decrypted_token = cipher.decrypt(token.encode()).decode()
         except Exception:
-            logger.warning("qr_token_decryption_failed")
+            logger.warning("qr_token_decryption_failed", token_prefix=token[:10])
             return None
 
         # 2. Decode and verify signature
