@@ -55,6 +55,16 @@ def generate_qr_token(session_id: str, location_id: str, shift: str | None = Non
     return encrypted_token
 
 
+def _extract_token_from_url(token: str) -> str:
+    """Extract raw token from URL string if needed."""
+    if "token=" in token:
+        try:
+            return token.split("token=")[-1].split("&")[0]
+        except Exception:
+            pass
+    return token
+
+
 def decode_qr_token(token: str, max_age: int | None = None) -> dict | None:
     """
     Decrypt and decode a QR token.
@@ -66,11 +76,7 @@ def decode_qr_token(token: str, max_age: int | None = None) -> dict | None:
         return None
 
     # Handle case where full URL is passed instead of just the token
-    if "token=" in token:
-        try:
-            token = token.split("token=")[-1].split("&")[0]
-        except Exception:
-            pass
+    token = _extract_token_from_url(token)
 
     try:
         # 1. Decrypt first
@@ -97,12 +103,14 @@ def decode_qr_token(token: str, max_age: int | None = None) -> dict | None:
 
 async def store_active_token(redis: Redis, token: str, session_id: str) -> None:
     """Store token in Redis with TTL. Used to track the currently active token."""
+    token = _extract_token_from_url(token)
     key = QR_TOKEN_KEY.format(token_hash=_hash_token(token))
     await redis.setex(key, settings.QR_TOKEN_TTL_SECONDS, session_id)
 
 
 async def is_token_active(redis: Redis, token: str) -> bool:
     """Check if a token is currently active in Redis."""
+    token = _extract_token_from_url(token)
     key = QR_TOKEN_KEY.format(token_hash=_hash_token(token))
     return await redis.exists(key) == 1
 
@@ -113,6 +121,7 @@ async def consume_token(redis: Redis, token: str) -> bool:
     Returns True if successfully consumed, False if already used.
     Anti-replay: once consumed, token can never be reused.
     """
+    token = _extract_token_from_url(token)
     token_hash = _hash_token(token)
     active_key = QR_TOKEN_KEY.format(token_hash=token_hash)
     used_key = QR_USED_KEY.format(token_hash=token_hash)

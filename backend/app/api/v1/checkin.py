@@ -125,7 +125,15 @@ async def check_in_or_out(
     """
     try:
         # ── 1. Decode and validate QR token ──────────────────────────────────
-        token_data = decode_qr_token(payload.qr_token)
+        # First, extract token from URL if Android app sent a full URL
+        qr_token = payload.qr_token
+        if "token=" in qr_token:
+            try:
+                qr_token = qr_token.split("token=")[-1].split("&")[0]
+            except Exception:
+                pass
+
+        token_data = decode_qr_token(qr_token)
         
         if not token_data or token_data.get("type") != QR_TYPE:
             raise HTTPException(
@@ -139,7 +147,7 @@ async def check_in_or_out(
 
         # ── 2. Verify token is active in Redis ───────────────────────────────
         # Anti-replay is still handled by the database check below.
-        if not await is_token_active(redis, payload.qr_token):
+        if not await is_token_active(redis, qr_token):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="QR code has expired. Please scan the latest code.",
@@ -225,7 +233,7 @@ async def check_in_or_out(
             status=attendance_status,
             check_status=CheckStatus.CHECKED_IN,
             shift=shift,
-            token_used=payload.qr_token[:64],
+            token_used=qr_token[:64],
         )
             db.add(attendance)
             await db.flush()
