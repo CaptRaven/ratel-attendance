@@ -108,7 +108,7 @@ async def checkin_success_page(
     session: str = Query(...),
     hours: str = Query(default=""),
 ):
-    now = datetime.now(timezone.utc).strftime("%I:%M %p · %b %d, %Y")
+    now_utc = datetime.now(timezone.utc).isoformat()
     return templates.TemplateResponse(
         request=request,
         name="success.html",
@@ -118,7 +118,7 @@ async def checkin_success_page(
             "action": action,
             "session": session,
             "hours": hours,
-            "time": now,
+            "time_utc": now_utc,
         },
     )
 

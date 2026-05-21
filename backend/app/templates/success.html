@@ -117,7 +117,21 @@
         {{ status if status else 'PRESENT' }}
       </div>
     {% endif %}
-    <p class="time">Recorded at {{ time }}</p>
+    <p class="time" id="recorded-time">Recorded at <span class="time-value"></span></p>
   </div>
+  <script>
+    // Format the UTC time in the user's local time zone
+    const timeUtc = "{{ time_utc }}";
+    const date = new Date(timeUtc);
+    const formattedTime = date.toLocaleString("en-GB", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    }).replace(",", " ·");
+    document.querySelector(".time-value").textContent = formattedTime;
+  </script>
 </body>
 </html>
