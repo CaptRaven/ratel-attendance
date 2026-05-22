@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, Query, Response
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -71,7 +71,7 @@ async def mobile_checkin_page(
             known_employee = emp_result.scalar_one_or_none()
 
             if known_employee:
-                # Check their current status in this session
+                # First check current session
                 att_result = await db.execute(
                     select(Attendance).where(
                         Attendance.employee_id == known_employee.id,
@@ -79,8 +79,26 @@ async def mobile_checkin_page(
                     )
                 )
                 attendance = att_result.scalar_one_or_none()
+                
                 if attendance:
                     check_status = attendance.check_status.value
+                else:
+                    # If no record in current session, check cross‑session for active check‑in (last 14h)
+                    cutoff = datetime.now(timezone.utc) - timedelta(hours=14)
+                    recent_in = await db.execute(
+                        select(Attendance)
+                        .where(
+                            Attendance.employee_id == known_employee.id,
+                            Attendance.check_status == CheckStatus.CHECKED_IN,
+                            Attendance.checked_in_at >= cutoff
+                        )
+                        .order_by(Attendance.checked_in_at.desc())
+                        .limit(1)
+                    )
+                    recent_attendance = recent_in.scalar_one_or_none()
+                    if recent_attendance:
+                        # They have an active check‑in from another session
+                        check_status = "checked_in"
 
     logger.info("mobile_checkin_page_loaded",
                 session_id=token_data["session_id"],
