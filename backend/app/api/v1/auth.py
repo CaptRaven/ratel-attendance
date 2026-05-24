@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.database import get_db
@@ -7,12 +7,16 @@ from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserRespon
 from app.core.security import verify_password, hash_password, create_access_token
 from app.api.deps import require_admin
 from app.core.logging import logger
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("20/minute")
+async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == payload.email))
     user = result.scalar_one_or_none()
 
@@ -42,7 +46,9 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/register-employee", response_model=UserResponse, status_code=201)
+@limiter.limit("50/minute")
 async def register_employee(
+    request: Request,
     payload: UserCreate,
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),

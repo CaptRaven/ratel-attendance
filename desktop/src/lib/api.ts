@@ -31,6 +31,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Handle 401 errors (expired tokens) by logging out
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem("ratel_token");
+      localStorage.removeItem("ratel_user");
+      window.location.reload();
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Types
 export interface User {
   id: string;

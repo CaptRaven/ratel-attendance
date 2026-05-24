@@ -7,6 +7,8 @@ import {
   getActiveSession,
   rotateToken,
   clearAllAttendance,
+  SHIFTS,
+  type ShiftType,
 } from "@/lib/api";
 import { useSessionStore } from "@/store/sessionStore";
 import { useAuthStore } from "@/store/authStore";
@@ -32,6 +34,32 @@ const getWSBaseURL = () => {
 };
 
 const WS_BASE_URL = getWSBaseURL();
+
+const autoDetectShift = (): ShiftType => {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const currentTime = hours * 60 + minutes;
+
+  const shiftToMinutes = (time: string) => {
+    const [h, m] = time.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const morningStart = shiftToMinutes(SHIFTS.morning.start);
+  const morningEnd = shiftToMinutes(SHIFTS.morning.end);
+  
+  const eveningStart = shiftToMinutes(SHIFTS.evening.start);
+  const eveningEnd = shiftToMinutes(SHIFTS.evening.end);
+
+  if (currentTime >= morningStart && currentTime < morningEnd) {
+    return "morning";
+  } else if (currentTime >= eveningStart && currentTime < eveningEnd) {
+    return "evening";
+  } else {
+    return "night";
+  }
+};
 
 export default function Dashboard() {
   const { token, user } = useAuthStore();
@@ -163,7 +191,8 @@ export default function Dashboard() {
         await closeSession(activeSession.session_id);
         await startSession();
       } else {
-        const rotated = await rotateToken(activeSession.session_id);
+        const detectedShift = autoDetectShift();
+        const rotated = await rotateToken(activeSession.session_id, detectedShift);
         setSession({ ...activeSession, qr_token: rotated.qr_token });
         connectWebSocket(activeSession.session_id);
         await loadSessionAttendance(activeSession.session_id);
@@ -332,7 +361,7 @@ export default function Dashboard() {
             boxShadow: theme.shadow,
           }}>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
                 <div style={{
                   width: "8px",
                   height: "8px",
@@ -346,6 +375,16 @@ export default function Dashboard() {
                   fontWeight: "700",
                   margin: 0,
                 }}>{session.name}</h2>
+                <div style={{
+                  background: theme.primary,
+                  color: "white",
+                  padding: "4px 12px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                }}>
+                  {SHIFTS[autoDetectShift()].label} Shift
+                </div>
               </div>
               <p style={{
                 color: theme.textMuted,

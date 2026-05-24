@@ -12,7 +12,7 @@ def get_redis_pool() -> ConnectionPool:
     if _pool is None:
         _pool = ConnectionPool.from_url(
             settings.REDIS_URL,
-            max_connections=20,
+            max_connections=100,
             decode_responses=True,
         )
     return _pool

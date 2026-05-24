@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from redis.asyncio import Redis
@@ -23,8 +23,11 @@ from app.core.events import publish_checkin_event
 from app.core.logging import logger
 from app.config import get_settings
 from app.api.deps import require_admin
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/checkin", tags=["Check-in"])
+limiter = Limiter(key_func=get_remote_address)
 
 CHECKIN_DEDUP_KEY = "checkin:{session_id}:{employee_id}"
 DEVICE_COOKIE_NAME = "ratel_device"
@@ -44,7 +47,9 @@ class EnrollFaceRequest(BaseModel):
 
 
 @router.post("/enroll", status_code=200)
+@limiter.limit("50/minute")
 async def enroll_face(
+    request: Request,
     payload: EnrollFaceRequest,
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
@@ -72,7 +77,9 @@ async def enroll_face(
 
 
 @router.get("/resolve-fingerprint")
+@limiter.limit("100/minute")
 async def resolve_fingerprint(
+    request: Request,
     fingerprint: str = Query(..., min_length=5),
     db: AsyncSession = Depends(get_db),
 ):
@@ -110,7 +117,9 @@ async def resolve_fingerprint(
 
 
 @router.post("/", status_code=201)
+@limiter.limit("100/minute")
 async def check_in_or_out(
+    request: Request,
     payload: CheckInRequest,
     response: Response,
     db: AsyncSession = Depends(get_db),
@@ -328,12 +337,14 @@ async def check_in_or_out(
         logger.error("checkin_error", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal Server Error: {str(e)}"
+            detail="Internal Server Error"
         )
 
 
 @router.get("/session/{session_id}")
+@limiter.limit("100/minute")
 async def get_session_attendance(
+    request: Request,
     session_id: str,
     db: AsyncSession = Depends(get_db),
 ):

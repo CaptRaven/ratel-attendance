@@ -1,5 +1,5 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from redis.asyncio import Redis
 from pydantic import BaseModel, Field
 from app.redis_client import get_redis
@@ -13,8 +13,11 @@ from app.core.session_manager import (
 from app.api.deps import require_admin
 from app.models.user import User
 from app.core.logging import logger
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 class CreateSessionRequest(BaseModel):
@@ -28,7 +31,9 @@ class RotateTokenRequest(BaseModel):
 
 
 @router.post("/", status_code=201)
+@limiter.limit("50/minute")
 async def start_session(
+    request: Request,
     payload: CreateSessionRequest,
     redis: Redis = Depends(get_redis),
     admin: User = Depends(require_admin),
@@ -45,7 +50,9 @@ async def start_session(
 
 
 @router.post("/rotate-token")
+@limiter.limit("100/minute")
 async def rotate_token(
+    request: Request,
     payload: RotateTokenRequest,
     redis: Redis = Depends(get_redis),
     admin: User = Depends(require_admin),
@@ -78,7 +85,9 @@ async def rotate_token(
 
 
 @router.get("/active")
+@limiter.limit("100/minute")
 async def get_current_active_session(
+    request: Request,
     redis: Redis = Depends(get_redis),
     admin: User = Depends(require_admin),
 ):
@@ -94,7 +103,9 @@ async def get_current_active_session(
 
 
 @router.get("/{session_id}")
+@limiter.limit("100/minute")
 async def get_session_info(
+    request: Request,
     session_id: str,
     redis: Redis = Depends(get_redis),
     admin: User = Depends(require_admin),
@@ -110,7 +121,9 @@ async def get_session_info(
 
 
 @router.post("/{session_id}/close")
+@limiter.limit("50/minute")
 async def end_session(
+    request: Request,
     session_id: str,
     redis: Redis = Depends(get_redis),
     admin: User = Depends(require_admin),

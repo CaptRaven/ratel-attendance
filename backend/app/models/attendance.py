@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum
+from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
@@ -56,3 +56,13 @@ class Attendance(Base):
     token_used: Mapped[str] = mapped_column(String(512), nullable=False)
 
     employee: Mapped["User"] = relationship("User", lazy="selectin")  # noqa: F821
+
+    __table_args__ = (
+        Index("idx_attendance_employee_session", "employee_id", "session_id"),
+        Index(
+            "idx_attendance_employee_status_checked_in",
+            "employee_id",
+            "check_status",
+            "checked_in_at",
+        ),
+    )
