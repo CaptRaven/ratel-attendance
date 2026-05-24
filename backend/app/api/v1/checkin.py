@@ -189,6 +189,7 @@ async def check_in_or_out(
             employee=employee,
             device_token=device_token,
             fingerprint=payload.fingerprint,
+            employee_id_provided=bool(payload.employee_id),
         )
 
         # ── 6. Check existing attendance record for this session ──────────────
@@ -384,29 +385,9 @@ async def _resolve_employee(
     employee_id: Optional[str],
 ) -> Optional[User]:
     """
-    Resolve employee from device cookie first, then fall back to employee_id.
+    Resolve employee from employee_id first (priority), then fall back to device cookie.
     """
-    if device_token:
-        # Look up device binding
-        result = await db.execute(
-            select(DeviceBinding).where(
-                DeviceBinding.device_token == device_token
-            )
-        )
-        binding = result.scalar_one_or_none()
-        if binding:
-            # Update last seen
-            binding.last_seen_at = datetime.now(timezone.utc)
-            # Return bound employee
-            emp_result = await db.execute(
-                select(User).where(
-                    User.id == binding.employee_id,
-                    User.is_active == True,  # noqa: E712
-                )
-            )
-            return emp_result.scalar_one_or_none()
-
-    # Fall back to employee_id input
+    # First prioritize employee_id if provided (override device)
     if employee_id:
         result = await db.execute(
             select(User).where(
@@ -416,6 +397,24 @@ async def _resolve_employee(
         )
         return result.scalar_one_or_none()
 
+    # Fall back to device cookie only if no employee_id
+    if device_token:
+        result = await db.execute(
+            select(DeviceBinding).where(
+                DeviceBinding.device_token == device_token
+            )
+        )
+        binding = result.scalar_one_or_none()
+        if binding:
+            binding.last_seen_at = datetime.now(timezone.utc)
+            emp_result = await db.execute(
+                select(User).where(
+                    User.id == binding.employee_id,
+                    User.is_active == True,  # noqa: E712
+                )
+            )
+            return emp_result.scalar_one_or_none()
+
     return None
 
 
@@ -424,13 +423,14 @@ async def _handle_device_binding(
     employee: User,
     device_token: Optional[str],
     fingerprint: Optional[str],
+    employee_id_provided: bool = False,
 ) -> Optional[str]:
     """
     Bind device to employee on first scan.
+    If employee_id was explicitly provided, allow rebinding the device to the new employee.
     Returns new device token if binding created, None if already bound.
     """
     if device_token:
-        # Verify this device belongs to this employee
         result = await db.execute(
             select(DeviceBinding).where(
                 DeviceBinding.device_token == device_token
@@ -439,17 +439,31 @@ async def _handle_device_binding(
         binding = result.scalar_one_or_none()
 
         if binding and binding.employee_id != employee.id:
-            # Device belongs to someone else — raise fraud alert
-            logger.warning(
-                "device_binding_mismatch",
-                device_token=device_token,
-                bound_to=str(binding.employee_id),
-                attempted_by=str(employee.id),
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="This device is registered to a different employee.",
-            )
+            if employee_id_provided:
+                # Employee ID was explicitly provided — rebind the device
+                logger.info(
+                    "device_rebound",
+                    device_token=device_token,
+                    old_employee_id=str(binding.employee_id),
+                    new_employee_id=str(employee.id),
+                )
+                binding.employee_id = employee.id
+                binding.last_seen_at = datetime.now(timezone.utc)
+                if fingerprint:
+                    binding.fingerprint = fingerprint
+                return None
+            else:
+                # No employee ID provided — device mismatch
+                logger.warning(
+                    "device_binding_mismatch",
+                    device_token=device_token,
+                    bound_to=str(binding.employee_id),
+                    attempted_by=str(employee.id),
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This device is registered to a different employee.",
+                )
         if binding:
             binding.last_seen_at = datetime.now(timezone.utc)
             if fingerprint:

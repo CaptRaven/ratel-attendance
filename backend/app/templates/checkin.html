@@ -307,7 +307,12 @@
       }
     }
 
+    function clearDeviceCookie() {
+      document.cookie = "ratel_device=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; samesite=None; secure";
+    }
+
     function showIdInput() {
+      clearDeviceCookie();
       IS_KNOWN = false;
       document.getElementById("known-employee").classList.remove("visible");
       document.getElementById("id-section").style.display = "block";
