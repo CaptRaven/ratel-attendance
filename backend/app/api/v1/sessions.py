@@ -103,24 +103,6 @@ async def get_current_active_session(
     return session
 
 
-@router.get("/{session_id}")
-@limiter.limit("100/minute")
-async def get_session_info(
-    request: Request,
-    session_id: str,
-    redis: Redis = Depends(get_redis),
-    admin: User = Depends(require_admin),
-):
-    """Get session metadata."""
-    session = await get_session(redis, session_id)
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
-    return session
-
-
 @router.post("/{session_id}/close")
 @limiter.limit("50/minute")
 async def end_session(
@@ -137,6 +119,24 @@ async def end_session(
             detail="Session not found",
         )
     return {"message": "Session closed", "session_id": session_id}
+
+
+@router.get("/{session_id}")
+@limiter.limit("100/minute")
+async def get_session_info(
+    request: Request,
+    session_id: str,
+    redis: Redis = Depends(get_redis),
+    admin: User = Depends(require_admin),
+):
+    """Get session metadata."""
+    session = await get_session(redis, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+    return session
 
 
 # Public endpoints for kiosk (no auth required)
