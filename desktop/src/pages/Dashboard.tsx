@@ -180,15 +180,22 @@ export default function Dashboard() {
 
   const checkAndRotateSession = async () => {
     try {
+      console.log("=== checkAndRotateSession START ===");
       console.log("Checking for active session...");
       const activeSession = await getActiveSession();
-      console.log("Found active session:", activeSession);
+      console.log("✅ Found active session:", activeSession);
+      
+      console.log("Setting session in store...");
+      setSession({ ...activeSession, qr_token: activeSession.qr_token || "" });
+      
       const now = new Date();
       const createdAt = new Date(activeSession.created_at);
+      console.log("Session created at:", createdAt);
       
       const last6AM = new Date();
       if (now.getHours() < 6) last6AM.setDate(now.getDate() - 1);
       last6AM.setHours(6, 0, 0, 0);
+      console.log("Last 6AM cutoff:", last6AM);
 
       if (createdAt < last6AM) {
         console.log("Session is old, closing and starting new one...");
@@ -197,13 +204,19 @@ export default function Dashboard() {
       } else {
         console.log("Session is active, rotating token...");
         const detectedShift = autoDetectShift();
+        console.log("Detected shift:", detectedShift);
         const rotated = await rotateToken(activeSession.session_id, detectedShift);
+        console.log("Rotated token:", rotated);
         setSession({ ...activeSession, qr_token: rotated.qr_token });
+        console.log("Connecting to WebSocket...");
         connectWebSocket(activeSession.session_id);
+        console.log("Loading session attendance...");
         await loadSessionAttendance(activeSession.session_id);
       }
+      console.log("=== checkAndRotateSession END ===");
     } catch (err) {
-      console.error("Error in checkAndRotateSession:", err);
+      console.error("❌ Error in checkAndRotateSession:", err);
+      console.error("Error details:", (err as any)?.response?.data);
       console.log("Starting new session because of error...");
       await startSession();
     }
