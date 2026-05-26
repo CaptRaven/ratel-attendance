@@ -96,14 +96,17 @@ export default function Dashboard() {
 
   const startSession = async (customName?: string) => {
     const name = typeof customName === "string" ? customName : getBusinessDayName();
+    console.log("Starting session with name:", name);
     setLoading(true);
     try {
       const newSession = await createSession(name, "ratel-hq");
+      console.log("Session created successfully:", newSession);
       setSession(newSession);
       connectWebSocket(newSession.session_id);
       await loadSessionAttendance(newSession.session_id);
     } catch (err) {
       console.error("Failed to start session:", err);
+      alert(`Failed to start session: ${(err as any)?.response?.data?.detail || (err as any)?.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -177,7 +180,9 @@ export default function Dashboard() {
 
   const checkAndRotateSession = async () => {
     try {
+      console.log("Checking for active session...");
       const activeSession = await getActiveSession();
+      console.log("Found active session:", activeSession);
       const now = new Date();
       const createdAt = new Date(activeSession.created_at);
       
@@ -186,9 +191,11 @@ export default function Dashboard() {
       last6AM.setHours(6, 0, 0, 0);
 
       if (createdAt < last6AM) {
+        console.log("Session is old, closing and starting new one...");
         await closeSession(activeSession.session_id);
         await startSession();
       } else {
+        console.log("Session is active, rotating token...");
         const detectedShift = autoDetectShift();
         const rotated = await rotateToken(activeSession.session_id, detectedShift);
         setSession({ ...activeSession, qr_token: rotated.qr_token });
@@ -196,6 +203,8 @@ export default function Dashboard() {
         await loadSessionAttendance(activeSession.session_id);
       }
     } catch (err) {
+      console.error("Error in checkAndRotateSession:", err);
+      console.log("Starting new session because of error...");
       await startSession();
     }
   };
