@@ -30,6 +30,7 @@ class RotateTokenRequest(BaseModel):
     shift: Optional[str] = None
 
 
+# Admin endpoints (still available for desktop app)
 @router.post("/", status_code=201)
 @limiter.limit("50/minute")
 async def start_session(
@@ -49,17 +50,34 @@ async def start_session(
     return session
 
 
-@router.post("/rotate-token")
-@limiter.limit("100/minute")
-async def rotate_token(
+@router.post("/{session_id}/close")
+@limiter.limit("50/minute")
+async def end_session(
     request: Request,
-    payload: RotateTokenRequest,
+    session_id: str,
     redis: Redis = Depends(get_redis),
     admin: User = Depends(require_admin),
 ):
+    """Admin closes an attendance session."""
+    success = await close_session(redis, session_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+    return {"message": "Session closed", "session_id": session_id}
+
+
+# Public endpoints for kiosk (no auth required)
+@router.post("/public/rotate-token")
+@limiter.limit("100/minute")
+async def rotate_token_public(
+    request: Request,
+    payload: RotateTokenRequest,
+    redis: Redis = Depends(get_redis),
+):
     """
-    Rotate the QR token for an active session.
-    Desktop app calls this every 30 seconds to keep QR fresh.
+    Rotate the QR token for an active session — public endpoint for kiosk.
     """
     session = await get_session(redis, payload.session_id)
 
@@ -81,36 +99,35 @@ async def rotate_token(
         location_id=session["location_id"],
         shift=payload.shift,
     )
+    logger.info("token_rotated_public", session_id=payload.session_id)
     return {"session_id": payload.session_id, "qr_token": token}
 
 
-@router.get("/active")
+@router.get("/public/active")
 @limiter.limit("100/minute")
-async def get_current_active_session(
+async def get_current_active_session_public(
     request: Request,
     redis: Redis = Depends(get_redis),
-    admin: User = Depends(require_admin),
 ):
-    """Get the current active attendance session."""
+    """Get the current active attendance session — public endpoint for kiosk."""
     session = await get_active_session(redis)
     if not session:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="No active session found",
         )
-    logger.info("active_session_requested", session_id=session["session_id"], admin=str(admin.id))
+    logger.info("active_session_requested_public", session_id=session["session_id"])
     return session
 
 
-@router.get("/{session_id}")
+@router.get("/public/{session_id}")
 @limiter.limit("100/minute")
-async def get_session_info(
+async def get_session_info_public(
     request: Request,
     session_id: str,
     redis: Redis = Depends(get_redis),
-    admin: User = Depends(require_admin),
 ):
-    """Get session metadata."""
+    """Get session metadata — public endpoint for kiosk."""
     session = await get_session(redis, session_id)
     if not session:
         raise HTTPException(
@@ -118,21 +135,3 @@ async def get_session_info(
             detail="Session not found",
         )
     return session
-
-
-@router.post("/{session_id}/close")
-@limiter.limit("50/minute")
-async def end_session(
-    request: Request,
-    session_id: str,
-    redis: Redis = Depends(get_redis),
-    admin: User = Depends(require_admin),
-):
-    """Admin closes an attendance session."""
-    success = await close_session(redis, session_id)
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found",
-        )
-    return {"message": "Session closed", "session_id": session_id}

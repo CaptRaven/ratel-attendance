@@ -83,3 +83,69 @@ async def session_websocket(
         manager.disconnect(websocket, session_id)
         await pubsub.unsubscribe()
         await pubsub_redis.aclose()
+
+
+@router.websocket("/ws/public/sessions/{session_id}")
+async def session_websocket_public(
+    websocket: WebSocket,
+    session_id: str,
+):
+    """
+    Public WebSocket endpoint for kiosk (no auth required).
+    """
+    # ── 1. Accept and register connection ────────────────────────────────
+    await manager.connect(websocket, session_id)
+    await websocket.send_json({
+        "type": "connected",
+        "session_id": session_id,
+        "message": "Listening for check-in events...",
+    })
+
+    # ── 2. Dedicated Redis connection for pub/sub ─────────────────────────
+    pubsub_redis = Redis(connection_pool=get_redis_pool())
+    pubsub = await subscribe_to_session(pubsub_redis, session_id)
+
+    async def redis_listener():
+        """Continuously listen for Redis pub/sub messages."""
+        async for message in pubsub.listen():
+            if message["type"] == "message":
+                event = json.loads(message["data"])
+                await manager.broadcast(session_id, {
+                    "type": "checkin",
+                    **event,
+                })
+
+    async def heartbeat():
+        """Send ping every 20 seconds to keep connection alive."""
+        while True:
+            await asyncio.sleep(20)
+            try:
+                await websocket.send_json({"type": "ping"})
+            except Exception:
+                break
+
+    listener_task = None
+    heartbeat_task = None
+
+    try:
+        # Run both concurrently — listener and heartbeat
+        listener_task = asyncio.create_task(redis_listener())
+        heartbeat_task = asyncio.create_task(heartbeat())
+
+        # Wait for client to disconnect
+        await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        logger.info("websocket_public_client_disconnected", session_id=session_id)
+
+    except Exception as e:
+        logger.error("websocket_public_error", session_id=session_id, error=str(e))
+
+    finally:
+        if listener_task:
+            listener_task.cancel()
+        if heartbeat_task:
+            heartbeat_task.cancel()
+        manager.disconnect(websocket, session_id)
+        await pubsub.unsubscribe()
+        await pubsub_redis.aclose()

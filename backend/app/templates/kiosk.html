@@ -362,7 +362,6 @@
     let sessionId = null;
     let sessionName = null;
     let qrToken = null;
-    let adminToken = null;
     let timeLeft = TOKEN_TTL;
     let qrCode = null;
     let ws = null;
@@ -428,35 +427,9 @@
       }
     }
 
-    // ── Auth ──────────────────────────────────────────────────────────────
-    async function authenticate() {
-      const email = prompt("Admin email:");
-      const password = prompt("Admin password:");
-      if (!email || !password) return authenticate();
-
-      try {
-        const res = await fetch(`${API_BASE}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail);
-        adminToken = data.access_token;
-        localStorage.setItem("kiosk_token", adminToken);
-        await syncActiveSession();
-        startActiveSessionPolling();
-      } catch (err) {
-        alert("Login failed: " + err.message);
-        authenticate();
-      }
-    }
-
     // ── Session ───────────────────────────────────────────────────────────
     async function fetchActiveSession() {
-      const res = await fetch(`${API_BASE}/sessions/active`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
-      });
+      const res = await fetch(`${API_BASE}/sessions/public/active`);
 
       if (res.status === 404) {
         return null;
@@ -535,11 +508,10 @@
     // ── QR ────────────────────────────────────────────────────────────────
     async function rotateToken() {
       if (!sessionId) return;
-      const res = await fetch(`${API_BASE}/sessions/rotate-token`, {
+      const res = await fetch(`${API_BASE}/sessions/public/rotate-token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
         },
         body: JSON.stringify({ 
           session_id: sessionId,
@@ -556,9 +528,7 @@
 
     async function loadExistingAttendance() {
       if (!sessionId) return;
-      const res = await fetch(`${API_BASE}/checkin/session/${sessionId}`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
-      });
+      const res = await fetch(`${API_BASE}/checkin/session/${sessionId}`);
       if (!res.ok) return;
       const data = await res.json();
       attendees = (data.records || []).map((record) => ({
@@ -639,7 +609,7 @@
       const wsUrl = window.location.origin.replace("https://", "wss://")
         .replace("http://", "ws://");
       ws = new WebSocket(
-        `${wsUrl}/ws/sessions/${sessionId}?token=${adminToken}`
+        `${wsUrl}/ws/public/sessions/${sessionId}`
       );
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -750,7 +720,6 @@
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${adminToken}`,
           },
           body: JSON.stringify({ user_id: userId, face_image: imageData }),
         });
@@ -793,19 +762,14 @@
 
     // ── Init ──────────────────────────────────────────────────────────────
     async function init() {
-      // Try saved token first
-      const saved = localStorage.getItem("kiosk_token");
-      if (saved) {
-        adminToken = saved;
-        try {
-          await syncActiveSession();
-          startActiveSessionPolling();
-          return;
-        } catch (e) {
-          localStorage.removeItem("kiosk_token");
-        }
+      try {
+        await syncActiveSession();
+        startActiveSessionPolling();
+      } catch (e) {
+        console.error("Failed to initialize kiosk:", e);
+        // Retry in 5 seconds
+        setTimeout(init, 5000);
       }
-      authenticate();
     }
 
     // Register Service Worker for PWA
