@@ -384,7 +384,7 @@
 
     function getDefaultShift() {
       const hour = new Date().getHours();
-      if (hour >= 6 && hour < 15) return "morning";
+      if (hour >= 8 && hour < 15) return "morning";
       if (hour >= 15 && hour < 22) return "evening";
       return "night";
     }

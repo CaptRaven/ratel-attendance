@@ -8,6 +8,7 @@ interface SessionState {
   setSession: (session: Session) => void;
   setQrToken: (token: string) => void;
   addAttendee: (record: AttendanceRecord) => void;
+  clearAttendees: () => void;
   clearSession: () => void;
 }
 
@@ -37,6 +38,8 @@ export const useSessionStore = create<SessionState>((set) => ({
       }
       return { attendees: [record, ...state.attendees] };
     }),
+
+  clearAttendees: () => set({ attendees: [] }),
 
   clearSession: () => set({ session: null, qrToken: null, attendees: [] }),
 }));

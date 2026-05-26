@@ -63,7 +63,7 @@ const autoDetectShift = (): ShiftType => {
 
 export default function Dashboard() {
   const { token, user } = useAuthStore();
-  const { session, attendees, setSession, addAttendee, clearSession } = useSessionStore();
+  const { session, attendees, setSession, addAttendee, clearAttendees, clearSession } = useSessionStore();
   const [sessionName, setSessionName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
@@ -79,7 +79,7 @@ export default function Dashboard() {
 
   const loadSessionAttendance = async (sessionId: string) => {
     try {
-      clearSession();
+      clearAttendees();
       if (showAllRecords) {
         const data = await getAttendanceSummary();
         data.records.forEach(addAttendee);
