@@ -7,7 +7,6 @@ import {
   exportAttendanceCSV,
   getActiveSession,
   rotateToken,
-  clearAllAttendance,
   SHIFTS,
   type ShiftType,
 } from "@/lib/api";
