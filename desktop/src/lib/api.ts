@@ -119,6 +119,12 @@ export const getSessionAttendance = async (session_id: string) => {
   return res.data as { total: number; records: AttendanceRecord[] };
 };
 
+export const getAttendanceSummary = async (session_id?: string) => {
+  const params = session_id ? `?session_id=${session_id}` : "";
+  const res = await api.get(`/reports/summary${params}`);
+  return res.data as { total_employees: number; records: AttendanceRecord[] };
+};
+
 export const exportAttendanceCSV = async (session_id?: string) => {
   const params = session_id ? `?session_id=${session_id}` : "";
   const res = await api.get(`/reports/export${params}`, {

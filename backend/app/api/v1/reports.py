@@ -136,38 +136,31 @@ async def get_attendance_summary(
 ):
     """
     Summary view — used by desktop app to show report preview.
-    Returns employees sorted by total hours.
+    Returns all attendance records sorted by checked_in_at descending.
     """
-    query = select(Attendance)
+    query = select(Attendance).order_by(Attendance.checked_in_at.desc())
     if session_id:
         query = query.where(Attendance.session_id == session_id)
 
     result = await db.execute(query)
     records = result.scalars().all()
 
-    employee_data: dict[str, dict] = {}
-    for r in records:
-        emp = r.employee
-        emp_id = str(emp.id)
-        if emp_id not in employee_data:
-            employee_data[emp_id] = {
-                "name": emp.full_name,
-                "employee_id": emp.employee_id,
-                "total_hours": 0.0,
-                "check_status": r.check_status.value,
+    return {
+        "total_employees": len(set(r.employee.id for r in records)),
+        "records": [
+            {
+                "employee": r.employee.full_name if r.employee else "Unknown",
+                "employee_id": r.employee.employee_id if r.employee else "Unknown",
                 "status": r.status.value,
+                "check_status": r.check_status.value,
                 "checked_in_at": r.checked_in_at,
                 "checked_out_at": r.checked_out_at,
+                "hours_clocked": r.hours_clocked,
+                "shift": r.shift,
             }
-        employee_data[emp_id]["total_hours"] += r.hours_clocked or 0.0
-
-    sorted_data = sorted(
-        employee_data.values(),
-        key=lambda x: x["total_hours"],
-        reverse=True,
-    )
-
-    return {"total_employees": len(sorted_data), "records": sorted_data}
+            for r in records
+        ],
+    }
 
 
 @router.delete("/clear")

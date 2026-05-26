@@ -3,6 +3,7 @@ import {
   createSession,
   closeSession,
   getSessionAttendance,
+  getAttendanceSummary,
   exportAttendanceCSV,
   getActiveSession,
   rotateToken,
@@ -15,7 +16,7 @@ import { useAuthStore } from "@/store/authStore";
 import QRDisplay from "@/components/QRDisplay";
 import AttendeeList from "@/components/AttendeeList";
 import { theme } from "@/lib/theme";
-import { Download, Play, Square } from "lucide-react";
+import { Download, Play, Square, List } from "lucide-react";
 
 const getWSBaseURL = () => {
   // 1. Try Environment Variable
@@ -66,6 +67,7 @@ export default function Dashboard() {
   const { session, attendees, setSession, addAttendee, clearSession } = useSessionStore();
   const [sessionName, setSessionName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showAllRecords, setShowAllRecords] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -73,11 +75,16 @@ export default function Dashboard() {
 
   const loadSessionAttendance = async (sessionId: string) => {
     try {
-      const data = await getSessionAttendance(sessionId);
-      // Filter out duplicates and add
-      data.records.forEach(addAttendee);
+      clearSession();
+      if (showAllRecords) {
+        const data = await getAttendanceSummary();
+        data.records.forEach(addAttendee);
+      } else {
+        const data = await getSessionAttendance(sessionId);
+        data.records.forEach(addAttendee);
+      }
     } catch (err) {
-      console.error("Failed to load session attendance:", err);
+      console.error("Failed to load attendance:", err);
     }
   };
 
@@ -166,15 +173,7 @@ export default function Dashboard() {
   };
 
   const handleClearAttendance = async () => {
-    if (!confirm("Are you sure you want to PERMANENTLY delete ALL attendance logs?")) return;
-    try {
-      await clearAllAttendance();
-      alert("All records cleared.");
-      window.location.reload();
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } } };
-      alert(error.response?.data?.detail || "Failed to clear");
-    }
+    alert("This feature has been disabled for safety reasons. Please contact support if you need to clear attendance records.");
   };
 
   const checkAndRotateSession = async () => {
@@ -394,7 +393,31 @@ export default function Dashboard() {
                 Session active · {attendees.length} checked in
               </p>
             </div>
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              <button
+                onClick={() => {
+                  setShowAllRecords(!showAllRecords);
+                  if (session) {
+                    void loadSessionAttendance(session.session_id);
+                  }
+                }}
+                style={{
+                  background: showAllRecords ? theme.primary : theme.accentSoft,
+                  border: `1px solid ${showAllRecords ? theme.primary : theme.panelBorder}`,
+                  color: showAllRecords ? "white" : theme.primary,
+                  padding: "10px 20px",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}
+              >
+                <List size={15} strokeWidth={2.2} />
+                {showAllRecords ? "All Records" : "Current Session"}
+              </button>
               <button
                 onClick={handleClearAttendance}
                 style={{
@@ -478,7 +501,7 @@ export default function Dashboard() {
             alignItems: "start",
           }}>
             <QRDisplay sessionId={session.session_id} />
-            <AttendeeList attendees={attendees} />
+            <AttendeeList attendees={attendees} title={showAllRecords ? "All Attendance Records" : "Live Attendance"} />
           </div>
         </div>
       )}

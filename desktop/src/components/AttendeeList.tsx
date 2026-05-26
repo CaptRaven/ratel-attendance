@@ -2,9 +2,12 @@ import { User } from "lucide-react";
 import type { AttendanceRecord } from "@/lib/api";
 import { theme } from "@/lib/theme";
 
-interface Props { attendees: AttendanceRecord[]; }
+interface Props { 
+  attendees: AttendanceRecord[]; 
+  title?: string;
+}
 
-export default function AttendeeList({ attendees }: Props) {
+export default function AttendeeList({ attendees, title = "Live Attendance" }: Props) {
   return (
     <div style={{
       background: theme.panel,
@@ -29,7 +32,7 @@ export default function AttendeeList({ attendees }: Props) {
           fontWeight: "700",
           margin: 0,
           letterSpacing: "-0.3px",
-        }}>Live Attendance</h2>
+        }}>{title}</h2>
         <span style={{
           background: theme.successSoft,
           color: theme.success,

@@ -24,7 +24,9 @@ export const useSessionStore = create<SessionState>((set) => ({
   addAttendee: (record) =>
     set((state) => {
       const exists = state.attendees.findIndex(
-        (a) => a.employee_id === record.employee_id
+        (a) => 
+          a.employee_id === record.employee_id && 
+          String(a.checked_in_at) === String(record.checked_in_at)
       );
       if (exists !== -1) {
         const newAttendees = [...state.attendees];
