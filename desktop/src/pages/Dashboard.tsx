@@ -72,6 +72,11 @@ export default function Dashboard() {
   const activeSessionIdRef = useRef<string | null>(null);
   const shouldReconnectRef = useRef(false);
 
+  // Log session state changes
+  useEffect(() => {
+    console.log("🔄 Session store updated:", session);
+  }, [session]);
+
   const loadSessionAttendance = async (sessionId: string) => {
     try {
       clearSession();

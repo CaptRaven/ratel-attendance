@@ -16,8 +16,10 @@ export const useSessionStore = create<SessionState>((set) => ({
   qrToken: null,
   attendees: [],
 
-  setSession: (session) =>
-    set({ session, qrToken: session.qr_token, attendees: [] }),
+  setSession: (session) => {
+    console.log("📝 Setting session in store:", session);
+    set({ session, qrToken: session.qr_token, attendees: [] });
+  },
 
   setQrToken: (token) => set({ qrToken: token }),
 
