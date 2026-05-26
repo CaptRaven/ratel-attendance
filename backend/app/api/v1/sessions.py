@@ -50,6 +50,77 @@ async def start_session(
     return session
 
 
+@router.post("/rotate-token")
+@limiter.limit("100/minute")
+async def rotate_token(
+    request: Request,
+    payload: RotateTokenRequest,
+    redis: Redis = Depends(get_redis),
+    admin: User = Depends(require_admin),
+):
+    """
+    Rotate the QR token for an active session.
+    Desktop app calls this every 30 seconds to keep QR fresh.
+    """
+    session = await get_session(redis, payload.session_id)
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found or expired",
+        )
+
+    if not session.get("is_active"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Session is closed",
+        )
+
+    token = await rotate_session_token(
+        redis=redis,
+        session_id=payload.session_id,
+        location_id=session["location_id"],
+        shift=payload.shift,
+    )
+    return {"session_id": payload.session_id, "qr_token": token}
+
+
+@router.get("/active")
+@limiter.limit("100/minute")
+async def get_current_active_session(
+    request: Request,
+    redis: Redis = Depends(get_redis),
+    admin: User = Depends(require_admin),
+):
+    """Get the current active attendance session."""
+    session = await get_active_session(redis)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active session found",
+        )
+    logger.info("active_session_requested", session_id=session["session_id"], admin=str(admin.id))
+    return session
+
+
+@router.get("/{session_id}")
+@limiter.limit("100/minute")
+async def get_session_info(
+    request: Request,
+    session_id: str,
+    redis: Redis = Depends(get_redis),
+    admin: User = Depends(require_admin),
+):
+    """Get session metadata."""
+    session = await get_session(redis, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Session not found",
+        )
+    return session
+
+
 @router.post("/{session_id}/close")
 @limiter.limit("50/minute")
 async def end_session(
