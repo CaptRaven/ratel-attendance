@@ -1,17 +1,26 @@
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
 from pydantic import BaseModel, Field
+from datetime import datetime, timezone, timedelta
+import json
 from app.redis_client import get_redis
+from app.database import get_db
 from app.core.session_manager import (
     create_session,
     rotate_session_token,
     get_session,
     get_active_session,
     close_session,
+    SESSION_TTL_SECONDS,
+    ACTIVE_SESSION_KEY,
 )
+from app.core.qr_token import QR_SESSION_KEY
 from app.api.deps import require_admin
 from app.models.user import User
+from app.models.attendance import Attendance
 from app.core.logging import logger
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -137,6 +146,82 @@ async def get_session_info(
             detail="Session not found",
         )
     return session
+
+
+@router.post("/recover")
+@limiter.limit("20/minute")
+async def recover_session(
+    request: Request,
+    redis: Redis = Depends(get_redis),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Recover the most recent session from PostgreSQL after a Redis crash/restart.
+    Finds today's session (last 24h) with the most attendance records and restores it
+    in Redis as the active session. Safe to call at any time — if Redis already has a
+    populated active session, it returns that instead of overwriting it.
+    """
+    # If Redis already has an active session with records, no recovery needed
+    existing = await get_active_session(redis)
+    if existing:
+        return existing
+
+    # Find the session_id with the most attendance records in the last 24 hours
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    result = await db.execute(
+        select(
+            Attendance.session_id,
+            Attendance.location_id,
+            func.min(Attendance.checked_in_at).label("created_at"),
+            func.count(Attendance.id).label("record_count"),
+        )
+        .where(Attendance.checked_in_at >= cutoff)
+        .group_by(Attendance.session_id, Attendance.location_id)
+        .order_by(func.count(Attendance.id).desc())
+        .limit(1)
+    )
+    row = result.first()
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No attendance records found in the last 24 hours to recover from",
+        )
+
+    session_id = row.session_id
+    location_id = row.location_id
+    created_at = row.created_at
+
+    session_data = {
+        "session_id": session_id,
+        "name": f"Session {created_at.strftime('%d %b %Y')}",
+        "location_id": location_id,
+        "created_by": str(admin.id),
+        "created_at": created_at.isoformat(),
+        "is_active": True,
+        "recovered": True,
+    }
+
+    # Restore in Redis
+    session_key = QR_SESSION_KEY.format(session_id=session_id)
+    await redis.setex(session_key, SESSION_TTL_SECONDS, json.dumps(session_data))
+    await redis.setex(ACTIVE_SESSION_KEY, SESSION_TTL_SECONDS, session_id)
+
+    # Generate a fresh QR token so check-in can continue immediately
+    token = await rotate_session_token(
+        redis=redis,
+        session_id=session_id,
+        location_id=location_id,
+    )
+
+    logger.info(
+        "session_recovered",
+        session_id=session_id,
+        record_count=row.record_count,
+        admin=str(admin.id),
+    )
+    return {**session_data, "qr_token": token}
 
 
 # Public endpoints for kiosk (no auth required)

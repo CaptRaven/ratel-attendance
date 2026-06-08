@@ -114,6 +114,11 @@ export const closeSession = async (session_id: string) => {
   return res.data;
 };
 
+export const recoverSession = async (): Promise<Session> => {
+  const res = await api.post("/sessions/recover");
+  return res.data as Session;
+};
+
 export const getSessionAttendance = async (session_id: string) => {
   const res = await api.get(`/checkin/session/${session_id}`);
   return res.data as { total: number; records: AttendanceRecord[] };

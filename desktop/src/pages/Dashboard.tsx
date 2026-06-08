@@ -6,6 +6,7 @@ import {
   getAttendanceSummary,
   exportAttendanceCSV,
   getActiveSession,
+  recoverSession,
   rotateToken,
   SHIFTS,
   type ShiftType,
@@ -185,45 +186,49 @@ export default function Dashboard() {
 
   const checkAndRotateSession = async () => {
     try {
-      console.log("=== checkAndRotateSession START ===");
-      console.log("Checking for active session...");
       const activeSession = await getActiveSession();
-      console.log("✅ Found active session:", activeSession);
-      
-      console.log("Setting session in store...");
       setSession({ ...activeSession, qr_token: activeSession.qr_token || "" });
-      
+
       const now = new Date();
       const createdAt = new Date(activeSession.created_at);
-      console.log("Session created at:", createdAt);
-      
+
       const last6AM = new Date();
       if (now.getHours() < 6) last6AM.setDate(now.getDate() - 1);
       last6AM.setHours(6, 0, 0, 0);
-      console.log("Last 6AM cutoff:", last6AM);
 
       if (createdAt < last6AM) {
-        console.log("Session is old, closing and starting new one...");
         await closeSession(activeSession.session_id);
         await startSession();
       } else {
-        console.log("Session is active, rotating token...");
         const detectedShift = autoDetectShift();
-        console.log("Detected shift:", detectedShift);
         const rotated = await rotateToken(activeSession.session_id, detectedShift);
-        console.log("Rotated token:", rotated);
         setSession({ ...activeSession, qr_token: rotated.qr_token });
-        console.log("Connecting to WebSocket...");
         connectWebSocket(activeSession.session_id);
-        console.log("Loading session attendance...");
         await loadSessionAttendance(activeSession.session_id);
       }
-      console.log("=== checkAndRotateSession END ===");
-    } catch (err) {
-      console.error("❌ Error in checkAndRotateSession:", err);
-      console.error("Error details:", (err as any)?.response?.data);
-      console.log("Starting new session because of error...");
-      await startSession();
+    } catch (err: any) {
+      // Only attempt recovery when Redis has no active session (404).
+      // Any other error (network, auth) should not silently create a new session.
+      if (err?.response?.status !== 404) {
+        console.error("checkAndRotateSession error:", err);
+        return;
+      }
+
+      // Try to restore the most recent session from the database before
+      // creating a new one — this recovers attendance lost after a Redis restart.
+      try {
+        const recovered = await recoverSession();
+        setSession({ ...recovered, qr_token: recovered.qr_token || "" });
+        connectWebSocket(recovered.session_id);
+        await loadSessionAttendance(recovered.session_id);
+      } catch (recoveryErr: any) {
+        if (recoveryErr?.response?.status !== 404) {
+          console.error("Session recovery failed:", recoveryErr);
+          return;
+        }
+        // No recoverable session in the last 24h — start fresh.
+        await startSession();
+      }
     }
   };
 
