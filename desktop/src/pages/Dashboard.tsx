@@ -535,25 +535,6 @@ export default function Dashboard() {
                 Monthly Summary
               </button>
               <button
-                onClick={() => session && exportAttendanceCSV(session.session_id)}
-                style={{
-                  background: theme.accentSoft,
-                  border: `1px solid ${theme.panelBorder}`,
-                  color: theme.primary,
-                  padding: "10px 20px",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <Download size={15} strokeWidth={2.2} />
-                Export CSV
-              </button>
-              <button
                 onClick={endSession}
                 style={{
                   background: theme.dangerSoft,
