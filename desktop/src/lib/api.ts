@@ -222,6 +222,30 @@ export const clearAllAttendance = async (): Promise<{ message: string }> => {
   return res.data;
 };
 
+export interface UnclosedRecord {
+  employee: string;
+  employee_id: string;
+  session_id: string;
+  checked_in_at: string;
+}
+
+export const getUnclosedCheckins = async (
+  olderThanHours = 24
+): Promise<{ count: number; older_than_hours: number; records: UnclosedRecord[] }> => {
+  const res = await api.get(`/reports/unclosed?older_than_hours=${olderThanHours}`);
+  return res.data;
+};
+
+export const bulkAutoCheckout = async (
+  olderThanHours = 24,
+  defaultHoursClocked = 8.0
+): Promise<{ message: string; count: number; hours_assigned: number }> => {
+  const res = await api.post(
+    `/reports/bulk-checkout?older_than_hours=${olderThanHours}&default_hours_clocked=${defaultHoursClocked}`
+  );
+  return res.data;
+};
+
 export interface OverviewStats {
   total_employees: number;
   present_today: number;

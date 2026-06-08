@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from datetime import datetime, date
+from datetime import datetime, date, timedelta, timezone
 from app.database import get_db
 from app.models.attendance import Attendance, CheckStatus
 from app.models.user import User
@@ -160,6 +160,82 @@ async def get_attendance_summary(
             }
             for r in records
         ],
+    }
+
+
+@router.get("/unclosed")
+async def get_unclosed_checkins(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+    older_than_hours: int = Query(default=24, ge=1),
+):
+    """
+    Returns all attendance records still marked as checked_in that are older
+    than `older_than_hours`. Used to preview what bulk-checkout will affect.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=older_than_hours)
+    result = await db.execute(
+        select(Attendance)
+        .where(
+            Attendance.check_status == CheckStatus.CHECKED_IN,
+            Attendance.checked_in_at < cutoff,
+        )
+        .order_by(Attendance.checked_in_at.asc())
+    )
+    records = result.scalars().all()
+
+    return {
+        "count": len(records),
+        "older_than_hours": older_than_hours,
+        "records": [
+            {
+                "employee": r.employee.full_name if r.employee else "Unknown",
+                "employee_id": r.employee.employee_id if r.employee else "Unknown",
+                "session_id": r.session_id,
+                "checked_in_at": r.checked_in_at,
+            }
+            for r in records
+        ],
+    }
+
+
+@router.post("/bulk-checkout")
+async def bulk_auto_checkout(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+    older_than_hours: int = Query(default=24, ge=1),
+    default_hours_clocked: float = Query(default=8.0, ge=0.5, le=24.0),
+):
+    """
+    Auto-closes all attendance records that are still checked_in and older than
+    `older_than_hours`. Sets checked_out_at = checked_in_at + default_hours_clocked.
+    Used to fix historical records where employees never clocked out due to crashes.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=older_than_hours)
+    result = await db.execute(
+        select(Attendance).where(
+            Attendance.check_status == CheckStatus.CHECKED_IN,
+            Attendance.checked_in_at < cutoff,
+        )
+    )
+    records = result.scalars().all()
+
+    for record in records:
+        record.checked_out_at = record.checked_in_at + timedelta(hours=default_hours_clocked)
+        record.hours_clocked = default_hours_clocked
+        record.check_status = CheckStatus.CHECKED_OUT
+
+    await db.flush()
+    logger.info(
+        "bulk_checkout_completed",
+        count=len(records),
+        default_hours=default_hours_clocked,
+        admin=str(admin.id),
+    )
+    return {
+        "message": f"Auto-checked out {len(records)} open attendance records",
+        "count": len(records),
+        "hours_assigned": default_hours_clocked,
     }
 
 

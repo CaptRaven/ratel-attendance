@@ -83,8 +83,9 @@ async def mobile_checkin_page(
                 if attendance:
                     check_status = attendance.check_status.value
                 else:
-                    # If no record in current session, check cross‑session for active check‑in (last 14h)
-                    cutoff = datetime.now(timezone.utc) - timedelta(hours=14)
+                    # If no record in current session, check cross-session for active check-in.
+                    # Must match the 36h window used in the actual check-in endpoint.
+                    cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
                     recent_in = await db.execute(
                         select(Attendance)
                         .where(
@@ -109,6 +110,7 @@ async def mobile_checkin_page(
         name="checkin.html",
         context={
             "qr_token": token,
+            "session_id": token_data["session_id"],
             "session_name": session["name"],
             "shift": token_data.get("shift"),
             "known_employee": known_employee,

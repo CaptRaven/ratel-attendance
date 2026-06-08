@@ -202,12 +202,11 @@ async def check_in_or_out(
         attendance = existing.scalar_one_or_none()
 
         # ── 6b. Cross-Session Checkout Support ────────────────────────────────
-        # If no record in current session, look for an active "In" record from 
-        # a previous session (e.g., Night Shift workers clocking out after 6 AM).
+        # If no record in current session, look for an active "In" record from
+        # a previous session. Window is 36h to cover crashes that start a new
+        # session mid-day — employees can still clock out up to 36h after check-in.
         if not attendance:
-            # Look for the most recent "checked_in" record for this employee
-            # created in the last 14 hours across any session.
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=14)
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
             
             recent_in = await db.execute(
                 select(Attendance)
@@ -375,6 +374,67 @@ async def get_session_attendance(
     except Exception as e:
         logger.error("get_session_attendance_failed", session_id=session_id, error=str(e))
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+@router.get("/status")
+@limiter.limit("300/minute")
+async def get_employee_status(
+    request: Request,
+    employee_id: str = Query(..., min_length=1),
+    session_id: str = Query(..., min_length=5),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns the current attendance status for an employee in the given session.
+    Called client-side when an employee types their ID, so the button label can
+    show the correct action (Clock In vs Clock Out) before they submit.
+    """
+    result = await db.execute(
+        select(User).where(
+            User.employee_id == employee_id,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    employee = result.scalar_one_or_none()
+
+    if not employee:
+        return {"check_status": "none", "employee": None, "found": False}
+
+    # Check current session first
+    att_result = await db.execute(
+        select(Attendance).where(
+            Attendance.employee_id == employee.id,
+            Attendance.session_id == session_id,
+        )
+    )
+    attendance = att_result.scalar_one_or_none()
+
+    if attendance:
+        return {
+            "check_status": attendance.check_status.value,
+            "employee": employee.full_name,
+            "found": True,
+        }
+
+    # Cross-session check (36h window, matching the actual check-in logic)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
+    recent_result = await db.execute(
+        select(Attendance)
+        .where(
+            Attendance.employee_id == employee.id,
+            Attendance.check_status == CheckStatus.CHECKED_IN,
+            Attendance.checked_in_at >= cutoff,
+        )
+        .order_by(Attendance.checked_in_at.desc())
+        .limit(1)
+    )
+    recent = recent_result.scalar_one_or_none()
+
+    return {
+        "check_status": "checked_in" if recent else "none",
+        "employee": employee.full_name,
+        "found": True,
+    }
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

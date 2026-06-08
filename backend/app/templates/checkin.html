@@ -213,6 +213,7 @@
         placeholder="e.g. EMP-001"
         autocomplete="off" autocorrect="off"
         autocapitalize="characters" spellcheck="false"
+        oninput="onEmployeeIdInput()"
       />
     </div>
 
@@ -226,6 +227,7 @@
   <script id="checkin-data" type="application/json">
     {{ {
       "qr_token": qr_token,
+      "session_id": session_id,
       "is_known": known_employee is not none,
       "known_name": known_employee.full_name if known_employee else "",
       "known_id": known_employee.employee_id if known_employee else "",
@@ -238,10 +240,11 @@
       document.getElementById("checkin-data").textContent
     );
     const QR_TOKEN = pageData.qr_token;
+    const SESSION_ID = pageData.session_id;
     let IS_KNOWN = pageData.is_known;
     let KNOWN_NAME = pageData.known_name;
     let KNOWN_ID = pageData.known_id;
-    const CHECK_STATUS = pageData.check_status; // "none", "checked_in", "checked_out"
+    let CHECK_STATUS = pageData.check_status; // "none", "checked_in", "checked_out"
 
     // Generate simple browser fingerprint
     function getFingerprint() {
@@ -280,30 +283,34 @@
       }
     }
 
+    function applyCheckStatus(status, name) {
+      const btn = document.getElementById("action-btn");
+      if (status === "checked_in") {
+        document.getElementById("page-title").textContent = "Check Out";
+        document.getElementById("page-subtitle").textContent = "Ready to clock out?";
+        btn.textContent = "Clock Out";
+        btn.classList.add("checkout");
+        CHECK_STATUS = "checked_in";
+      } else {
+        document.getElementById("page-title").textContent = "Check In";
+        document.getElementById("page-subtitle").textContent = "Scan detected — confirm your identity";
+        btn.textContent = "Clock In";
+        btn.classList.remove("checkout");
+        CHECK_STATUS = status;
+      }
+    }
+
     function initPage() {
       if (IS_KNOWN) {
-        // Show known employee card
         document.getElementById("known-employee").classList.add("visible");
         document.getElementById("known-avatar").textContent =
           KNOWN_NAME.charAt(0).toUpperCase();
         document.getElementById("known-name").textContent = KNOWN_NAME;
         document.getElementById("id-section").style.display = "none";
 
-        // Update UI based on check status
-        if (CHECK_STATUS === "checked_in") {
-          document.getElementById("page-title").textContent = "Check Out";
-          document.getElementById("page-subtitle").textContent =
-            "Ready to clock out?";
-          document.getElementById("known-sub").textContent =
-            "Currently checked in";
-          const btn = document.getElementById("action-btn");
-          btn.textContent = "Clock Out";
-          btn.classList.add("checkout");
-        } else {
-          document.getElementById("page-title").textContent = "Check In";
-          document.getElementById("action-btn").textContent = "Clock In";
-          document.getElementById("known-sub").textContent = "Device recognized";
-        }
+        const sub = CHECK_STATUS === "checked_in" ? "Currently checked in" : "Device recognized";
+        document.getElementById("known-sub").textContent = sub;
+        applyCheckStatus(CHECK_STATUS, KNOWN_NAME);
       }
     }
 
@@ -316,8 +323,44 @@
       IS_KNOWN = false;
       document.getElementById("known-employee").classList.remove("visible");
       document.getElementById("id-section").style.display = "block";
+      // Reset to neutral state until employee ID is resolved
+      document.getElementById("page-title").textContent = "Mark Attendance";
+      document.getElementById("page-subtitle").textContent = "Enter your Employee ID";
       document.getElementById("action-btn").textContent = "Mark Attendance";
       document.getElementById("action-btn").classList.remove("checkout");
+      CHECK_STATUS = "none";
+    }
+
+    let _statusDebounce = null;
+    async function onEmployeeIdInput() {
+      const val = document.getElementById("employee-id").value.trim();
+      clearTimeout(_statusDebounce);
+      if (val.length < 2) {
+        // Reset to neutral if input cleared
+        document.getElementById("page-title").textContent = "Mark Attendance";
+        document.getElementById("page-subtitle").textContent = "Enter your Employee ID";
+        document.getElementById("action-btn").textContent = "Mark Attendance";
+        document.getElementById("action-btn").classList.remove("checkout");
+        CHECK_STATUS = "none";
+        return;
+      }
+      _statusDebounce = setTimeout(async () => {
+        try {
+          const res = await fetch(
+            `/api/v1/checkin/status?employee_id=${encodeURIComponent(val)}&session_id=${encodeURIComponent(SESSION_ID)}`
+          );
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.found) {
+            applyCheckStatus(data.check_status, data.employee);
+            // Show their name as a hint under the input
+            document.getElementById("page-subtitle").textContent =
+              data.check_status === "checked_in"
+                ? `${data.employee} — ready to clock out`
+                : `${data.employee} — ready to clock in`;
+          }
+        } catch (e) { /* silent — server is optional hint only */ }
+      }, 400);
     }
 
     async function submitScan() {

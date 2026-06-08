@@ -8,6 +8,8 @@ import {
   getActiveSession,
   recoverSession,
   rotateToken,
+  getUnclosedCheckins,
+  bulkAutoCheckout,
   SHIFTS,
   type ShiftType,
 } from "@/lib/api";
@@ -182,6 +184,28 @@ export default function Dashboard() {
 
   const handleClearAttendance = async () => {
     alert("This feature has been disabled for safety reasons. Please contact support if you need to clear attendance records.");
+  };
+
+  const handleBulkCheckout = async () => {
+    try {
+      const preview = await getUnclosedCheckins(24);
+      if (preview.count === 0) {
+        alert("No open check-ins found older than 24 hours. Everyone is either checked out or checked in today.");
+        return;
+      }
+      const names = preview.records.slice(0, 5).map((r) => `• ${r.employee} (checked in ${new Date(r.checked_in_at).toLocaleDateString()})`).join("\n");
+      const more = preview.count > 5 ? `\n…and ${preview.count - 5} more` : "";
+      const confirmed = window.confirm(
+        `${preview.count} employee${preview.count === 1 ? "" : "s"} never clocked out from previous sessions:\n\n${names}${more}\n\nAuto-checkout will assign 8 hours to each record. Continue?`
+      );
+      if (!confirmed) return;
+      const result = await bulkAutoCheckout(24, 8.0);
+      alert(`Done. ${result.count} record${result.count === 1 ? "" : "s"} closed with ${result.hours_assigned}h each.`);
+      if (session) await loadSessionAttendance(session.session_id);
+    } catch (err) {
+      console.error("Bulk checkout failed:", err);
+      alert("Bulk checkout failed. Please try again.");
+    }
   };
 
   const checkAndRotateSession = async () => {
@@ -448,6 +472,21 @@ export default function Dashboard() {
               >
                 <List size={15} strokeWidth={2.2} />
                 {showAllRecords ? "All Records" : "Current Session"}
+              </button>
+              <button
+                onClick={handleBulkCheckout}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${theme.panelBorder}`,
+                  color: theme.textMuted,
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                }}
+              >
+                Fix Open Records
               </button>
               <button
                 onClick={handleClearAttendance}
