@@ -70,6 +70,13 @@ export default function Dashboard() {
   const [sessionName, setSessionName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
+  const [exportModal, setExportModal] = useState(false);
+  const [exportFrom, setExportFrom] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+  });
+  const [exportTo, setExportTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [exportLoading, setExportLoading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeSessionIdRef = useRef<string | null>(null);
@@ -274,12 +281,17 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []); // Only on mount
 
-  const handleExportMonthlySummary = async () => {
+  const handleExportDateRange = async () => {
+    if (!exportFrom || !exportTo) return;
+    setExportLoading(true);
     try {
-      alert("Generating Monthly Summary (1 row per employee)...");
-      await exportAttendanceCSV(); 
+      await exportAttendanceCSV(undefined, exportFrom, exportTo);
+      setExportModal(false);
     } catch (err) {
-      console.error("Failed to export monthly summary:", err);
+      console.error("Export failed:", err);
+      alert("Export failed. Please try again.");
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -504,7 +516,7 @@ export default function Dashboard() {
                 Clear All Logs
               </button>
               <button
-                onClick={handleExportMonthlySummary}
+                onClick={() => setExportModal(true)}
                 style={{
                   background: theme.successSoft,
                   border: `1px solid ${theme.panelBorder}`,
@@ -572,6 +584,110 @@ export default function Dashboard() {
           }}>
             <QRDisplay sessionId={session.session_id} />
             <AttendeeList attendees={attendees} title={showAllRecords ? "All Attendance Records" : "Live Attendance"} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Export Date Range Modal ── */}
+      {exportModal && (
+        <div
+          onClick={() => setExportModal(false)}
+          style={{
+            position: "fixed", inset: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: theme.panel,
+              border: `1px solid ${theme.panelBorder}`,
+              borderRadius: "20px",
+              padding: "32px",
+              width: "100%",
+              maxWidth: "400px",
+              boxShadow: theme.shadow,
+            }}
+          >
+            <h2 style={{ color: theme.text, fontSize: "18px", fontWeight: "700", margin: "0 0 6px 0" }}>
+              Export Attendance
+            </h2>
+            <p style={{ color: theme.textMuted, fontSize: "13px", margin: "0 0 24px 0" }}>
+              Choose a date range to export
+            </p>
+
+            <label htmlFor="export-from" style={{ display: "block", color: theme.textMuted, fontSize: "11px", fontWeight: "700", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "8px" }}>
+              From
+            </label>
+            <input
+              id="export-from"
+              type="date"
+              title="From date"
+              value={exportFrom}
+              onChange={(e) => setExportFrom(e.target.value)}
+              style={{
+                width: "100%", background: theme.panelStrong,
+                border: `1px solid ${theme.panelBorder}`,
+                borderRadius: "10px", padding: "12px 14px",
+                color: theme.text, fontSize: "14px",
+                outline: "none", marginBottom: "16px",
+                boxSizing: "border-box" as const,
+              }}
+            />
+
+            <label htmlFor="export-to" style={{ display: "block", color: theme.textMuted, fontSize: "11px", fontWeight: "700", letterSpacing: "1px", textTransform: "uppercase", marginBottom: "8px" }}>
+              To
+            </label>
+            <input
+              id="export-to"
+              type="date"
+              title="To date"
+              value={exportTo}
+              onChange={(e) => setExportTo(e.target.value)}
+              style={{
+                width: "100%", background: theme.panelStrong,
+                border: `1px solid ${theme.panelBorder}`,
+                borderRadius: "10px", padding: "12px 14px",
+                color: theme.text, fontSize: "14px",
+                outline: "none", marginBottom: "24px",
+                boxSizing: "border-box" as const,
+              }}
+            />
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={() => setExportModal(false)}
+                style={{
+                  flex: 1, background: "transparent",
+                  border: `1px solid ${theme.panelBorder}`,
+                  color: theme.textMuted, borderRadius: "10px",
+                  padding: "12px", fontSize: "14px", fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExportDateRange}
+                disabled={!exportFrom || !exportTo || exportLoading}
+                style={{
+                  flex: 2,
+                  background: !exportFrom || !exportTo || exportLoading
+                    ? "rgba(15,79,157,0.4)"
+                    : `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                  border: "none", color: "white", borderRadius: "10px",
+                  padding: "12px", fontSize: "14px", fontWeight: "600",
+                  cursor: !exportFrom || !exportTo || exportLoading ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  gap: "8px",
+                }}
+              >
+                <Download size={15} strokeWidth={2.4} />
+                {exportLoading ? "Exporting…" : "Export CSV"}
+              </button>
+            </div>
           </div>
         </div>
       )}

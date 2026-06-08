@@ -130,18 +130,24 @@ export const getAttendanceSummary = async (session_id?: string) => {
   return res.data as { total_employees: number; records: AttendanceRecord[] };
 };
 
-export const exportAttendanceCSV = async (session_id?: string) => {
-  const params = session_id ? `?session_id=${session_id}` : "";
-  const res = await api.get(`/reports/export${params}`, {
-    responseType: "blob",
-  });
+export const exportAttendanceCSV = async (
+  session_id?: string,
+  date_from?: string,
+  date_to?: string,
+) => {
+  const p = new URLSearchParams();
+  if (session_id) p.set("session_id", session_id);
+  if (date_from)  p.set("date_from", date_from);
+  if (date_to)    p.set("date_to", date_to);
+  const query = p.toString() ? `?${p.toString()}` : "";
+  const res = await api.get(`/reports/export${query}`, { responseType: "blob" });
   const url = window.URL.createObjectURL(new Blob([res.data]));
   const link = document.createElement("a");
   link.href = url;
-  link.setAttribute(
-    "download",
-    `ratel_attendance_${new Date().toISOString().slice(0, 10)}.csv`
-  );
+  const label = date_from && date_to
+    ? `${date_from}_to_${date_to}`
+    : new Date().toISOString().slice(0, 10);
+  link.setAttribute("download", `ratel_attendance_${label}.csv`);
   document.body.appendChild(link);
   link.click();
   link.remove();
