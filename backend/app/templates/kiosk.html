@@ -238,6 +238,56 @@
     .shift-time { font-size: 11px; color: var(--muted); }
     .shift-btn.active .shift-time { color: var(--primary); opacity: 0.8; }
 
+    /* Face scan panel */
+    .face-panel {
+      display: none; flex-direction: column; align-items: center;
+      margin-bottom: 24px; gap: 10px;
+    }
+    .face-panel-label {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--muted);
+    }
+    .face-video-ring {
+      position: relative; width: 110px; height: 110px;
+      border-radius: 50%; overflow: hidden;
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 18px rgba(47,125,225,0.25);
+    }
+    #face-video {
+      width: 100%; height: 100%;
+      object-fit: cover; transform: scaleX(-1);
+    }
+    .face-scan-bar {
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; background: var(--accent);
+      animation: scanBar 2s ease-in-out infinite;
+      opacity: 0.7;
+    }
+    @keyframes scanBar {
+      0%   { transform: translateY(0);     opacity: 0.7; }
+      50%  { transform: translateY(107px); opacity: 1;   }
+      100% { transform: translateY(0);     opacity: 0.7; }
+    }
+    .face-scan-status {
+      font-size: 11px; color: var(--muted);
+    }
+
+    /* Face recognition result toast */
+    .face-result-toast {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
+      background: rgba(14,44,82,0.95);
+      color: white; border-radius: 20px;
+      padding: 20px 32px; text-align: center;
+      z-index: 999; display: none;
+      flex-direction: column; align-items: center; gap: 6px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+      min-width: 260px;
+    }
+    .face-result-toast.visible { display: flex; }
+    .face-result-name { font-size: 20px; font-weight: 800; }
+    .face-result-action { font-size: 14px; color: rgba(255,255,255,0.75); }
+
     /* Enrollment UI */
     .enroll-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -313,6 +363,16 @@
       <div id="qrcode"></div>
     </div>
 
+    <!-- Face scan panel (shown when camera is available) -->
+    <div class="face-panel" id="face-panel">
+      <div class="face-panel-label">Or check in by face</div>
+      <div class="face-video-ring">
+        <video id="face-video" autoplay playsinline muted></video>
+        <div class="face-scan-bar"></div>
+      </div>
+      <div class="face-scan-status" id="face-scan-status">Scanning…</div>
+    </div>
+
     <div class="timer-section">
       <div class="timer-row">
         <span class="timer-label">QR refreshes in</span>
@@ -345,6 +405,13 @@
     <p style="font-size:13px; margin-top:8px">Ask your admin to start an attendance session</p>
   </div>
 
+  <!-- Face recognition result toast -->
+  <div id="face-result-toast" class="face-result-toast">
+    <div id="face-result-icon" style="font-size:36px;line-height:1"></div>
+    <div id="face-result-name" class="face-result-name"></div>
+    <div id="face-result-action" class="face-result-action"></div>
+  </div>
+
   <div id="enroll-overlay" class="enroll-overlay">
     <div class="enroll-status" id="enroll-status">Hi John! Let's set up your Face Check-in</div>
     <div class="enroll-video-wrapper">
@@ -374,6 +441,12 @@
     let enrollmentStream = null;
     let activeShift = "morning";
     let shiftAutoUpdateInterval = null;
+
+    // Face scan state
+    let faceStream = null;
+    let faceScanInterval = null;
+    let faceScanPaused = false;
+    let faceResultTimeout = null;
 
     const SHIFTS = {
       morning: { start: 6, end: 15, label: "Morning" },
@@ -474,11 +547,104 @@
       connectWebSocket();
       startCountdown();
       startShiftAutoUpdate();
+      void startFaceScan();
+    }
+
+    // ── Face Scan (kiosk camera) ──────────────────────────────────────────────
+    async function startFaceScan() {
+      if (faceStream) return; // already running
+      try {
+        faceStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 320, height: 320, facingMode: "user" }
+        });
+        document.getElementById("face-video").srcObject = faceStream;
+        document.getElementById("face-panel").style.display = "flex";
+        faceScanInterval = setInterval(captureAndMatchFace, 3000);
+      } catch (err) {
+        // Camera unavailable — face panel stays hidden, no disruption
+        console.warn("Face scan camera unavailable:", err);
+      }
+    }
+
+    function stopFaceScan() {
+      if (faceScanInterval) { clearInterval(faceScanInterval); faceScanInterval = null; }
+      if (faceResultTimeout) { clearTimeout(faceResultTimeout); faceResultTimeout = null; }
+      if (faceStream) {
+        faceStream.getTracks().forEach(t => t.stop());
+        faceStream = null;
+      }
+      document.getElementById("face-panel").style.display = "none";
+      const toast = document.getElementById("face-result-toast");
+      if (toast) toast.classList.remove("visible");
+      faceScanPaused = false;
+    }
+
+    async function captureAndMatchFace() {
+      if (!qrToken || !sessionId || enrollmentActive || faceScanPaused) return;
+      const video = document.getElementById("face-video");
+      if (!video || video.readyState < 2) return;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 320;
+      canvas.height = video.videoHeight || 320;
+      const ctx = canvas.getContext("2d");
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0);
+      const imageData = canvas.toDataURL("image/jpeg", 0.85);
+
+      try {
+        const res = await fetch(`${API_BASE}/checkin/face`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ qr_token: qrToken, face_image: imageData }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.matched && !data.already_done) {
+          showFaceResult(data);
+          // Pause scanning while the result is shown
+          faceScanPaused = true;
+          faceResultTimeout = setTimeout(() => {
+            document.getElementById("face-result-toast").classList.remove("visible");
+            faceScanPaused = false;
+          }, 3500);
+          // If they need face enrollment, trigger it after the toast dismisses
+          if (data.needs_enrollment) {
+            setTimeout(() => startEnrollment(data.user_id, data.employee), 3800);
+          }
+        }
+      } catch (err) {
+        // Silent — face scan is best-effort
+      }
+    }
+
+    function showFaceResult(data) {
+      const toast = document.getElementById("face-result-toast");
+      const isOut = data.action === "checked_out";
+      document.getElementById("face-result-icon").textContent = isOut ? "👋" : "✅";
+      document.getElementById("face-result-name").textContent = data.employee;
+      document.getElementById("face-result-action").textContent = isOut
+        ? `Clocked out · ${data.hours_clocked}h`
+        : "Clocked in — welcome!";
+      toast.classList.add("visible");
+
+      // Also update the live attendee list
+      addAttendee({
+        employee: data.employee,
+        employee_id: data.employee_id,
+        user_id: data.user_id,
+        status: data.status,
+        action: data.action,
+        checked_in_at: data.checked_in_at,
+        needs_enrollment: false,
+      });
     }
 
     function detachSession() {
       clearCountdown();
       stopShiftAutoUpdate();
+      stopFaceScan();
       shouldReconnect = false;
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
@@ -716,16 +882,16 @@
       const imageData = canvas.toDataURL("image/jpeg", 0.9);
 
       try {
-        const res = await fetch(`${API_BASE}/checkin/enroll`, {
+        const res = await fetch(`${API_BASE}/checkin/enroll-kiosk`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ user_id: userId, face_image: imageData }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, face_image: imageData, qr_token: qrToken }),
         });
 
+        const data = await res.json().catch(() => ({}));
+
         if (res.ok) {
-          document.getElementById("enroll-status").textContent = "Enrollment Complete!";
+          document.getElementById("enroll-status").textContent = "Face ID saved!";
           document.getElementById("enroll-countdown").innerHTML = `
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
@@ -733,11 +899,14 @@
           `;
           setTimeout(stopEnrollment, 2000);
         } else {
-          throw new Error("Enrollment failed");
+          const msg = data.detail || "No face detected";
+          document.getElementById("enroll-status").textContent = msg;
+          document.getElementById("enroll-countdown").textContent = "✕";
+          setTimeout(stopEnrollment, 2500);
         }
       } catch (err) {
-        alert("Enrollment failed. Please try again later.");
-        stopEnrollment();
+        document.getElementById("enroll-status").textContent = "Camera error — try again later";
+        setTimeout(stopEnrollment, 2000);
       }
     }
 

@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { AxiosError } from "axios";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus, Download } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus, Download, Camera, CameraOff } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   getDepartments, createDepartment,
-  getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee
+  getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee,
+  clearFaceEnrollment,
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
@@ -179,6 +180,17 @@ export default function Staff() {
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
       alert(axiosError.response?.data?.detail || "Failed to purge employee");
+    }
+  };
+
+  const handleClearFaceEnrollment = async (emp: User) => {
+    if (!confirm(`Clear face enrollment for ${emp.full_name}? They will need to re-enroll at the kiosk.`)) return;
+    try {
+      await clearFaceEnrollment(emp.id);
+      await fetchEmployees();
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      alert(axiosError.response?.data?.detail || "Failed to clear face enrollment");
     }
   };
 
@@ -397,7 +409,7 @@ export default function Staff() {
               {/* Table header */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 150px",
+                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 180px",
                 padding: "0 16px 12px",
                 borderBottom: `1px solid ${theme.panelBorder}`,
               }}>
@@ -414,7 +426,7 @@ export default function Staff() {
               {(view === "employees" ? activeEmployees : deactivatedEmployees).map((emp) => (
                 <div key={emp.id} style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 150px",
+                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 180px",
                   alignItems: "center",
                   background: theme.panelStrong,
                   border: `1px solid ${theme.panelBorder}`,
@@ -437,12 +449,23 @@ export default function Staff() {
                       <p style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>
                         {emp.full_name || "Unknown Staff"}
                       </p>
-                      <p style={{
-                        margin: 0, fontSize: "11px",
-                        color: emp.is_active ? theme.success : theme.danger,
-                      }}>
-                        {emp.is_active ? "Active" : "Inactive"}
-                      </p>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", marginTop: "2px" }}>
+                        <p style={{ margin: 0, fontSize: "11px", color: emp.is_active ? theme.success : theme.danger }}>
+                          {emp.is_active ? "Active" : "Inactive"}
+                        </p>
+                        {emp.is_face_enrolled && (
+                          <span style={{
+                            display: "flex", alignItems: "center", gap: "3px",
+                            fontSize: "10px", fontWeight: "700",
+                            color: theme.primary,
+                            background: theme.accentSoft,
+                            padding: "1px 6px", borderRadius: "999px",
+                          }}>
+                            <Camera size={9} />
+                            Face ID
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -485,6 +508,22 @@ export default function Staff() {
                         >
                           <Edit2 size={14} />
                         </button>
+                        {emp.is_face_enrolled && (
+                          <button
+                            onClick={() => handleClearFaceEnrollment(emp)}
+                            title="Clear Face ID"
+                            style={{
+                              background: theme.panelMuted,
+                              border: `1px solid ${theme.panelBorder}`,
+                              color: theme.textMuted, borderRadius: "8px",
+                              padding: "6px", fontSize: "11px",
+                              cursor: "pointer", fontWeight: "600",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}
+                          >
+                            <CameraOff size={14} />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleDeactivate(emp.employee_id, emp.full_name)}
                           title="Deactivate Employee"

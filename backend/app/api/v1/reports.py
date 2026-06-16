@@ -250,3 +250,25 @@ async def clear_all_attendance(
     await db.commit()
     logger.info("all_attendance_cleared", by=str(_admin.id))
     return {"message": "All attendance records have been cleared permanently"}
+
+
+@router.post("/reset-face-enrollments")
+async def reset_face_enrollments(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Clear all face enrollments so every employee re-enrolls fresh on next check-in.
+    Use this once after deploying the face recognition fix.
+    """
+    result = await db.execute(
+        select(User).where(User.is_face_enrolled == True)  # noqa: E712
+    )
+    users = result.scalars().all()
+    count = len(users)
+    for user in users:
+        user.is_face_enrolled = False
+        user.face_encoding = None
+    await db.flush()
+    logger.info("face_enrollments_reset", count=count, by=str(_admin.id))
+    return {"message": f"Cleared {count} face enrollment(s). Staff will re-enroll on next check-in.", "count": count}

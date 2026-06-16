@@ -6,6 +6,17 @@ from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 import uuid
+import base64
+import io
+import json
+
+try:
+    import face_recognition
+    import numpy as np
+    from PIL import Image
+    FACE_RECOGNITION_AVAILABLE = True
+except ImportError:
+    FACE_RECOGNITION_AVAILABLE = False
 
 from app.database import get_db
 from app.redis_client import get_redis
@@ -54,26 +65,288 @@ async def enroll_face(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
 ):
-    """
-    Enroll an employee's face encoding.
-    In a real implementation, we would extract the encoding from the image here.
-    """
+    """Capture and store a face encoding for an employee."""
+    if not FACE_RECOGNITION_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face recognition library not installed on this server")
+
     result = await db.execute(select(User).where(User.id == payload.user_id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Placeholder for face encoding extraction
-    # import face_recognition
-    # image_data = base64.b64decode(payload.face_image.split(",")[1])
-    # ... extraction logic ...
-    
+    try:
+        image_data = payload.face_image
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        img_array = np.array(pil_image)
+        encodings = face_recognition.face_encodings(img_array)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process image: {e}")
+
+    if not encodings:
+        raise HTTPException(status_code=400, detail="No face detected in the image. Please try again.")
+
+    user.face_encoding = json.dumps(encodings[0].tolist())
     user.is_face_enrolled = True
-    user.face_encoding = "placeholder_encoding" # We will implement real encoding later
     await db.flush()
-    
+
     logger.info("face_enrolled", user_id=str(user.id), employee_id=user.employee_id)
     return {"message": f"Face enrolled successfully for {user.full_name}"}
+
+
+@router.delete("/enroll/{user_id}", status_code=200)
+async def clear_face_enrollment(
+    user_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Clear face enrollment for an employee."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    user.face_encoding = None
+    user.is_face_enrolled = False
+    await db.flush()
+
+    logger.info("face_enrollment_cleared", user_id=str(user.id), employee_id=user.employee_id)
+    return {"message": f"Face enrollment cleared for {user.full_name}"}
+
+
+class KioskEnrollRequest(BaseModel):
+    user_id: uuid.UUID
+    face_image: str  # Base64 encoded image
+    qr_token: str   # Active session token — proves request comes from a live kiosk
+
+
+@router.post("/enroll-kiosk", status_code=200)
+@limiter.limit("10/minute")
+async def enroll_face_kiosk(
+    request: Request,
+    payload: KioskEnrollRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """
+    Kiosk-side face enrollment — no admin token needed.
+    The active QR session token acts as proof the request originates from
+    a live, on-premise kiosk, not an arbitrary internet caller.
+    """
+    if not FACE_RECOGNITION_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face recognition library not installed on this server")
+
+    # Validate the session token as the kiosk's credential
+    token_data = decode_qr_token(payload.qr_token)
+    if not token_data or token_data.get("type") != QR_TYPE:
+        raise HTTPException(status_code=400, detail="Invalid session token")
+    if not await is_token_active(redis, payload.qr_token):
+        raise HTTPException(status_code=400, detail="Session token has expired")
+    session = await get_session(redis, token_data["session_id"])
+    if not session or not session.get("is_active"):
+        raise HTTPException(status_code=400, detail="No active attendance session")
+
+    result = await db.execute(select(User).where(User.id == payload.user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    try:
+        image_data = payload.face_image
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        img_array = np.array(pil_image)
+        encodings = face_recognition.face_encodings(img_array)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to process image: {e}")
+
+    if not encodings:
+        raise HTTPException(status_code=400, detail="No face detected. Please look directly at the camera.")
+
+    user.face_encoding = json.dumps(encodings[0].tolist())
+    user.is_face_enrolled = True
+    await db.flush()
+
+    logger.info("face_enrolled_kiosk", user_id=str(user.id), employee_id=user.employee_id)
+    return {"message": f"Face enrolled for {user.full_name}"}
+
+
+class FaceCheckinRequest(BaseModel):
+    qr_token: str = Field(..., min_length=10)
+    face_image: str  # base64 JPEG
+
+
+@router.post("/face", status_code=200)
+@limiter.limit("60/minute")
+async def face_check_in(
+    request: Request,
+    payload: FaceCheckinRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """
+    Kiosk face check-in: capture a frame, match against enrolled faces,
+    and run the same check-in/out logic as a QR scan.
+    Returns {matched: false} when no face is recognised (not an error).
+    """
+    if not FACE_RECOGNITION_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face recognition not available")
+
+    # ── 1. Validate QR token (proves request comes from a live kiosk session) ──
+    qr_token = payload.qr_token
+    token_data = decode_qr_token(qr_token)
+    if not token_data or token_data.get("type") != QR_TYPE:
+        raise HTTPException(status_code=400, detail="Invalid or expired QR code")
+
+    if not await is_token_active(redis, qr_token):
+        raise HTTPException(status_code=400, detail="QR code has expired")
+
+    session_id = token_data["session_id"]
+    location_id = token_data["location_id"]
+    shift = token_data.get("shift")
+
+    session = await get_session(redis, session_id)
+    if not session or not session.get("is_active"):
+        raise HTTPException(status_code=400, detail="Attendance session is closed")
+
+    # ── 2. Decode incoming face image ─────────────────────────────────────────
+    try:
+        image_data = payload.face_image
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        incoming_array = np.array(pil_image)
+        incoming_encodings = face_recognition.face_encodings(incoming_array)
+    except Exception as e:
+        logger.warning("face_scan_decode_failed", error=str(e))
+        return {"matched": False}
+
+    if not incoming_encodings:
+        return {"matched": False}
+
+    incoming_encoding = incoming_encodings[0]
+
+    # ── 3. Load all enrolled active employees ─────────────────────────────────
+    enrolled_result = await db.execute(
+        select(User).where(
+            User.is_face_enrolled == True,  # noqa: E712
+            User.is_active == True,         # noqa: E712
+            User.face_encoding != None,     # noqa: E711
+        )
+    )
+    enrolled_users = enrolled_result.scalars().all()
+
+    if not enrolled_users:
+        return {"matched": False}
+
+    # ── 4. Find best match ────────────────────────────────────────────────────
+    matched_user: Optional[User] = None
+    for emp in enrolled_users:
+        try:
+            stored = np.array(json.loads(emp.face_encoding))
+            if face_recognition.compare_faces([stored], incoming_encoding, tolerance=0.55)[0]:
+                matched_user = emp
+                break
+        except Exception:
+            continue
+
+    if not matched_user:
+        return {"matched": False}
+
+    # ── 5. Check-in / Check-out logic (mirrors normal scan) ──────────────────
+    employee = matched_user
+    now = datetime.now(timezone.utc)
+
+    existing = await db.execute(
+        select(Attendance).where(
+            Attendance.employee_id == employee.id,
+            Attendance.session_id == session_id,
+        )
+    )
+    attendance = existing.scalar_one_or_none()
+
+    if not attendance:
+        cutoff = now - timedelta(hours=36)
+        recent_result = await db.execute(
+            select(Attendance)
+            .where(
+                Attendance.employee_id == employee.id,
+                Attendance.check_status == CheckStatus.CHECKED_IN,
+                Attendance.checked_in_at >= cutoff,
+            )
+            .order_by(Attendance.checked_in_at.desc())
+            .limit(1)
+        )
+        attendance = recent_result.scalar_one_or_none()
+
+    if not attendance:
+        attendance = Attendance(
+            employee_id=employee.id,
+            session_id=session_id,
+            location_id=location_id,
+            status=AttendanceStatus.PRESENT,
+            check_status=CheckStatus.CHECKED_IN,
+            shift=shift,
+            token_used="face-recognition",
+        )
+        db.add(attendance)
+        await db.flush()
+        await db.refresh(attendance)
+        action = "checked_in"
+
+    elif attendance.check_status == CheckStatus.CHECKED_IN:
+        hours = round((now - attendance.checked_in_at).total_seconds() / 3600, 2)
+        attendance.checked_out_at = now
+        attendance.hours_clocked = hours
+        attendance.check_status = CheckStatus.CHECKED_OUT
+        await db.flush()
+        action = "checked_out"
+
+    else:
+        # Already fully checked out — acknowledge silently so the kiosk doesn't alarm
+        return {
+            "matched": True,
+            "already_done": True,
+            "employee": employee.full_name,
+            "action": "already_checked_out",
+        }
+
+    # ── 6. Broadcast via WebSocket ────────────────────────────────────────────
+    await publish_checkin_event(
+        redis=redis,
+        session_id=session_id,
+        event={
+            "employee": employee.full_name,
+            "employee_id": employee.employee_id,
+            "user_id": str(employee.id),
+            "session_id": session_id,
+            "status": attendance.status,
+            "action": action,
+            "checked_in_at": attendance.checked_in_at.isoformat(),
+            "checked_out_at": attendance.checked_out_at.isoformat() if attendance.checked_out_at else None,
+            "needs_enrollment": False,
+        },
+    )
+
+    logger.info("face_checkin_success", employee_id=employee.employee_id, action=action)
+
+    return {
+        "matched": True,
+        "action": action,
+        "employee": employee.full_name,
+        "employee_id": employee.employee_id,
+        "user_id": str(employee.id),
+        "session": session["name"],
+        "status": attendance.status,
+        "checked_in_at": attendance.checked_in_at.isoformat(),
+        "checked_out_at": attendance.checked_out_at.isoformat() if attendance.checked_out_at else None,
+        "hours_clocked": attendance.hours_clocked,
+    }
 
 
 @router.get("/resolve-fingerprint")

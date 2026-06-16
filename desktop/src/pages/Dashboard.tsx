@@ -12,6 +12,7 @@ import {
   bulkAutoCheckout,
   manualCheckin,
   getEmployeeStatus,
+  resetFaceEnrollments,
   SHIFTS,
   type ShiftType,
 } from "@/lib/api";
@@ -331,6 +332,19 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []); // Only on mount
 
+  const handleResetFaceEnrollments = async () => {
+    const confirmed = window.confirm(
+      "This will clear ALL face enrollments so every staff member re-enrolls on their next check-in.\n\nUse this once after deploying the face recognition fix. Continue?"
+    );
+    if (!confirmed) return;
+    try {
+      const result = await resetFaceEnrollments();
+      alert(result.message);
+    } catch (err) {
+      alert("Failed to reset face enrollments. Please try again.");
+    }
+  };
+
   const handleExportDateRange = async () => {
     if (!exportFrom || !exportTo) return;
     setExportLoading(true);
@@ -564,6 +578,21 @@ export default function Dashboard() {
                 }}
               >
                 Fix Open Records
+              </button>
+              <button
+                onClick={handleResetFaceEnrollments}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${theme.panelBorder}`,
+                  color: theme.textMuted,
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                }}
+              >
+                Reset Face IDs
               </button>
               <button
                 onClick={handleClearAttendance}

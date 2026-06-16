@@ -52,6 +52,7 @@ export interface User {
   employee_id: string;
   role: string;
   is_active: boolean;
+  is_face_enrolled: boolean;
   location_id: string;
   department_id?: string | null;
   department_name?: string | null;
@@ -250,8 +251,18 @@ export const purgeEmployee = async (employee_id: string): Promise<{ message: str
   return res.data;
 };
 
+export const clearFaceEnrollment = async (user_id: string): Promise<{ message: string }> => {
+  const res = await api.delete(`/checkin/enroll/${user_id}`);
+  return res.data;
+};
+
 export const clearAllAttendance = async (): Promise<{ message: string }> => {
   const res = await api.delete("/reports/clear");
+  return res.data;
+};
+
+export const resetFaceEnrollments = async (): Promise<{ message: string; count: number }> => {
+  const res = await api.post("/reports/reset-face-enrollments");
   return res.data;
 };
 
