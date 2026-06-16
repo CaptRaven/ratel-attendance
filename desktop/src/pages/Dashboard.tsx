@@ -10,6 +10,8 @@ import {
   rotateToken,
   getUnclosedCheckins,
   bulkAutoCheckout,
+  manualCheckin,
+  getEmployeeStatus,
   SHIFTS,
   type ShiftType,
 } from "@/lib/api";
@@ -70,6 +72,12 @@ export default function Dashboard() {
   const [sessionName, setSessionName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
+  const [manualModal, setManualModal] = useState(false);
+  const [manualId, setManualId] = useState("");
+  const [manualStatus, setManualStatus] = useState<"none" | "checked_in" | "checked_out">("none");
+  const [manualName, setManualName] = useState<string | null>(null);
+  const [manualLookupLoading, setManualLookupLoading] = useState(false);
+  const [manualSubmitLoading, setManualSubmitLoading] = useState(false);
   const [exportModal, setExportModal] = useState(false);
   const [exportFrom, setExportFrom] = useState(() => {
     const d = new Date();
@@ -191,6 +199,48 @@ export default function Dashboard() {
 
   const handleClearAttendance = async () => {
     alert("This feature has been disabled for safety reasons. Please contact support if you need to clear attendance records.");
+  };
+
+  const lookupManualEmployee = async (id: string) => {
+    if (!session || id.length < 2) {
+      setManualName(null);
+      setManualStatus("none");
+      return;
+    }
+    setManualLookupLoading(true);
+    try {
+      const data = await getEmployeeStatus(id, session.session_id);
+      if (data.found) {
+        setManualName(data.employee);
+        setManualStatus(data.check_status as "none" | "checked_in" | "checked_out");
+      } else {
+        setManualName(null);
+        setManualStatus("none");
+      }
+    } catch {
+      setManualName(null);
+    } finally {
+      setManualLookupLoading(false);
+    }
+  };
+
+  const handleManualCheckin = async () => {
+    if (!session || !manualId.trim()) return;
+    setManualSubmitLoading(true);
+    try {
+      const result = await manualCheckin(manualId.trim(), session.session_id);
+      const verb = result.action === "checked_in" ? "clocked in" : "clocked out";
+      alert(`${result.employee} successfully ${verb}.`);
+      setManualModal(false);
+      setManualId("");
+      setManualName(null);
+      setManualStatus("none");
+      await loadSessionAttendance(session.session_id);
+    } catch (err: any) {
+      alert(err?.response?.data?.detail || "Manual check-in failed. Please try again.");
+    } finally {
+      setManualSubmitLoading(false);
+    }
   };
 
   const handleBulkCheckout = async () => {
@@ -486,6 +536,21 @@ export default function Dashboard() {
                 {showAllRecords ? "All Records" : "Current Session"}
               </button>
               <button
+                onClick={() => { setManualId(""); setManualName(null); setManualStatus("none"); setManualModal(true); }}
+                style={{
+                  background: theme.accentSoft,
+                  border: `1px solid ${theme.panelBorder}`,
+                  color: theme.primary,
+                  padding: "10px 16px",
+                  borderRadius: "10px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                }}
+              >
+                Manual Clock-in
+              </button>
+              <button
                 onClick={handleBulkCheckout}
                 style={{
                   background: "transparent",
@@ -565,6 +630,86 @@ export default function Dashboard() {
           }}>
             <QRDisplay sessionId={session.session_id} />
             <AttendeeList attendees={attendees} title={showAllRecords ? "All Attendance Records" : "Live Attendance"} />
+          </div>
+        </div>
+      )}
+
+      {/* ── Manual Clock-in Modal ── */}
+      {manualModal && session && (
+        <div
+          onClick={() => setManualModal(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: theme.panel, border: `1px solid ${theme.panelBorder}`, borderRadius: "20px", padding: "32px", width: "100%", maxWidth: "400px", boxShadow: theme.shadow }}
+          >
+            <h2 style={{ color: theme.text, fontSize: "18px", fontWeight: "700", margin: "0 0 6px 0" }}>
+              Manual Clock-in / Out
+            </h2>
+            <p style={{ color: theme.textMuted, fontSize: "13px", margin: "0 0 24px 0" }}>
+              Enter the employee's ID to clock them in or out
+            </p>
+
+            <label htmlFor="manual-emp-id" style={{ display: "block", color: theme.textMuted, fontSize: "11px", fontWeight: "700", letterSpacing: "1px", textTransform: "uppercase" as const, marginBottom: "8px" }}>
+              Employee ID
+            </label>
+            <input
+              id="manual-emp-id"
+              type="text"
+              placeholder="e.g. EMP-001"
+              value={manualId}
+              onChange={(e) => {
+                const val = e.target.value;
+                setManualId(val);
+                setManualName(null);
+                setManualStatus("none");
+                clearTimeout((window as any)._manualDebounce);
+                (window as any)._manualDebounce = setTimeout(() => lookupManualEmployee(val.trim()), 400);
+              }}
+              style={{ width: "100%", background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`, borderRadius: "10px", padding: "12px 14px", color: theme.text, fontSize: "15px", outline: "none", boxSizing: "border-box" as const, marginBottom: "12px" }}
+            />
+
+            {/* Live employee preview */}
+            {manualLookupLoading && (
+              <p style={{ color: theme.textMuted, fontSize: "13px", marginBottom: "16px" }}>Looking up…</p>
+            )}
+            {!manualLookupLoading && manualName && (
+              <div style={{ background: manualStatus === "checked_in" ? "rgba(217,144,26,0.1)" : manualStatus === "checked_out" ? "rgba(204,61,90,0.08)" : theme.accentSoft, border: `1px solid ${theme.panelBorder}`, borderRadius: "10px", padding: "12px 14px", marginBottom: "16px" }}>
+                <p style={{ color: theme.text, fontWeight: "700", fontSize: "14px", margin: "0 0 2px 0" }}>{manualName}</p>
+                <p style={{ color: theme.textMuted, fontSize: "12px", margin: 0 }}>
+                  {manualStatus === "checked_in" ? "Currently checked in — will be clocked OUT" : manualStatus === "checked_out" ? "Already clocked in and out today" : "Not yet checked in — will be clocked IN"}
+                </p>
+              </div>
+            )}
+            {!manualLookupLoading && manualId.length >= 2 && !manualName && (
+              <p style={{ color: theme.danger, fontSize: "13px", marginBottom: "16px" }}>Employee not found</p>
+            )}
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={() => setManualModal(false)}
+                style={{ flex: 1, background: "transparent", border: `1px solid ${theme.panelBorder}`, color: theme.textMuted, borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: "600", cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleManualCheckin}
+                disabled={!manualName || manualStatus === "checked_out" || manualSubmitLoading}
+                style={{
+                  flex: 2,
+                  background: !manualName || manualStatus === "checked_out" || manualSubmitLoading
+                    ? "rgba(15,79,157,0.4)"
+                    : manualStatus === "checked_in"
+                      ? "linear-gradient(135deg, #d9901a, #bd7a12)"
+                      : `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                  border: "none", color: "white", borderRadius: "10px", padding: "12px", fontSize: "14px", fontWeight: "600",
+                  cursor: !manualName || manualStatus === "checked_out" || manualSubmitLoading ? "not-allowed" : "pointer",
+                }}
+              >
+                {manualSubmitLoading ? "Processing…" : manualStatus === "checked_in" ? "Clock Out" : "Clock In"}
+              </button>
+            </div>
           </div>
         </div>
       )}

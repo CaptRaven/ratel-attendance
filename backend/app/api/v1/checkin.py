@@ -376,6 +376,120 @@ async def get_session_attendance(
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
+class ManualCheckinRequest(BaseModel):
+    employee_id: str = Field(..., min_length=1)
+    session_id: str = Field(..., min_length=5)
+
+
+@router.post("/manual", status_code=201)
+@limiter.limit("100/minute")
+async def manual_checkin(
+    request: Request,
+    payload: ManualCheckinRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+    admin: User = Depends(require_admin),
+):
+    """
+    Admin manually clocks an employee in or out for a session.
+    Used when an employee has no device to scan the QR code.
+    Follows the same check-in / check-out logic as a normal scan.
+    """
+    result = await db.execute(
+        select(User).where(
+            User.employee_id == payload.employee_id,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    employee = result.scalar_one_or_none()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    session = await get_session(redis, payload.session_id)
+    if not session or not session.get("is_active"):
+        raise HTTPException(status_code=400, detail="Session is not active")
+
+    now = datetime.now(timezone.utc)
+
+    # Check current session first
+    existing = await db.execute(
+        select(Attendance).where(
+            Attendance.employee_id == employee.id,
+            Attendance.session_id == payload.session_id,
+        )
+    )
+    attendance = existing.scalar_one_or_none()
+
+    # Cross-session checkout (36h window)
+    if not attendance:
+        cutoff = now - timedelta(hours=36)
+        recent_result = await db.execute(
+            select(Attendance)
+            .where(
+                Attendance.employee_id == employee.id,
+                Attendance.check_status == CheckStatus.CHECKED_IN,
+                Attendance.checked_in_at >= cutoff,
+            )
+            .order_by(Attendance.checked_in_at.desc())
+            .limit(1)
+        )
+        attendance = recent_result.scalar_one_or_none()
+
+    if not attendance:
+        attendance = Attendance(
+            employee_id=employee.id,
+            session_id=payload.session_id,
+            location_id=session.get("location_id", "ratel-hq"),
+            status=AttendanceStatus.PRESENT,
+            check_status=CheckStatus.CHECKED_IN,
+            token_used="manual-admin",
+        )
+        db.add(attendance)
+        await db.flush()
+        await db.refresh(attendance)
+        action = "checked_in"
+
+    elif attendance.check_status == CheckStatus.CHECKED_IN:
+        hours = round((now - attendance.checked_in_at).total_seconds() / 3600, 2)
+        attendance.checked_out_at = now
+        attendance.hours_clocked = hours
+        attendance.check_status = CheckStatus.CHECKED_OUT
+        await db.flush()
+        action = "checked_out"
+
+    else:
+        raise HTTPException(
+            status_code=409,
+            detail=f"{employee.full_name} has already checked in and out for this session",
+        )
+
+    await publish_checkin_event(
+        redis=redis,
+        session_id=payload.session_id,
+        event={
+            "employee": employee.full_name,
+            "employee_id": employee.employee_id,
+            "user_id": str(employee.id),
+            "session_id": payload.session_id,
+            "status": attendance.status,
+            "action": action,
+            "checked_in_at": attendance.checked_in_at.isoformat(),
+            "checked_out_at": attendance.checked_out_at.isoformat() if attendance.checked_out_at else None,
+            "needs_enrollment": not employee.is_face_enrolled,
+        },
+    )
+
+    logger.info("manual_checkin", employee_id=employee.employee_id, action=action, admin=str(admin.id))
+    return {
+        "action": action,
+        "employee": employee.full_name,
+        "employee_id": employee.employee_id,
+        "checked_in_at": attendance.checked_in_at,
+        "checked_out_at": attendance.checked_out_at,
+        "hours_clocked": attendance.hours_clocked,
+    }
+
+
 @router.get("/status")
 @limiter.limit("300/minute")
 async def get_employee_status(

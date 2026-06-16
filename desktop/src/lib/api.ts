@@ -119,6 +119,33 @@ export const recoverSession = async (): Promise<Session> => {
   return res.data as Session;
 };
 
+export interface ManualCheckinResult {
+  action: "checked_in" | "checked_out";
+  employee: string;
+  employee_id: string;
+  checked_in_at: string;
+  checked_out_at: string | null;
+  hours_clocked: number | null;
+}
+
+export const manualCheckin = async (
+  employee_id: string,
+  session_id: string
+): Promise<ManualCheckinResult> => {
+  const res = await api.post("/checkin/manual", { employee_id, session_id });
+  return res.data as ManualCheckinResult;
+};
+
+export const getEmployeeStatus = async (
+  employee_id: string,
+  session_id: string
+): Promise<{ check_status: string; employee: string | null; found: boolean }> => {
+  const res = await api.get(
+    `/checkin/status?employee_id=${encodeURIComponent(employee_id)}&session_id=${encodeURIComponent(session_id)}`
+  );
+  return res.data;
+};
+
 export const getSessionAttendance = async (session_id: string) => {
   const res = await api.get(`/checkin/session/${session_id}`);
   return res.data as { total: number; records: AttendanceRecord[] };
