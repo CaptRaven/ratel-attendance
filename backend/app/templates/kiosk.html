@@ -258,20 +258,15 @@
       width: 100%; height: 100%;
       object-fit: cover; transform: scaleX(-1);
     }
-    .face-scan-bar {
-      position: absolute; top: 0; left: 0; right: 0;
-      height: 3px; background: var(--accent);
-      animation: scanBar 2s ease-in-out infinite;
-      opacity: 0.7;
+    .face-scan-btn {
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: white; border: none;
+      border-radius: 999px; padding: 10px 20px;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; letter-spacing: 0.2px;
+      transition: opacity 0.2s;
     }
-    @keyframes scanBar {
-      0%   { transform: translateY(0);     opacity: 0.7; }
-      50%  { transform: translateY(107px); opacity: 1;   }
-      100% { transform: translateY(0);     opacity: 0.7; }
-    }
-    .face-scan-status {
-      font-size: 11px; color: var(--muted);
-    }
+    .face-scan-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
     /* Face recognition result toast */
     .face-result-toast {
@@ -365,12 +360,13 @@
 
     <!-- Face scan panel (shown when camera is available) -->
     <div class="face-panel" id="face-panel">
-      <div class="face-panel-label">Or check in by face</div>
+      <div class="face-panel-label">Or use Face Recognition</div>
       <div class="face-video-ring">
         <video id="face-video" autoplay playsinline muted></video>
-        <div class="face-scan-bar"></div>
       </div>
-      <div class="face-scan-status" id="face-scan-status">Scanning…</div>
+      <button type="button" class="face-scan-btn" id="face-scan-btn" onclick="handleFaceButtonClick()">
+        Check In / Out with Face
+      </button>
     </div>
 
     <div class="timer-section">
@@ -442,11 +438,9 @@
     let activeShift = "morning";
     let shiftAutoUpdateInterval = null;
 
-    // Face scan state
+    // Face scan state — capture only happens on an explicit button press
     let faceStream = null;
-    let faceScanInterval = null;
-    let faceScanPaused = false;
-    let faceResultTimeout = null;
+    let faceCapturing = false;
 
     const SHIFTS = {
       morning: { start: 6, end: 15, label: "Morning" },
@@ -550,7 +544,10 @@
       void startFaceScan();
     }
 
-    // ── Face Scan (kiosk camera) ──────────────────────────────────────────────
+    // ── Face Scan (kiosk camera) ────────────────────────────────────────────
+    // Camera is kept live for an instant preview, but matching only ever runs
+    // when the employee deliberately presses the button below — no background
+    // auto-scan, so nobody is checked in/out just by glancing at the kiosk.
     async function startFaceScan() {
       if (faceStream) return; // already running
       try {
@@ -559,7 +556,6 @@
         });
         document.getElementById("face-video").srcObject = faceStream;
         document.getElementById("face-panel").style.display = "flex";
-        faceScanInterval = setInterval(captureAndMatchFace, 3000);
       } catch (err) {
         // Camera unavailable — face panel stays hidden, no disruption
         console.warn("Face scan camera unavailable:", err);
@@ -567,8 +563,6 @@
     }
 
     function stopFaceScan() {
-      if (faceScanInterval) { clearInterval(faceScanInterval); faceScanInterval = null; }
-      if (faceResultTimeout) { clearTimeout(faceResultTimeout); faceResultTimeout = null; }
       if (faceStream) {
         faceStream.getTracks().forEach(t => t.stop());
         faceStream = null;
@@ -576,13 +570,21 @@
       document.getElementById("face-panel").style.display = "none";
       const toast = document.getElementById("face-result-toast");
       if (toast) toast.classList.remove("visible");
-      faceScanPaused = false;
     }
 
-    async function captureAndMatchFace() {
-      if (!qrToken || !sessionId || enrollmentActive || faceScanPaused) return;
+    async function handleFaceButtonClick() {
+      if (faceCapturing || !qrToken || !sessionId || enrollmentActive) return;
+      const btn = document.getElementById("face-scan-btn");
       const video = document.getElementById("face-video");
-      if (!video || video.readyState < 2) return;
+      if (!video || video.readyState < 2) {
+        btn.textContent = "Camera not ready — try again";
+        setTimeout(() => { btn.textContent = "Check In / Out with Face"; }, 1800);
+        return;
+      }
+
+      faceCapturing = true;
+      btn.disabled = true;
+      btn.textContent = "Scanning…";
 
       const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth || 320;
@@ -593,29 +595,37 @@
       ctx.drawImage(video, 0, 0);
       const imageData = canvas.toDataURL("image/jpeg", 0.85);
 
+      const resetButton = (label) => {
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.textContent = label || "Check In / Out with Face";
+          faceCapturing = false;
+        }, 2200);
+      };
+
       try {
         const res = await fetch(`${API_BASE}/checkin/face`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ qr_token: qrToken, face_image: imageData }),
         });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.matched && !data.already_done) {
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.matched && data.already_done) {
+          resetButton("Already checked in & out today");
+        } else if (res.ok && data.matched) {
           showFaceResult(data);
-          // Pause scanning while the result is shown
-          faceScanPaused = true;
-          faceResultTimeout = setTimeout(() => {
-            document.getElementById("face-result-toast").classList.remove("visible");
-            faceScanPaused = false;
-          }, 3500);
-          // If they need face enrollment, trigger it after the toast dismisses
           if (data.needs_enrollment) {
             setTimeout(() => startEnrollment(data.user_id, data.employee), 3800);
           }
+          resetButton();
+        } else if (res.ok && !data.matched) {
+          resetButton("Face not recognized — try again");
+        } else {
+          resetButton(data.detail || "Failed — try again");
         }
       } catch (err) {
-        // Silent — face scan is best-effort
+        resetButton("Network error — try again");
       }
     }
 
