@@ -16,7 +16,11 @@ try:
     import numpy as np
     from PIL import Image
     FACE_RECOGNITION_AVAILABLE = True
-except ImportError:
+except (ImportError, SystemExit):
+    # face_recognition calls quit() (raises SystemExit, not ImportError) when
+    # its data models package isn't installed — catch that too so a broken
+    # face_recognition install degrades this feature instead of killing the
+    # whole app at import time.
     FACE_RECOGNITION_AVAILABLE = False
 
 from app.database import get_db

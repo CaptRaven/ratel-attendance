@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum, Index
+from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum, Index, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
@@ -65,4 +65,8 @@ class Attendance(Base):
             "check_status",
             "checked_in_at",
         ),
+        # Mirrors the DB constraint added in migration b7a2f4e91c3d — keeps
+        # the ORM model in sync with the actual schema so fresh setups
+        # (tests, local dev via create_all) get the same guarantee.
+        UniqueConstraint("employee_id", "session_id", name="uq_attendance_employee_session"),
     )
