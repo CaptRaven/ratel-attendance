@@ -364,9 +364,32 @@
       <div class="face-video-ring">
         <video id="face-video" autoplay playsinline muted></video>
       </div>
-      <button type="button" class="face-scan-btn" id="face-scan-btn" onclick="handleFaceButtonClick()">
-        Check In / Out with Face
-      </button>
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="face-scan-btn" id="face-scan-btn" onclick="handleFaceButtonClick()">
+          Check In / Out with Face
+        </button>
+        <button type="button" class="face-scan-btn" id="face-setup-btn"
+          style="background:transparent; border:1px solid var(--border); color:var(--muted);"
+          onclick="openEnrollPrompt()">
+          Set Up Face ID
+        </button>
+      </div>
+    </div>
+
+    <!-- Face ID setup: employee must type their own ID, standing at the kiosk -->
+    <div id="enroll-prompt-overlay" style="display:none; position:fixed; inset:0; background:rgba(14,44,82,0.92); z-index:1001; align-items:center; justify-content:center; flex-direction:column; color:white; padding:24px; text-align:center;">
+      <div style="font-size:18px; font-weight:700; margin-bottom:10px;">Set Up Face ID</div>
+      <div style="font-size:13px; color:rgba(255,255,255,0.7); max-width:280px; margin-bottom:20px;">
+        Type your Employee ID, then look at the camera. Only do this if you are the one standing here.
+      </div>
+      <input type="text" id="enroll-prompt-id" placeholder="e.g. EMP-001"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+        style="width:220px; padding:12px 14px; border-radius:10px; border:none; font-size:15px; text-align:center; margin-bottom:8px;" />
+      <div id="enroll-prompt-error" style="font-size:12px; color:#f87171; min-height:16px; margin-bottom:8px;"></div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="face-scan-btn" style="background:transparent; border:1px solid rgba(255,255,255,0.3);" onclick="closeEnrollPrompt()">Cancel</button>
+        <button type="button" class="face-scan-btn" id="enroll-prompt-continue" onclick="confirmEnrollPrompt()">Continue</button>
+      </div>
     </div>
 
     <div class="timer-section">
@@ -615,9 +638,6 @@
           resetButton("Already checked in & out today");
         } else if (res.ok && data.matched) {
           showFaceResult(data);
-          if (data.needs_enrollment) {
-            setTimeout(() => startEnrollment(data.user_id, data.employee), 3800);
-          }
           resetButton();
         } else if (res.ok && !data.matched) {
           resetButton("Face not recognized — try again");
@@ -809,13 +829,12 @@
       ));
       attendees.unshift(data);
       renderAttendees();
-
-      // Trigger face enrollment if needed
-      if (data.needs_enrollment && data.action === "checked_in") {
-        setTimeout(() => {
-          startEnrollment(data.user_id, data.employee);
-        }, 1000);
-      }
+      // NOTE: Face enrollment is never auto-triggered from a check-in event.
+      // The person who scanned the QR may not be the person standing in
+      // front of this kiosk's camera — auto-enrolling here risks capturing
+      // the wrong face under the wrong identity. Enrollment only happens via
+      // the explicit "Set Up Face ID" button, which requires the employee to
+      // type their own ID while standing at the kiosk.
     }
 
     function renderAttendees() {
@@ -839,6 +858,48 @@
       document.getElementById("subtitle").textContent =
         "Scan QR code with your phone to check in";
     }
+
+    // ── Face ID Setup Prompt (deliberate, kiosk-side identity confirmation) ──
+    function openEnrollPrompt() {
+      if (!sessionId) return;
+      document.getElementById("enroll-prompt-id").value = "";
+      document.getElementById("enroll-prompt-error").textContent = "";
+      document.getElementById("enroll-prompt-overlay").style.display = "flex";
+      setTimeout(() => document.getElementById("enroll-prompt-id").focus(), 100);
+    }
+
+    function closeEnrollPrompt() {
+      document.getElementById("enroll-prompt-overlay").style.display = "none";
+    }
+
+    async function confirmEnrollPrompt() {
+      const idInput = document.getElementById("enroll-prompt-id");
+      const errorEl = document.getElementById("enroll-prompt-error");
+      const empId = idInput.value.trim();
+      if (!empId) {
+        errorEl.textContent = "Please enter your Employee ID";
+        return;
+      }
+      try {
+        const res = await fetch(
+          `${API_BASE}/checkin/status?employee_id=${encodeURIComponent(empId)}&session_id=${encodeURIComponent(sessionId)}`
+        );
+        const data = await res.json();
+        if (!res.ok || !data.found) {
+          errorEl.textContent = "Employee ID not found";
+          return;
+        }
+        closeEnrollPrompt();
+        startEnrollment(data.user_id, data.employee);
+      } catch (err) {
+        errorEl.textContent = "Network error — try again";
+      }
+    }
+
+    document.getElementById("enroll-prompt-id")
+      ?.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") confirmEnrollPrompt();
+      });
 
     // ── Face Enrollment ───────────────────────────────────────────────────
     async function startEnrollment(userId, name) {

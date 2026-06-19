@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
+from sqlalchemy.exc import IntegrityError
 from redis.asyncio import Redis
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
@@ -27,6 +28,7 @@ from app.core.qr_token import (
     QR_TYPE,
 )
 from app.core.session_manager import get_session
+from app.core.business_day import get_business_day_start, get_night_shift_lookback_start
 from app.models.user import User
 from app.models.attendance import Attendance, AttendanceStatus, CheckStatus
 from app.models.device import DeviceBinding
@@ -244,18 +246,26 @@ async def face_check_in(
     if not enrolled_users:
         return {"matched": False}
 
-    # ── 4. Find best match ────────────────────────────────────────────────────
-    matched_user: Optional[User] = None
+    # ── 4. Find closest match across ALL enrolled faces ──────────────────────
+    # Comparing against every encoding and picking the smallest distance (instead
+    # of stopping at the first one under the threshold) avoids misidentifying
+    # someone as a different enrolled employee when more than one face is
+    # within tolerance.
+    FACE_MATCH_TOLERANCE = 0.5
+    candidates: list[tuple[User, float]] = []
     for emp in enrolled_users:
         try:
             stored = np.array(json.loads(emp.face_encoding))
-            if face_recognition.compare_faces([stored], incoming_encoding, tolerance=0.55)[0]:
-                matched_user = emp
-                break
+            distance = face_recognition.face_distance([stored], incoming_encoding)[0]
+            candidates.append((emp, distance))
         except Exception:
             continue
 
-    if not matched_user:
+    if not candidates:
+        return {"matched": False}
+
+    matched_user, best_distance = min(candidates, key=lambda c: c[1])
+    if best_distance > FACE_MATCH_TOLERANCE:
         return {"matched": False}
 
     # ── 5. Check-in / Check-out logic (mirrors normal scan) ──────────────────
@@ -263,21 +273,27 @@ async def face_check_in(
     now = datetime.now(timezone.utc)
 
     existing = await db.execute(
-        select(Attendance).where(
+        select(Attendance)
+        .where(
             Attendance.employee_id == employee.id,
             Attendance.session_id == session_id,
         )
+        .limit(1)
     )
     attendance = existing.scalar_one_or_none()
 
     if not attendance:
-        cutoff = now - timedelta(hours=36)
+        cutoff = get_business_day_start(now)
+        night_cutoff = get_night_shift_lookback_start(now)
         recent_result = await db.execute(
             select(Attendance)
             .where(
                 Attendance.employee_id == employee.id,
                 Attendance.check_status == CheckStatus.CHECKED_IN,
-                Attendance.checked_in_at >= cutoff,
+                or_(
+                    Attendance.checked_in_at >= cutoff,
+                    and_(Attendance.shift == "night", Attendance.checked_in_at >= night_cutoff),
+                ),
             )
             .order_by(Attendance.checked_in_at.desc())
             .limit(1)
@@ -295,9 +311,24 @@ async def face_check_in(
             token_used="face-recognition",
         )
         db.add(attendance)
-        await db.flush()
-        await db.refresh(attendance)
-        action = "checked_in"
+        try:
+            await db.flush()
+            await db.refresh(attendance)
+            action = "checked_in"
+        except IntegrityError:
+            # Another concurrent request already created this check-in
+            # (e.g. a double scan) — treat as already checked in instead
+            # of a hard 500 error.
+            await db.rollback()
+            retry = await db.execute(
+                select(Attendance)
+                .where(Attendance.employee_id == employee.id, Attendance.session_id == session_id)
+                .limit(1)
+            )
+            attendance = retry.scalar_one_or_none()
+            if attendance is None:
+                raise
+            action = "checked_in"
 
     elif attendance.check_status == CheckStatus.CHECKED_IN:
         hours = round((now - attendance.checked_in_at).total_seconds() / 3600, 2)
@@ -467,26 +498,34 @@ async def check_in_or_out(
 
         # ── 6. Check existing attendance record for this session ──────────────
         existing = await db.execute(
-            select(Attendance).where(
+            select(Attendance)
+            .where(
                 Attendance.employee_id == employee.id,
                 Attendance.session_id == session_id,
             )
+            .limit(1)
         )
         attendance = existing.scalar_one_or_none()
 
         # ── 6b. Cross-Session Checkout Support ────────────────────────────────
         # If no record in current session, look for an active "In" record from
-        # a previous session. Window is 36h to cover crashes that start a new
-        # session mid-day — employees can still clock out up to 36h after check-in.
+        # earlier in the SAME business day (rolls over at 06:00 WAT). Bounding
+        # by business day — not a flat time window — means a forgotten checkout
+        # from a previous day is never mistaken for today's check-in; once the
+        # rollover passes, a fresh check-in is created instead.
         if not attendance:
-            cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
-            
+            cutoff = get_business_day_start()
+            night_cutoff = get_night_shift_lookback_start()
+
             recent_in = await db.execute(
                 select(Attendance)
                 .where(
                     Attendance.employee_id == employee.id,
                     Attendance.check_status == CheckStatus.CHECKED_IN,
-                    Attendance.checked_in_at >= cutoff
+                    or_(
+                        Attendance.checked_in_at >= cutoff,
+                        and_(Attendance.shift == "night", Attendance.checked_in_at >= night_cutoff),
+                    ),
                 )
                 .order_by(Attendance.checked_in_at.desc())
                 .limit(1)
@@ -509,17 +548,30 @@ async def check_in_or_out(
             attendance_status = AttendanceStatus.PRESENT
 
             attendance = Attendance(
-            employee_id=employee.id,
-            session_id=session_id,
-            location_id=location_id,
-            status=attendance_status,
-            check_status=CheckStatus.CHECKED_IN,
-            shift=shift,
-            token_used=qr_token[:64],
-        )
+                employee_id=employee.id,
+                session_id=session_id,
+                location_id=location_id,
+                status=attendance_status,
+                check_status=CheckStatus.CHECKED_IN,
+                shift=shift,
+                token_used=qr_token[:64],
+            )
             db.add(attendance)
-            await db.flush()
-            await db.refresh(attendance)
+            try:
+                await db.flush()
+                await db.refresh(attendance)
+            except IntegrityError:
+                # Another concurrent request (e.g. a double-tap) already
+                # created this check-in — fall back to it instead of a 500.
+                await db.rollback()
+                retry = await db.execute(
+                    select(Attendance)
+                    .where(Attendance.employee_id == employee.id, Attendance.session_id == session_id)
+                    .limit(1)
+                )
+                attendance = retry.scalar_one_or_none()
+                if attendance is None:
+                    raise
 
             # Cache check-in in Redis
             dedup_key = CHECKIN_DEDUP_KEY.format(
@@ -686,22 +738,28 @@ async def manual_checkin(
 
     # Check current session first
     existing = await db.execute(
-        select(Attendance).where(
+        select(Attendance)
+        .where(
             Attendance.employee_id == employee.id,
             Attendance.session_id == payload.session_id,
         )
+        .limit(1)
     )
     attendance = existing.scalar_one_or_none()
 
-    # Cross-session checkout (36h window)
+    # Cross-session checkout (same business day only, see get_business_day_start)
     if not attendance:
-        cutoff = now - timedelta(hours=36)
+        cutoff = get_business_day_start(now)
+        night_cutoff = get_night_shift_lookback_start(now)
         recent_result = await db.execute(
             select(Attendance)
             .where(
                 Attendance.employee_id == employee.id,
                 Attendance.check_status == CheckStatus.CHECKED_IN,
-                Attendance.checked_in_at >= cutoff,
+                or_(
+                    Attendance.checked_in_at >= cutoff,
+                    and_(Attendance.shift == "night", Attendance.checked_in_at >= night_cutoff),
+                ),
             )
             .order_by(Attendance.checked_in_at.desc())
             .limit(1)
@@ -718,8 +776,19 @@ async def manual_checkin(
             token_used="manual-admin",
         )
         db.add(attendance)
-        await db.flush()
-        await db.refresh(attendance)
+        try:
+            await db.flush()
+            await db.refresh(attendance)
+        except IntegrityError:
+            await db.rollback()
+            retry = await db.execute(
+                select(Attendance)
+                .where(Attendance.employee_id == employee.id, Attendance.session_id == payload.session_id)
+                .limit(1)
+            )
+            attendance = retry.scalar_one_or_none()
+            if attendance is None:
+                raise
         action = "checked_in"
 
     elif attendance.check_status == CheckStatus.CHECKED_IN:
@@ -789,10 +858,12 @@ async def get_employee_status(
 
     # Check current session first
     att_result = await db.execute(
-        select(Attendance).where(
+        select(Attendance)
+        .where(
             Attendance.employee_id == employee.id,
             Attendance.session_id == session_id,
         )
+        .limit(1)
     )
     attendance = att_result.scalar_one_or_none()
 
@@ -800,17 +871,23 @@ async def get_employee_status(
         return {
             "check_status": attendance.check_status.value,
             "employee": employee.full_name,
+            "user_id": str(employee.id),
+            "is_face_enrolled": employee.is_face_enrolled,
             "found": True,
         }
 
-    # Cross-session check (36h window, matching the actual check-in logic)
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
+    # Cross-session check (same business day only, matching the check-in logic)
+    cutoff = get_business_day_start()
+    night_cutoff = get_night_shift_lookback_start()
     recent_result = await db.execute(
         select(Attendance)
         .where(
             Attendance.employee_id == employee.id,
             Attendance.check_status == CheckStatus.CHECKED_IN,
-            Attendance.checked_in_at >= cutoff,
+            or_(
+                Attendance.checked_in_at >= cutoff,
+                and_(Attendance.shift == "night", Attendance.checked_in_at >= night_cutoff),
+            ),
         )
         .order_by(Attendance.checked_in_at.desc())
         .limit(1)
@@ -820,6 +897,8 @@ async def get_employee_status(
     return {
         "check_status": "checked_in" if recent else "none",
         "employee": employee.full_name,
+        "user_id": str(employee.id),
+        "is_face_enrolled": employee.is_face_enrolled,
         "found": True,
     }
 

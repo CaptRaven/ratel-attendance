@@ -4,11 +4,12 @@ from fastapi.templating import Jinja2Templates
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from fastapi import Cookie, Depends
 from app.database import get_db
 from app.core.qr_token import decode_qr_token, QR_TYPE
 from app.core.session_manager import get_session
+from app.core.business_day import get_business_day_start, get_night_shift_lookback_start
 from app.redis_client import get_redis_pool
 from app.models.device import DeviceBinding
 from app.models.user import User
@@ -73,10 +74,12 @@ async def mobile_checkin_page(
             if known_employee:
                 # First check current session
                 att_result = await db.execute(
-                    select(Attendance).where(
+                    select(Attendance)
+                    .where(
                         Attendance.employee_id == known_employee.id,
                         Attendance.session_id == token_data["session_id"],
                     )
+                    .limit(1)
                 )
                 attendance = att_result.scalar_one_or_none()
                 
@@ -84,14 +87,18 @@ async def mobile_checkin_page(
                     check_status = attendance.check_status.value
                 else:
                     # If no record in current session, check cross-session for active check-in.
-                    # Must match the 36h window used in the actual check-in endpoint.
-                    cutoff = datetime.now(timezone.utc) - timedelta(hours=36)
+                    # Must match the business-day boundary used in the actual check-in endpoint.
+                    cutoff = get_business_day_start()
+                    night_cutoff = get_night_shift_lookback_start()
                     recent_in = await db.execute(
                         select(Attendance)
                         .where(
                             Attendance.employee_id == known_employee.id,
                             Attendance.check_status == CheckStatus.CHECKED_IN,
-                            Attendance.checked_in_at >= cutoff
+                            or_(
+                                Attendance.checked_in_at >= cutoff,
+                                and_(Attendance.shift == "night", Attendance.checked_in_at >= night_cutoff),
+                            ),
                         )
                         .order_by(Attendance.checked_in_at.desc())
                         .limit(1)
