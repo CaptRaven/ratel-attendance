@@ -35,11 +35,7 @@ async def session_websocket(
         "message": "Listening for check-in events...",
     })
 
-    # ── 3. Dedicated Redis connection for pub/sub ─────────────────────────
-    pubsub_redis = Redis(connection_pool=get_redis_pool())
-    pubsub = await subscribe_to_session(pubsub_redis, session_id)
-
-    async def redis_listener():
+    async def redis_listener(pubsub):
         """Continuously listen for Redis pub/sub messages."""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -58,12 +54,20 @@ async def session_websocket(
             except Exception:
                 break
 
+    pubsub_redis = None
+    pubsub = None
     listener_task = None
     heartbeat_task = None
 
     try:
+        # Dedicated Redis connection for pub/sub — created inside the try
+        # so that even a failure during subscribe() still reaches the
+        # finally block and releases whatever was already checked out.
+        pubsub_redis = Redis(connection_pool=get_redis_pool())
+        pubsub = await subscribe_to_session(pubsub_redis, session_id)
+
         # Run both concurrently — listener and heartbeat
-        listener_task = asyncio.create_task(redis_listener())
+        listener_task = asyncio.create_task(redis_listener(pubsub))
         heartbeat_task = asyncio.create_task(heartbeat())
 
         # Wait for client to disconnect
@@ -85,8 +89,10 @@ async def session_websocket(
         # pool — unsubscribe() alone does not release it back. Without this,
         # every reconnect (kiosk polling, dashboard sessions, network blips)
         # leaks one connection until the pool's max_connections is exhausted.
-        await pubsub.aclose()
-        await pubsub_redis.aclose()
+        if pubsub:
+            await pubsub.aclose()
+        if pubsub_redis:
+            await pubsub_redis.aclose()
 
 
 @router.websocket("/ws/public/sessions/{session_id}")
@@ -105,11 +111,7 @@ async def session_websocket_public(
         "message": "Listening for check-in events...",
     })
 
-    # ── 2. Dedicated Redis connection for pub/sub ─────────────────────────
-    pubsub_redis = Redis(connection_pool=get_redis_pool())
-    pubsub = await subscribe_to_session(pubsub_redis, session_id)
-
-    async def redis_listener():
+    async def redis_listener(pubsub):
         """Continuously listen for Redis pub/sub messages."""
         async for message in pubsub.listen():
             if message["type"] == "message":
@@ -128,12 +130,20 @@ async def session_websocket_public(
             except Exception:
                 break
 
+    pubsub_redis = None
+    pubsub = None
     listener_task = None
     heartbeat_task = None
 
     try:
+        # Dedicated Redis connection for pub/sub — created inside the try
+        # so that even a failure during subscribe() still reaches the
+        # finally block and releases whatever was already checked out.
+        pubsub_redis = Redis(connection_pool=get_redis_pool())
+        pubsub = await subscribe_to_session(pubsub_redis, session_id)
+
         # Run both concurrently — listener and heartbeat
-        listener_task = asyncio.create_task(redis_listener())
+        listener_task = asyncio.create_task(redis_listener(pubsub))
         heartbeat_task = asyncio.create_task(heartbeat())
 
         # Wait for client to disconnect
@@ -155,5 +165,7 @@ async def session_websocket_public(
         # pool — unsubscribe() alone does not release it back. Without this,
         # every reconnect (kiosk polling, dashboard sessions, network blips)
         # leaks one connection until the pool's max_connections is exhausted.
-        await pubsub.aclose()
-        await pubsub_redis.aclose()
+        if pubsub:
+            await pubsub.aclose()
+        if pubsub_redis:
+            await pubsub_redis.aclose()
