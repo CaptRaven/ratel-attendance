@@ -81,7 +81,11 @@ async def session_websocket(
         if heartbeat_task:
             heartbeat_task.cancel()
         manager.disconnect(websocket, session_id)
-        await pubsub.unsubscribe()
+        # pubsub holds its own dedicated connection checked out from the
+        # pool — unsubscribe() alone does not release it back. Without this,
+        # every reconnect (kiosk polling, dashboard sessions, network blips)
+        # leaks one connection until the pool's max_connections is exhausted.
+        await pubsub.aclose()
         await pubsub_redis.aclose()
 
 
@@ -147,5 +151,9 @@ async def session_websocket_public(
         if heartbeat_task:
             heartbeat_task.cancel()
         manager.disconnect(websocket, session_id)
-        await pubsub.unsubscribe()
+        # pubsub holds its own dedicated connection checked out from the
+        # pool — unsubscribe() alone does not release it back. Without this,
+        # every reconnect (kiosk polling, dashboard sessions, network blips)
+        # leaks one connection until the pool's max_connections is exhausted.
+        await pubsub.aclose()
         await pubsub_redis.aclose()
