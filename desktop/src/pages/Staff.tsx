@@ -289,8 +289,24 @@ export default function Staff() {
     },
   };
 
-  const activeEmployees = employees.filter(e => e.is_active);
-  const deactivatedEmployees = employees.filter(e => !e.is_active);
+  const sortByEmpId = (list: User[]) =>
+    [...list].sort((a, b) => {
+      const na = parseInt(a.employee_id.replace(/\D/g, ""), 10);
+      const nb = parseInt(b.employee_id.replace(/\D/g, ""), 10);
+      if (!isNaN(na) && !isNaN(nb)) return na - nb;
+      return a.employee_id.localeCompare(b.employee_id);
+    });
+
+  const activeEmployees = sortByEmpId(employees.filter(e => e.is_active));
+  const deactivatedEmployees = sortByEmpId(employees.filter(e => !e.is_active));
+
+  const getNextEmployeeId = () => {
+    const nums = employees
+      .map(e => parseInt(e.employee_id.replace(/\D/g, ""), 10))
+      .filter(n => !isNaN(n));
+    const max = nums.length > 0 ? Math.max(...nums) : 0;
+    return `EMP-${String(max + 1).padStart(3, "0")}`;
+  };
 
   const navTabs = [
     { id: "employees", label: `Active (${activeEmployees.length})` },
@@ -370,9 +386,14 @@ export default function Staff() {
                 </div>
               )}
               <button
-                onClick={() => setView(
-                  view === "employees" ? "add_employee" : "add_department"
-                )}
+                onClick={() => {
+                  if (view === "employees") {
+                    setEmpForm(prev => ({ ...prev, employee_id: getNextEmployeeId() }));
+                    setView("add_employee");
+                  } else {
+                    setView("add_department");
+                  }
+                }}
                 style={{
                   ...s.btnPrimary,
                   width: "auto",
