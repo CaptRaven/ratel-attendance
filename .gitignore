@@ -1,16 +1,8 @@
-# Python
-backend/venv/
-backend/__pycache__/
-backend/**/__pycache__/
-backend/*.pyc
-backend/.env
-
-# Node
-desktop/node_modules/
-desktop/dist/
-
-
-src-tauri/target/
-
+.env.deployment
+.env*.local
+__pycache__/
+*.pyc
+*.pyo
+node_modules/
+dist/
 .DS_Store
-*.log

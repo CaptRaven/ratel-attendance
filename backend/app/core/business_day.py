@@ -7,11 +7,12 @@ WAT = timezone(timedelta(hours=1))
 # session-rotation boundary (Dashboard.tsx getBusinessDayName / last6AM).
 BUSINESS_DAY_ROLLOVER_HOUR = 6
 
-# Night shift (22:00-06:00 WAT) is the only shift that spans the rollover —
-# its length equals the rollover hour exactly, so extending the lookback by
-# this many hours reaches exactly back to the start of the shift, never
-# further into an earlier, genuinely stale record.
-NIGHT_SHIFT_HOURS = 8
+# Night shift (22:00-06:00 WAT) is the only shift that spans the rollover.
+# Set to 11h so the lookback reaches 19:00 WAT the previous evening — this
+# covers employees who arrive early (observed: ~20:00-20:30 WAT) when the
+# admin has already switched the kiosk to night shift.  Any record older
+# than 19:00 WAT is genuinely stale and must be closed via "Fix Open Records".
+NIGHT_SHIFT_HOURS = 11
 
 
 def get_business_day_start(now: datetime | None = None) -> datetime:
