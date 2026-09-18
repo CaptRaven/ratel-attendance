@@ -1,4 +1,4 @@
-import { User } from "lucide-react";
+import { User, FileText } from "lucide-react";
 import type { AttendanceRecord } from "@/lib/api";
 import { theme } from "@/lib/theme";
 
@@ -73,81 +73,110 @@ export default function AttendeeList({ attendees, title = "Live Attendance" }: P
           attendees.map((a, i) => (
             <div key={i} style={{
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              flexDirection: "column",
+              gap: "8px",
               background: theme.panelStrong,
               border: `1px solid ${theme.panelBorder}`,
               borderRadius: "14px",
               padding: "14px 16px",
               animation: "fadeIn 0.3s ease",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                {/* Avatar */}
-                <div style={{
-                  width: "36px",
-                  height: "36px",
-                  borderRadius: "50%",
-                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "14px",
-                  fontWeight: "700",
-                  color: "white",
-                  flexShrink: 0,
-                }}>
-                  {a.employee ? a.employee.charAt(0).toUpperCase() : <User size={16} />}
-                </div>
-                <div>
-                  <p style={{
-                    color: theme.text,
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  {/* Avatar */}
+                  <div style={{
+                    width: "36px",
+                    height: "36px",
+                    borderRadius: "50%",
+                    background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                     fontSize: "14px",
-                    fontWeight: "600",
-                    margin: "0 0 2px 0",
-                  }}>{a.employee || "Unknown Staff"}</p>
+                    fontWeight: "700",
+                    color: "white",
+                    flexShrink: 0,
+                  }}>
+                    {a.employee ? a.employee.charAt(0).toUpperCase() : <User size={16} />}
+                  </div>
+                  <div>
+                    <p style={{
+                      color: theme.text,
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      margin: "0 0 2px 0",
+                    }}>{a.employee || "Unknown Staff"}</p>
+                    <p style={{
+                      color: theme.textMuted,
+                      fontSize: "12px",
+                      margin: 0,
+                    }}>{a.employee_id || "N/A"}</p>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <span style={{
+                    fontSize: "11px",
+                    fontWeight: "700",
+                    padding: "4px 10px",
+                    borderRadius: "999px",
+                    background: a.check_status === "checked_out"
+                      ? theme.dangerSoft
+                      : a.status === "present"
+                        ? theme.successSoft
+                        : theme.warningSoft,
+                    color: a.check_status === "checked_out"
+                      ? theme.danger
+                      : a.status === "present"
+                        ? theme.success
+                        : theme.warning,
+                    border: `1px solid ${a.check_status === "checked_out"
+                      ? theme.dangerSoft
+                      : a.status === "present"
+                        ? theme.successSoft
+                        : theme.warningSoft}`,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px",
+                  }}>
+                    {a.check_status === "checked_out" ? "Out" : a.status}
+                  </span>
                   <p style={{
-                    color: theme.textMuted,
-                    fontSize: "12px",
-                    margin: 0,
-                  }}>{a.employee_id || "N/A"}</p>
+                    color: theme.textSoft,
+                    fontSize: "11px",
+                    margin: "4px 0 0 0",
+                  }}>
+                    {a.check_status === "checked_out" && a.checked_out_at
+                      ? `Out: ${new Date(a.checked_out_at).toLocaleTimeString()}`
+                      : `In: ${new Date(a.checked_in_at).toLocaleTimeString()}`}
+                  </p>
                 </div>
               </div>
-              <div style={{ textAlign: "right" }}>
-                <span style={{
-                  fontSize: "11px",
-                  fontWeight: "700",
-                  padding: "4px 10px",
-                  borderRadius: "999px",
-                  background: a.check_status === "checked_out"
-                    ? theme.dangerSoft
-                    : a.status === "present"
-                      ? theme.successSoft
-                      : theme.warningSoft,
-                  color: a.check_status === "checked_out"
-                    ? theme.danger
-                    : a.status === "present"
-                      ? theme.success
-                      : theme.warning,
-                  border: `1px solid ${a.check_status === "checked_out"
-                    ? theme.dangerSoft
-                    : a.status === "present"
-                      ? theme.successSoft
-                      : theme.warningSoft}`,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
+
+              {a.work_report && (
+                <div style={{
+                  marginTop: "4px",
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  background: theme.panel,
+                  border: `1px solid ${theme.panelBorder}`,
+                  fontSize: "12px",
+                  color: theme.text,
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
                 }}>
-                  {a.check_status === "checked_out" ? "Out" : a.status}
-                </span>
-                <p style={{
-                  color: theme.textSoft,
-                  fontSize: "11px",
-                  margin: "4px 0 0 0",
-                }}>
-                  {a.check_status === "checked_out" && a.checked_out_at
-                    ? `Out: ${new Date(a.checked_out_at).toLocaleTimeString()}`
-                    : `In: ${new Date(a.checked_in_at).toLocaleTimeString()}`}
-                </p>
-              </div>
+                  <FileText size={14} style={{ color: theme.primary, marginTop: "2px", flexShrink: 0 }} />
+                  <div>
+                    <span style={{ fontWeight: "700", color: theme.textMuted, display: "block", fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "2px" }}>
+                      Daily Report
+                    </span>
+                    <span style={{ whiteSpace: "pre-wrap" }}>{a.work_report}</span>
+                  </div>
+                </div>
+              )}
             </div>
           ))
         )}

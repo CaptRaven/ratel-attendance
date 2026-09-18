@@ -4,18 +4,25 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
+import Reports from "@/pages/Reports";
 import { theme } from "@/lib/theme";
 import logo from "@/assets/rATEL-LOGO.png";
-import { BarChart3, LayoutGrid, LogOut, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { BarChart3, LayoutGrid, LogOut, Users, FileText, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Page = "dashboard" | "staff" | "analytics";
+type Page = "dashboard" | "analytics" | "staff" | "reports";
 
 export default function App() {
   const { token, logout } = useAuthStore();
   const [page, setPage] = useState<Page>("dashboard");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [selectedEmployeeForReports, setSelectedEmployeeForReports] = useState<string | undefined>(undefined);
 
   if (!token) return <Login />;
+
+  const handleViewReportsForStaff = (employeeId: string) => {
+    setSelectedEmployeeForReports(employeeId);
+    setPage("reports");
+  };
 
   return (
     <div style={{ display: "flex", height: "100vh", background: theme.page, overflow: "hidden" }}>
@@ -94,6 +101,7 @@ export default function App() {
             { id: "dashboard", icon: LayoutGrid, label: "Attendance" },
             { id: "analytics", icon: BarChart3, label: "Analytics" },
             { id: "staff", icon: Users, label: "Staff" },
+            { id: "reports", icon: FileText, label: "Reports" },
           ].map((item) => (
             <button
               key={item.id}
@@ -152,7 +160,13 @@ export default function App() {
       <div style={{ flex: 1, overflowY: "auto", background: theme.page }}>
         {page === "dashboard" && <Dashboard />}
         {page === "analytics" && <Analytics />}
-        {page === "staff" && <Staff />}
+        {page === "staff" && <Staff onViewReports={handleViewReportsForStaff} />}
+        {page === "reports" && (
+          <Reports
+            initialEmployeeId={selectedEmployeeForReports}
+            onClearStaffFilter={() => setSelectedEmployeeForReports(undefined)}
+          />
+        )}
       </div>
     </div>
   );

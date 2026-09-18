@@ -151,6 +151,23 @@
       border-color: rgba(47,125,225,0.45);
       background: #fff;
     }
+    textarea {
+      width: 100%;
+      background: var(--panel-strong);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: var(--text); font-size: 15px; font-weight: 400;
+      outline: none; margin-bottom: 20px;
+      resize: vertical; min-height: 90px;
+      font-family: inherit;
+    }
+    textarea::placeholder { color: var(--soft); }
+    textarea:focus {
+      border-color: rgba(47,125,225,0.45);
+      background: #fff;
+    }
+    #work-report-section { display: none; }
     button.primary {
       width: 100%;
       background: linear-gradient(135deg, var(--primary), var(--accent));
@@ -217,6 +234,16 @@
       />
     </div>
 
+    <!-- Daily Work Report section (Required when clocking out) -->
+    <div id="work-report-section">
+      <label>Daily Work Report <span style="color: var(--danger);">*</span></label>
+      <textarea
+        id="work-report"
+        placeholder="Briefly summarize what you accomplished today..."
+        rows="4"
+      ></textarea>
+    </div>
+
     <div class="error" id="error-msg"></div>
 
     <button class="primary" id="action-btn" onclick="submitScan()">
@@ -227,6 +254,8 @@
   <script id="checkin-data" type="application/json">
     {{ {
       "qr_token": qr_token,
+      "scan_ticket": scan_ticket,
+      "scanned_at": scanned_at,
       "session_id": session_id,
       "is_known": known_employee is not none,
       "known_name": known_employee.full_name if known_employee else "",
@@ -240,6 +269,7 @@
       document.getElementById("checkin-data").textContent
     );
     const QR_TOKEN = pageData.qr_token;
+    const SCAN_TICKET = pageData.scan_ticket;
     const SESSION_ID = pageData.session_id;
     let IS_KNOWN = pageData.is_known;
     let KNOWN_NAME = pageData.known_name;
@@ -285,17 +315,20 @@
 
     function applyCheckStatus(status, name) {
       const btn = document.getElementById("action-btn");
+      const reportSection = document.getElementById("work-report-section");
       if (status === "checked_in") {
         document.getElementById("page-title").textContent = "Check Out";
-        document.getElementById("page-subtitle").textContent = "Ready to clock out?";
+        document.getElementById("page-subtitle").textContent = "Ready to clock out? Provide your daily report below:";
         btn.textContent = "Clock Out";
         btn.classList.add("checkout");
+        if (reportSection) reportSection.style.display = "block";
         CHECK_STATUS = "checked_in";
       } else {
         document.getElementById("page-title").textContent = "Check In";
         document.getElementById("page-subtitle").textContent = "Scan detected — confirm your identity";
         btn.textContent = "Clock In";
         btn.classList.remove("checkout");
+        if (reportSection) reportSection.style.display = "none";
         CHECK_STATUS = status;
       }
     }
@@ -380,6 +413,15 @@
         employeeId = KNOWN_ID;
       }
 
+      let workReport = null;
+      if (CHECK_STATUS === "checked_in") {
+        workReport = document.getElementById("work-report").value.trim();
+        if (!workReport) {
+          showError("Please write a report of what you did today before clocking out.");
+          return;
+        }
+      }
+
       btn.disabled = true;
       btn.textContent = "Processing...";
       errorMsg.style.display = "none";
@@ -387,8 +429,10 @@
       try {
         const payload = {
           qr_token: QR_TOKEN,
+          scan_ticket: SCAN_TICKET,
           employee_id: employeeId,
           fingerprint: getFingerprint(),
+          work_report: workReport,
         };
 
         // Use absolute path for robustness

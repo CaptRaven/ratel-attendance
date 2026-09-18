@@ -85,7 +85,9 @@ export interface AttendanceRecord {
   check_status: "checked_in" | "checked_out";
   checked_in_at: string;
   checked_out_at?: string | null;
+  hours_clocked?: number | null;
   shift?: ShiftType;
+  work_report?: string | null;
 }
 
 // Auth
@@ -152,9 +154,21 @@ export const getSessionAttendance = async (session_id: string) => {
   return res.data as { total: number; records: AttendanceRecord[] };
 };
 
-export const getAttendanceSummary = async (session_id?: string) => {
-  const params = session_id ? `?session_id=${session_id}` : "";
-  const res = await api.get(`/reports/summary${params}`);
+export interface AttendanceFilterParams {
+  session_id?: string;
+  employee_id?: string;
+  date_from?: string;
+  date_to?: string;
+}
+
+export const getAttendanceSummary = async (params?: AttendanceFilterParams) => {
+  const p = new URLSearchParams();
+  if (params?.session_id) p.set("session_id", params.session_id);
+  if (params?.employee_id) p.set("employee_id", params.employee_id);
+  if (params?.date_from) p.set("date_from", params.date_from);
+  if (params?.date_to) p.set("date_to", params.date_to);
+  const query = p.toString() ? `?${p.toString()}` : "";
+  const res = await api.get(`/reports/summary${query}`);
   return res.data as { total_employees: number; records: AttendanceRecord[] };
 };
 
@@ -162,9 +176,11 @@ export const exportAttendanceCSV = async (
   session_id?: string,
   date_from?: string,
   date_to?: string,
+  employee_id?: string,
 ) => {
   const p = new URLSearchParams();
   if (session_id) p.set("session_id", session_id);
+  if (employee_id) p.set("employee_id", employee_id);
   if (date_from)  p.set("date_from", date_from);
   if (date_to)    p.set("date_to", date_to);
   const query = p.toString() ? `?${p.toString()}` : "";

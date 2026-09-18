@@ -1,4 +1,6 @@
+from __future__ import annotations
 import uuid
+from typing import Optional
 from datetime import datetime
 from sqlalchemy import String, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,7 +17,7 @@ class Department(Base):
     name: Mapped[str] = mapped_column(
         String(100), unique=True, nullable=False, index=True
     )
-    description: Mapped[str | None] = mapped_column(
+    description: Mapped[Optional[str]] = mapped_column(
         String(255), nullable=True
     )
     is_active: Mapped[bool] = mapped_column(

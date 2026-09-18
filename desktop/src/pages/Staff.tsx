@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { AxiosError } from "axios";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus, Download, Camera, CameraOff } from "lucide-react";
+import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus, Download, Camera, CameraOff, FileText } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -13,7 +13,11 @@ import { theme } from "@/lib/theme";
 
 type View = "employees" | "add_employee" | "edit_employee" | "departments" | "add_department" | "removed_employees";
 
-export default function Staff() {
+interface StaffProps {
+  onViewReports?: (employeeId: string) => void;
+}
+
+export default function Staff({ onViewReports }: StaffProps = {}) {
   const [view, setView] = useState<View>("employees");
   const [employees, setEmployees] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -430,7 +434,7 @@ export default function Staff() {
               {/* Table header */}
               <div style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 180px",
+                gridTemplateColumns: "2fr 1.5fr 1fr 1fr 240px",
                 padding: "0 16px 12px",
                 borderBottom: `1px solid ${theme.panelBorder}`,
               }}>
@@ -447,7 +451,7 @@ export default function Staff() {
               {(view === "employees" ? activeEmployees : deactivatedEmployees).map((emp) => (
                 <div key={emp.id} style={{
                   display: "grid",
-                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 180px",
+                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 240px",
                   alignItems: "center",
                   background: theme.panelStrong,
                   border: `1px solid ${theme.panelBorder}`,
@@ -512,7 +516,23 @@ export default function Staff() {
                     {emp.department_name || "—"}
                   </span>
 
-                  <div style={{ display: "flex", gap: "8px" }}>
+                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                    <button
+                      onClick={() => onViewReports?.(emp.employee_id)}
+                      title="View Staff Reports"
+                      style={{
+                        background: theme.accentSoft,
+                        border: `1px solid ${theme.accent}`,
+                        color: theme.primary, borderRadius: "8px",
+                        padding: "6px 10px", fontSize: "11px",
+                        cursor: "pointer", fontWeight: "700",
+                        display: "flex", alignItems: "center", gap: "4px",
+                      }}
+                    >
+                      <FileText size={13} />
+                      Reports
+                    </button>
+
                     {emp.is_active ? (
                       <>
                         <button

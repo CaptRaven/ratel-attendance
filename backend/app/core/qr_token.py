@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import time
 import uuid
+import hmac
 import hashlib
 import base64
 from cryptography.fernet import Fernet
@@ -146,3 +149,38 @@ def _hash_token(token: str) -> str:
     """Short hash of token for use as Redis key — avoids storing full token in key."""
     import hashlib
     return hashlib.sha256(token.encode()).hexdigest()[:32]
+
+
+def generate_scan_ticket(
+    session_id: str,
+    location_id: str,
+    scanned_at: str,
+    shift: str | None = None,
+) -> str:
+    """
+    Generate a signed scan ticket issued upon initial QR scan.
+    Gives the employee a 10-minute window to type their daily report,
+    locking their checked_out_at time to scanned_at.
+    """
+    payload = {
+        "type": "scan_ticket",
+        "session_id": session_id,
+        "location_id": location_id,
+        "shift": shift,
+        "scanned_at": scanned_at,
+        "iat": int(time.time()),
+    }
+    return serializer.dumps(payload)
+
+
+def decode_scan_ticket(ticket: str, max_age: int = 600) -> dict | None:
+    """Decode and verify a scan ticket (valid for max_age seconds, default 10 minutes)."""
+    if not ticket:
+        return None
+    try:
+        data = serializer.loads(ticket, max_age=max_age)
+        if data.get("type") == "scan_ticket":
+            return data
+    except Exception:
+        return None
+    return None

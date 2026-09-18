@@ -7,172 +7,486 @@
   
   <!-- PWA Meta Tags -->
   <link rel="manifest" href="/static/manifest.json">
-  <meta name="theme-color" content="#0f4f9d">
+  <meta name="theme-color" content="#ffffff">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Ratel Kiosk">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    
     :root {
-      --bg-1: #f7fbff;
-      --bg-2: #edf5ff;
-      --bg-3: #e3eeff;
-      --panel: rgba(255,255,255,0.92);
-      --panel-strong: #ffffff;
-      --border: rgba(15,79,157,0.14);
-      --text: #0e2c52;
-      --muted: #5d7ca2;
-      --soft: #7d98b8;
-      --primary: #0f4f9d;
-      --accent: #2f7de1;
-      --success: #1f9d68;
-      --success-soft: rgba(31,157,104,0.12);
-      --warning: #d9901a;
-      --warning-soft: rgba(217,144,26,0.14);
-      --shadow: 0 28px 60px rgba(12,54,110,0.14);
+      --bg-white: #ffffff;
+      --bg-page: #f8fafc;
+      --bg-gradient: radial-gradient(circle at 50% 0%, #eef2ff 0%, #f8fafc 75%);
+      --card-bg: rgba(255, 255, 255, 0.95);
+      --card-border: rgba(15, 23, 42, 0.08);
+      --card-glow: 0 12px 32px rgba(15, 23, 42, 0.05);
+      --panel-strong: #f1f5f9;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-soft: #94a3b8;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --accent: #0284c7;
+      --success: #059669;
+      --success-soft: rgba(5, 150, 105, 0.1);
+      --warning: #d97706;
+      --warning-soft: rgba(217, 119, 6, 0.1);
+      --danger: #dc2626;
     }
+
     body {
       min-height: 100vh;
-      background: linear-gradient(180deg, var(--bg-1), var(--bg-2), var(--bg-3));
-      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-      color: var(--text);
+      background: var(--bg-page);
+      background-image: var(--bg-gradient);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      user-select: none;
+      overflow-x: hidden;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.03); }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 999px; }
+
+    /* Top Navigation Header */
+    .header-bar {
+      width: 100%;
+      max-width: 1100px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding: 14px 22px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+    }
+
+    .brand-section {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 18px;
+      background: linear-gradient(135deg, #4f46e5, #0284c7);
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+    }
+
+    .brand-title-box h1 {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: var(--text-main);
+      margin: 0;
+    }
+
+    .brand-title-box p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 2px 0 0;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .clock-widget {
+      text-align: right;
+    }
+
+    .clock-time {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.5px;
+    }
+
+    .clock-date {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .fullscreen-btn {
+      background: #f1f5f9;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .fullscreen-btn:hover {
+      background: #e2e8f0;
+    }
+
+    /* Main Responsive Grid Layout */
+    .kiosk-grid {
+      width: 100%;
+      max-width: 1100px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .kiosk-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Cards */
+    .kiosk-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 24px;
+      backdrop-filter: blur(20px);
+      box-shadow: var(--card-glow);
+    }
+
+    /* Session Banner */
+    .session-badge-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(5, 150, 105, 0.08);
+      border: 1px solid rgba(5, 150, 105, 0.2);
+      border-radius: 16px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+    }
+
+    .session-badge-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pulse-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 10px var(--success);
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.15); }
+    }
+
+    .session-name {
+      color: #059669;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .shift-pill {
+      background: linear-gradient(135deg, var(--primary), #4338ca);
+      color: #ffffff;
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+    }
+
+    /* Shift Selection Grid */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .shift-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .shift-btn {
+      padding: 8px 4px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      background: #f8fafc;
+      cursor: pointer;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 24px;
-      user-select: none;
+      gap: 2px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .logo {
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 800;
-      letter-spacing: 0.28em; text-transform: uppercase;
-      color: white;
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      border-radius: 999px;
-      padding: 14px 22px 14px 26px;
-      margin-bottom: 16px;
-      box-shadow: 0 18px 36px rgba(15,79,157,0.22);
+    .shift-btn:hover {
+      background: #f1f5f9;
+      border-color: rgba(15, 23, 42, 0.15);
     }
 
-    h1 {
-      font-size: 32px; font-weight: 800;
-      letter-spacing: -0.5px; margin-bottom: 6px;
+    .shift-btn.active {
+      border-color: var(--primary);
+      background: rgba(79, 70, 229, 0.08);
+      box-shadow: 0 0 12px rgba(79, 70, 229, 0.12);
     }
 
-    .subtitle {
-      color: var(--muted);
-      font-size: 15px; margin-bottom: 40px;
-      text-align: center;
+    .shift-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-main);
     }
 
-    .session-badge {
-      display: flex; align-items: center; gap: 10px;
-      background: var(--success-soft);
-      border: 1px solid rgba(31,157,104,0.2);
-      border-radius: 999px; padding: 10px 20px;
-      margin-bottom: 32px;
+    .shift-btn.active .shift-label {
+      color: var(--primary);
     }
 
-    .dot {
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--success); box-shadow: 0 0 10px var(--success);
-      animation: pulse 2s infinite;
+    .shift-time {
+      font-size: 9.5px;
+      color: var(--text-muted);
+      white-space: nowrap;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.4; }
-    }
-
-    .session-name {
-      color: var(--success); font-size: 15px; font-weight: 700;
+    /* QR Container Card */
+    .qr-card-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .qr-container {
-      background: white;
+      background: #ffffff;
       padding: 24px;
-      border-radius: 32px;
-      box-shadow: 0 20px 50px rgba(15, 79, 157, 0.15);
-      margin-bottom: 32px;
+      border-radius: 28px;
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.08);
+      margin-bottom: 18px;
       display: inline-block;
-      border: 1px solid var(--border);
     }
+
     #qrcode {
-      width: 320px;
-      height: 320px;
+      width: 340px;
+      height: 340px;
       display: flex;
       align-items: center;
       justify-content: center;
     }
+
+    @media (max-width: 480px) {
+      #qrcode {
+        width: 260px;
+        height: 260px;
+      }
+    }
+
     #qrcode canvas, #qrcode img {
       width: 100% !important;
       height: 100% !important;
       display: block;
-      image-rendering: pixelated; /* Ensures sharp edges */
+      image-rendering: pixelated;
     }
 
+    /* Timer Section */
     .timer-section {
-      width: 300px; text-align: center; margin-bottom: 40px;
+      width: 100%;
+      max-width: 340px;
     }
 
     .timer-row {
-      display: flex; justify-content: space-between;
-      align-items: center; margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
     }
 
-    .timer-label { color: var(--muted); font-size: 12px; }
-    .timer-value { font-size: 13px; font-weight: 700; }
+    .timer-label {
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .timer-value {
+      font-size: 14px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
 
     .progress-bar {
-      width: 100%; height: 4px;
-      background: rgba(15,79,157,0.08);
-      border-radius: 999px; overflow: hidden;
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
     }
 
     .progress-fill {
-      height: 100%; border-radius: 999px;
+      height: 100%;
+      border-radius: 999px;
       transition: width 1s linear, background 0.3s;
     }
 
+    /* Face Recognition Panel */
+    .face-panel {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 20px;
+      background: #f8fafc;
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+    }
+
+    .face-video-ring {
+      position: relative;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 3px solid var(--primary);
+      box-shadow: 0 0 20px rgba(79, 70, 229, 0.2);
+    }
+
+    #face-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .face-actions {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .face-scan-btn {
+      flex: 1;
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: white;
+      border: none;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+      transition: all 0.2s ease;
+    }
+
+    .face-scan-btn:hover {
+      opacity: 0.92;
+      transform: translateY(-1px);
+    }
+
+    .face-scan-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .face-setup-btn {
+      background: #ffffff;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      border-radius: 14px;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+    }
+
+    .face-setup-btn:hover {
+      background: #f1f5f9;
+    }
+
+    /* Live Attendance Feed */
     .attendee-section {
-      width: 100%; max-width: 400px;
+      width: 100%;
     }
 
     .attendee-header {
-      display: flex; justify-content: space-between;
-      align-items: center; margin-bottom: 12px;
-    }
-
-    .attendee-title {
-      font-size: 13px; font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase; letter-spacing: 1px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
     }
 
     .attendee-count {
       background: var(--success-soft);
-      border: 1px solid rgba(31,157,104,0.2);
-      color: var(--success); border-radius: 999px;
-      padding: 3px 12px; font-size: 13px; font-weight: 700;
+      border: 1px solid rgba(5, 150, 105, 0.2);
+      color: var(--success);
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 800;
     }
 
     .attendee-list {
-      display: flex; flex-direction: column; gap: 8px;
-      max-height: 200px; overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
     .attendee-item {
-      display: flex; align-items: center; gap: 12px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 12px; padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #f8fafc;
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 12px 16px;
       animation: slideIn 0.3s ease;
-      box-shadow: 0 12px 28px rgba(12,54,110,0.08);
     }
 
     @keyframes slideIn {
@@ -181,263 +495,320 @@
     }
 
     .attendee-avatar {
-      width: 32px; height: 32px; border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
       background: linear-gradient(135deg, var(--primary), var(--accent));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700; flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      flex-shrink: 0;
       color: white;
     }
 
-    .attendee-name { font-size: 14px; font-weight: 600; flex: 1; }
+    .attendee-info {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .attendee-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
 
     .attendee-status {
-      font-size: 11px; font-weight: 700;
-      padding: 3px 10px; border-radius: 999px;
-      text-transform: uppercase; letter-spacing: 0.5px;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .status-present {
       background: var(--success-soft);
-      border: 1px solid rgba(31,157,104,0.2);
+      border: 1px solid rgba(5, 150, 105, 0.2);
       color: var(--success);
     }
 
     .status-late {
       background: var(--warning-soft);
-      border: 1px solid rgba(217,144,26,0.2);
+      border: 1px solid rgba(217, 119, 6, 0.2);
       color: var(--warning);
     }
 
     .no-session {
-      text-align: center; padding: 40px;
-      color: var(--muted); font-size: 15px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      box-shadow: var(--shadow);
-      min-width: min(420px, 100%);
+      text-align: center;
+      padding: 60px 32px;
+      color: var(--text-muted);
+      font-size: 15px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 28px;
+      box-shadow: var(--card-glow);
+      max-width: 480px;
+      margin: 40px auto 0;
     }
 
-    /* Shift Selector Grid */
-    .shift-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 12px; width: 100%; margin-bottom: 32px;
-    }
-    .shift-btn {
-      padding: 16px 12px; border-radius: 16px;
-      border: 2px solid var(--border); background: white;
-      cursor: pointer; display: flex; flex-direction: column;
-      align-items: center; gap: 4px; transition: all 0.2s ease;
-    }
-    .shift-btn.active {
-      border-color: var(--primary); background: var(--bg-3);
-      box-shadow: 0 4px 12px rgba(15, 79, 157, 0.1);
-    }
-    .shift-label { font-size: 13px; font-weight: 700; color: var(--text); }
-    .shift-btn.active .shift-label { color: var(--primary); }
-    .shift-time { font-size: 11px; color: var(--muted); }
-    .shift-btn.active .shift-time { color: var(--primary); opacity: 0.8; }
-
-    /* Face scan panel */
-    .face-panel {
-      display: none; flex-direction: column; align-items: center;
-      margin-bottom: 24px; gap: 10px;
-    }
-    .face-panel-label {
-      font-size: 11px; font-weight: 700;
-      text-transform: uppercase; letter-spacing: 1px;
-      color: var(--muted);
-    }
-    .face-video-ring {
-      position: relative; width: 110px; height: 110px;
-      border-radius: 50%; overflow: hidden;
-      border: 3px solid var(--accent);
-      box-shadow: 0 0 18px rgba(47,125,225,0.25);
-    }
-    #face-video {
-      width: 100%; height: 100%;
-      object-fit: cover; transform: scaleX(-1);
-    }
-    .face-scan-btn {
-      background: linear-gradient(135deg, var(--primary), var(--accent));
-      color: white; border: none;
-      border-radius: 999px; padding: 10px 20px;
-      font-size: 13px; font-weight: 700;
-      cursor: pointer; letter-spacing: 0.2px;
-      transition: opacity 0.2s;
-    }
-    .face-scan-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-
-    /* Face recognition result toast */
+    /* Result Toast */
     .face-result-toast {
-      position: fixed; top: 24px; left: 50%; transform: translateX(-50%);
-      background: rgba(14,44,82,0.95);
-      color: white; border-radius: 20px;
-      padding: 20px 32px; text-align: center;
-      z-index: 999; display: none;
-      flex-direction: column; align-items: center; gap: 6px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
-      min-width: 260px;
+      position: fixed;
+      top: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      border: 1px solid var(--primary);
+      color: white;
+      border-radius: 24px;
+      padding: 20px 36px;
+      text-align: center;
+      z-index: 999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+      min-width: 280px;
     }
-    .face-result-toast.visible { display: flex; }
-    .face-result-name { font-size: 20px; font-weight: 800; }
-    .face-result-action { font-size: 14px; color: rgba(255,255,255,0.75); }
+    .face-result-toast.visible { display: flex; animation: slideDown 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
 
-    /* Enrollment UI */
+    @keyframes slideDown {
+      from { opacity: 0; transform: translate(-50%, -20px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    .face-result-name { font-size: 20px; font-weight: 800; }
+    .face-result-action { font-size: 14px; color: rgba(255, 255, 255, 0.7); }
+
+    /* Modals & Overlays */
+    .enroll-prompt-box {
+      background: #ffffff;
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 32px;
+      max-width: 360px;
+      width: 90%;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+    }
+
     .enroll-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      position: fixed;
+      inset: 0;
       background: rgba(14, 44, 82, 0.95);
-      z-index: 1000; display: none;
-      flex-direction: column; align-items: center; justify-content: center;
-      color: white; padding: 24px; text-align: center;
+      backdrop-filter: blur(20px);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      padding: 24px;
+      text-align: center;
     }
+
     .enroll-video-wrapper {
-      position: relative; width: 320px; height: 320px;
-      border-radius: 50%; overflow: hidden;
-      border: 4px solid var(--accent);
-      margin-bottom: 24px; box-shadow: 0 0 40px rgba(47, 125, 225, 0.4);
+      position: relative;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 4px solid var(--primary);
+      margin-bottom: 24px;
+      box-shadow: 0 0 40px rgba(79, 70, 229, 0.4);
     }
+
     #enroll-video {
-      width: 100%; height: 100%; object-fit: cover;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
       transform: scaleX(-1);
     }
-    .enroll-status {
-      font-size: 18px; font-weight: 600; margin-bottom: 12px;
-    }
-    .enroll-sub {
-      font-size: 14px; color: rgba(255,255,255,0.7);
-      max-width: 300px; line-height: 1.5;
-    }
-
-
   </style>
 </head>
 <body>
-  <div class="logo">RatelPlus</div>
-  <h1>Ratel Attendance</h1>
-  <p class="subtitle" id="subtitle">Scan QR code with your phone to check in</p>
 
-  <div id="active-session" style="display:none; flex-direction:column; align-items:center; width:100%; max-width:400px;">
-    <div class="session-badge">
-      <div class="dot"></div>
-      <span class="session-name" id="session-name">Loading...</span>
-      <span id="shift-badge" style="
-        background: var(--primary);
-        color: white;
-        padding: 4px 12px;
-        border-radius: 8px;
-        font-size: 12px;
-        font-weight: 700;
-        margin-left: 10px;
-      ">
-        Morning Shift
-      </span>
-    </div>
-
-    <!-- Shift Selector -->
-    <div class="shift-grid" id="shift-grid">
-      <button class="shift-btn" onclick="setShift('morning')" id="btn-morning">
-        <span class="shift-label">Morning</span>
-        <span class="shift-time">06:00 - 15:00</span>
-      </button>
-      <button class="shift-btn" onclick="setShift('evening')" id="btn-evening">
-        <span class="shift-label">Evening</span>
-        <span class="shift-time">15:00 - 22:00</span>
-      </button>
-      <button class="shift-btn" onclick="setShift('night')" id="btn-night">
-        <span class="shift-label">Night</span>
-        <span class="shift-time">22:00 - 06:00</span>
-      </button>
-      <button class="shift-btn" onclick="setShift('all_rounder')" id="btn-all_rounder">
-        <span class="shift-label">All Rounder</span>
-        <span class="shift-time">08:00 - 17:00</span>
-      </button>
-    </div>
-
-    <div class="qr-container">
-      <div id="qrcode"></div>
-    </div>
-
-    <!-- Face scan panel (shown when camera is available) -->
-    <div class="face-panel" id="face-panel">
-      <div class="face-panel-label">Or use Face Recognition</div>
-      <div class="face-video-ring">
-        <video id="face-video" autoplay playsinline muted></video>
+  <!-- Header Bar -->
+  <header class="header-bar">
+    <div class="brand-section">
+      <div class="brand-logo">RatelPlus</div>
+      <div class="brand-title-box">
+        <h1>Attendance Kiosk</h1>
+        <p id="subtitle">Scan QR code or use Face ID to check in</p>
       </div>
-      <div style="display:flex; gap:8px;">
-        <button type="button" class="face-scan-btn" id="face-scan-btn" onclick="handleFaceButtonClick()">
-          Check In / Out with Face
+    </div>
+
+    <div class="header-right">
+      <div class="clock-widget">
+        <div class="clock-time" id="header-clock">--:--:--</div>
+        <div class="clock-date" id="header-date">Loading date...</div>
+      </div>
+      <button class="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle Fullscreen">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Active Session Grid -->
+  <main id="active-session" style="display:none;" class="kiosk-grid">
+    
+    <!-- Left Column: Session Info, Shift Switcher, QR Code -->
+    <div class="kiosk-card">
+      <div class="session-badge-container">
+        <div class="session-badge-left">
+          <div class="pulse-dot"></div>
+          <span class="session-name" id="session-name">Loading session...</span>
+        </div>
+        <span class="shift-pill" id="shift-badge">Morning Shift</span>
+      </div>
+
+      <!-- Shift Switcher -->
+      <div class="section-label">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        Select Shift
+      </div>
+
+      <div class="shift-grid" id="shift-grid">
+        <button class="shift-btn" onclick="setShift('morning')" id="btn-morning">
+          <span class="shift-label">Morning</span>
+          <span class="shift-time">06:00 - 15:00</span>
         </button>
-        <button type="button" class="face-scan-btn" id="face-setup-btn"
-          style="background:transparent; border:1px solid var(--border); color:var(--muted);"
-          onclick="openEnrollPrompt()">
-          Set Up Face ID
+        <button class="shift-btn" onclick="setShift('evening')" id="btn-evening">
+          <span class="shift-label">Evening</span>
+          <span class="shift-time">15:00 - 22:00</span>
+        </button>
+        <button class="shift-btn" onclick="setShift('night')" id="btn-night">
+          <span class="shift-label">Night</span>
+          <span class="shift-time">22:00 - 06:00</span>
+        </button>
+        <button class="shift-btn" onclick="setShift('all_rounder')" id="btn-all_rounder">
+          <span class="shift-label">All Rounder</span>
+          <span class="shift-time">08:00 - 17:00</span>
         </button>
       </div>
-    </div>
 
-    <!-- Face ID setup: employee must type their own ID, standing at the kiosk -->
-    <div id="enroll-prompt-overlay" style="display:none; position:fixed; inset:0; background:rgba(14,44,82,0.92); z-index:1001; align-items:center; justify-content:center; flex-direction:column; color:white; padding:24px; text-align:center;">
-      <div style="font-size:18px; font-weight:700; margin-bottom:10px;">Set Up Face ID</div>
-      <div style="font-size:13px; color:rgba(255,255,255,0.7); max-width:280px; margin-bottom:20px;">
-        Type your Employee ID, then look at the camera. Only do this if you are the one standing here.
-      </div>
-      <input type="text" id="enroll-prompt-id" placeholder="e.g. EMP-001"
-        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
-        style="width:220px; padding:12px 14px; border-radius:10px; border:none; font-size:15px; text-align:center; margin-bottom:8px;" />
-      <div id="enroll-prompt-error" style="font-size:12px; color:#f87171; min-height:16px; margin-bottom:8px;"></div>
-      <div style="display:flex; gap:10px;">
-        <button type="button" class="face-scan-btn" style="background:transparent; border:1px solid rgba(255,255,255,0.3);" onclick="closeEnrollPrompt()">Cancel</button>
-        <button type="button" class="face-scan-btn" id="enroll-prompt-continue" onclick="confirmEnrollPrompt()">Continue</button>
-      </div>
-    </div>
+      <!-- QR Card Wrapper -->
+      <div class="qr-card-wrapper">
+        <div class="qr-container">
+          <div id="qrcode"></div>
+        </div>
 
-    <div class="timer-section">
-      <div class="timer-row">
-        <span class="timer-label">QR refreshes in</span>
-        <span class="timer-value" id="timer-value" style="color:#22c55e">25s</span>
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" id="progress-fill"
-          style="width:100%; background:#22c55e"></div>
+        <div class="timer-section">
+          <div class="timer-row">
+            <span class="timer-label">QR Token Refreshes In</span>
+            <span class="timer-value" id="timer-value" style="color:#059669">25s</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill" style="width:100%; background:#059669"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="attendee-section">
-      <div class="attendee-header">
-        <span class="attendee-title">Checked In</span>
-        <span class="attendee-count" id="attendee-count">0</span>
-      </div>
-      <div class="attendee-list" id="attendee-list"></div>
-    </div>
-  </div>
+    <!-- Right Column: Face Scanner & Live Attendance List -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+      
+      <!-- Face Recognition Camera Panel -->
+      <div class="face-panel" id="face-panel">
+        <div class="section-label">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+            <circle cx="12" cy="13" r="4"></circle>
+          </svg>
+          Face Recognition Scanner
+        </div>
 
+        <div class="face-video-ring">
+          <video id="face-video" autoplay playsinline muted></video>
+        </div>
+
+        <div class="face-actions">
+          <button type="button" class="face-scan-btn" id="face-scan-btn" onclick="handleFaceButtonClick()">
+            Check In / Out
+          </button>
+          <button type="button" class="face-setup-btn" id="face-setup-btn" onclick="openEnrollPrompt()">
+            Set Up Face ID
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Attendance Feed -->
+      <div class="kiosk-card attendee-section">
+        <div class="attendee-header">
+          <div class="section-label" style="margin-bottom:0;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Live Clock-In Feed
+          </div>
+          <span class="attendee-count" id="attendee-count">0</span>
+        </div>
+
+        <div class="attendee-list" id="attendee-list"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- No Active Session Card -->
   <div id="no-session" class="no-session">
-    <div style="margin-bottom: 24px; display: flex; justify-content: center; color: var(--muted)">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div style="margin-bottom: 20px; color: var(--text-muted);">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
         <line x1="12" y1="9" x2="12" y2="13"></line>
         <line x1="12" y1="17" x2="12.01" y2="17"></line>
       </svg>
     </div>
-    <p>No active session</p>
-    <p style="font-size:13px; margin-top:8px">Ask your admin to start an attendance session</p>
+    <h2 style="font-size: 20px; font-weight: 800; margin-bottom: 8px; color: var(--text-main);">No Active Session</h2>
+    <p style="font-size: 14px; color: var(--text-muted);">Ask an administrator to open an attendance session from the desktop portal.</p>
   </div>
 
-  <!-- Face recognition result toast -->
+  <!-- Face Recognition Result Toast -->
   <div id="face-result-toast" class="face-result-toast">
-    <div id="face-result-icon" style="font-size:36px;line-height:1"></div>
+    <div id="face-result-icon" style="font-size: 38px; line-height: 1;"></div>
     <div id="face-result-name" class="face-result-name"></div>
     <div id="face-result-action" class="face-result-action"></div>
   </div>
 
+  <!-- Face ID Setup Prompt Overlay -->
+  <div id="enroll-prompt-overlay" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(10px); z-index:1001; align-items:center; justify-content:center;">
+    <div class="enroll-prompt-box" style="text-align:center;">
+      <div style="font-size:18px; font-weight:800; margin-bottom:8px; color:var(--text-main);">Set Up Face ID</div>
+      <div style="font-size:13px; color:var(--text-muted); margin-bottom:20px; line-height:1.5;">
+        Type your Employee ID, then look directly at the camera.
+      </div>
+      <input type="text" id="enroll-prompt-id" placeholder="e.g. EMP-001"
+        autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+        style="width:100%; padding:14px; border-radius:12px; border:1px solid var(--card-border); background:#f8fafc; color:var(--text-main); font-size:16px; text-align:center; margin-bottom:12px; outline:none; font-weight:700;" />
+      <div id="enroll-prompt-error" style="font-size:12px; color:var(--danger); min-height:18px; margin-bottom:14px; font-weight:600;"></div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="face-setup-btn" style="flex:1;" onclick="closeEnrollPrompt()">Cancel</button>
+        <button type="button" class="face-scan-btn" id="enroll-prompt-continue" onclick="confirmEnrollPrompt()">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Face Enrollment Overlay -->
   <div id="enroll-overlay" class="enroll-overlay">
-    <div class="enroll-status" id="enroll-status">Hi John! Let's set up your Face Check-in</div>
+    <div class="enroll-status" id="enroll-status" style="font-size:20px; font-weight:800; margin-bottom:16px;">Hi John! Let's set up your Face ID</div>
     <div class="enroll-video-wrapper">
       <video id="enroll-video" autoplay playsinline muted></video>
     </div>
-    <div class="enroll-sub">Look directly at the camera. We're capturing your face for future check-ins.</div>
-    <div id="enroll-countdown" style="font-size:32px; font-weight:800; margin-top:20px; color:var(--accent)"></div>
+    <div style="font-size:14px; color:rgba(255,255,255,0.7); max-width:320px; line-height:1.5;">Look directly into the camera while we register your Face ID.</div>
+    <div id="enroll-countdown" style="font-size:36px; font-weight:800; margin-top:20px; color:#38bdf8;"></div>
   </div>
 
   <script>
@@ -461,7 +832,7 @@
     let activeShift = "morning";
     let shiftAutoUpdateInterval = null;
 
-    // Face scan state — capture only happens on an explicit button press
+    // Face scan state
     let faceStream = null;
     let faceCapturing = false;
 
@@ -471,6 +842,26 @@
       night: { start: 22, end: 6, label: "Night" },
       all_rounder: { start: 8, end: 17, label: "All Rounder" }
     };
+
+    // Header Live Clock
+    function updateHeaderClock() {
+      const clockEl = document.getElementById("header-clock");
+      const dateEl = document.getElementById("header-date");
+      if (!clockEl || !dateEl) return;
+      const now = new Date();
+      clockEl.textContent = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      dateEl.textContent = now.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    }
+    setInterval(updateHeaderClock, 1000);
+    updateHeaderClock();
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
 
     function getDefaultShift() {
       const hour = new Date().getHours();
@@ -499,7 +890,6 @@
       if (shiftAutoUpdateInterval) {
         clearInterval(shiftAutoUpdateInterval);
       }
-      // Check for shift change every minute
       shiftAutoUpdateInterval = setInterval(() => {
         const newShift = getDefaultShift();
         if (newShift !== activeShift) {
@@ -520,16 +910,9 @@
     // ── Session ───────────────────────────────────────────────────────────
     async function fetchActiveSession() {
       const res = await fetch(`${API_BASE}/sessions/public/active`);
-
-      if (res.status === 404) {
-        return null;
-      }
-
+      if (res.status === 404) return null;
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to load active session");
-      }
-
+      if (!res.ok) throw new Error(data.detail || "Failed to load active session");
       return data;
     }
 
@@ -567,12 +950,9 @@
       void startFaceScan();
     }
 
-    // ── Face Scan (kiosk camera) ────────────────────────────────────────────
-    // Camera is kept live for an instant preview, but matching only ever runs
-    // when the employee deliberately presses the button below — no background
-    // auto-scan, so nobody is checked in/out just by glancing at the kiosk.
+    // ── Face Scan ──────────────────────────────────────────────────────────
     async function startFaceScan() {
-      if (faceStream) return; // already running
+      if (faceStream) return;
       try {
         faceStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 320, height: 320, facingMode: "user" }
@@ -580,7 +960,6 @@
         document.getElementById("face-video").srcObject = faceStream;
         document.getElementById("face-panel").style.display = "flex";
       } catch (err) {
-        // Camera unavailable — face panel stays hidden, no disruption
         console.warn("Face scan camera unavailable:", err);
       }
     }
@@ -600,8 +979,8 @@
       const btn = document.getElementById("face-scan-btn");
       const video = document.getElementById("face-video");
       if (!video || video.readyState < 2) {
-        btn.textContent = "Camera not ready — try again";
-        setTimeout(() => { btn.textContent = "Check In / Out with Face"; }, 1800);
+        btn.textContent = "Camera not ready";
+        setTimeout(() => { btn.textContent = "Check In / Out"; }, 1800);
         return;
       }
 
@@ -621,7 +1000,7 @@
       const resetButton = (label) => {
         setTimeout(() => {
           btn.disabled = false;
-          btn.textContent = label || "Check In / Out with Face";
+          btn.textContent = label || "Check In / Out";
           faceCapturing = false;
         }, 2200);
       };
@@ -635,17 +1014,17 @@
         const data = await res.json().catch(() => ({}));
 
         if (res.ok && data.matched && data.already_done) {
-          resetButton("Already checked in & out today");
+          resetButton("Already clocked out today");
         } else if (res.ok && data.matched) {
           showFaceResult(data);
           resetButton();
         } else if (res.ok && !data.matched) {
-          resetButton("Face not recognized — try again");
+          resetButton("Face not recognized");
         } else {
           resetButton(data.detail || "Failed — try again");
         }
       } catch (err) {
-        resetButton("Network error — try again");
+        resetButton("Network error");
       }
     }
 
@@ -658,8 +1037,8 @@
         ? `Clocked out · ${data.hours_clocked}h`
         : "Clocked in — welcome!";
       toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 4000);
 
-      // Also update the live attendee list
       addAttendee({
         employee: data.employee,
         employee_id: data.employee_id,
@@ -706,18 +1085,11 @@
       if (!sessionId) return;
       const res = await fetch(`${API_BASE}/sessions/public/rotate-token`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ 
-          session_id: sessionId,
-          shift: activeShift 
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, shift: activeShift }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Failed to rotate QR token");
-      }
+      if (!res.ok) throw new Error(data.detail || "Failed to rotate QR token");
       qrToken = data.qr_token;
       renderQR();
     }
@@ -739,26 +1111,21 @@
 
     function renderQR() {
       if (!qrToken) return;
-      
-      // Derive the check-in URL
       let checkinUrl = "https://attendance.ratelplus.net.ng/checkin";
       if (window.location.origin.includes("localhost") || window.location.origin.includes("127.0.0.1")) {
-        // Dev fallback
-      } else {
         checkinUrl = window.location.origin + "/checkin";
       }
 
       const qrValue = `${checkinUrl}?token=${qrToken}`;
-      
       const container = document.getElementById("qrcode");
       container.innerHTML = "";
       qrCode = new QRCode(container, {
         text: qrValue,
-        width: 400, // Render at high resolution
-        height: 400,
+        width: 440,
+        height: 440,
         colorDark: "#000000",
         colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M, // Medium error correction for faster lock-on
+        correctLevel: QRCode.CorrectLevel.M,
       });
     }
 
@@ -790,8 +1157,8 @@
 
     function updateTimerUI() {
       const pct = (timeLeft / TOKEN_TTL) * 100;
-      const color = timeLeft > 10 ? "#22c55e"
-        : timeLeft > 5 ? "#f59e0b" : "#e94560";
+      const color = timeLeft > 10 ? "#059669"
+        : timeLeft > 5 ? "#d97706" : "#dc2626";
       document.getElementById("timer-value").textContent = timeLeft + "s";
       document.getElementById("timer-value").style.color = color;
       document.getElementById("progress-fill").style.width = pct + "%";
@@ -802,11 +1169,8 @@
     function connectWebSocket() {
       if (!sessionId) return;
       shouldReconnect = true;
-      const wsUrl = window.location.origin.replace("https://", "wss://")
-        .replace("http://", "ws://");
-      ws = new WebSocket(
-        `${wsUrl}/ws/public/sessions/${sessionId}`
-      );
+      const wsUrl = window.location.origin.replace("https://", "wss://").replace("http://", "ws://");
+      ws = new WebSocket(`${wsUrl}/ws/public/sessions/${sessionId}`);
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         if (data.type === "checkin") addAttendee(data);
@@ -814,9 +1178,7 @@
       ws.onclose = () => {
         ws = null;
         if (!shouldReconnect || !sessionId) return;
-        reconnectTimeout = setTimeout(() => {
-          connectWebSocket();
-        }, 3000);
+        reconnectTimeout = setTimeout(() => { connectWebSocket(); }, 3000);
       };
     }
 
@@ -829,21 +1191,17 @@
       ));
       attendees.unshift(data);
       renderAttendees();
-      // NOTE: Face enrollment is never auto-triggered from a check-in event.
-      // The person who scanned the QR may not be the person standing in
-      // front of this kiosk's camera — auto-enrolling here risks capturing
-      // the wrong face under the wrong identity. Enrollment only happens via
-      // the explicit "Set Up Face ID" button, which requires the employee to
-      // type their own ID while standing at the kiosk.
     }
 
     function renderAttendees() {
       const list = document.getElementById("attendee-list");
       document.getElementById("attendee-count").textContent = attendees.length;
-      list.innerHTML = attendees.slice(0, 5).map((a) => `
+      list.innerHTML = attendees.slice(0, 6).map((a) => `
         <div class="attendee-item">
-          <div class="attendee-avatar">${a.employee.charAt(0).toUpperCase()}</div>
-          <span class="attendee-name">${a.employee}</span>
+          <div class="attendee-avatar">${a.employee ? a.employee.charAt(0).toUpperCase() : 'U'}</div>
+          <div class="attendee-info">
+            <div class="attendee-name">${a.employee}</div>
+          </div>
           <span class="attendee-status status-${a.status}">${a.action === "checked_out" ? "out" : a.status}</span>
         </div>
       `).join("");
@@ -851,15 +1209,14 @@
 
     // ── UI Helpers ────────────────────────────────────────────────────────
     function showActiveSession(name) {
-      document.getElementById("active-session").style.display = "flex";
+      document.getElementById("active-session").style.display = "grid";
       document.getElementById("no-session").style.display = "none";
       document.getElementById("session-name").textContent = name;
       document.getElementById("attendee-count").textContent = attendees.length;
-      document.getElementById("subtitle").textContent =
-        "Scan QR code with your phone to check in";
+      document.getElementById("subtitle").textContent = "Scan QR code or use Face ID to check in";
     }
 
-    // ── Face ID Setup Prompt (deliberate, kiosk-side identity confirmation) ──
+    // ── Face ID Setup Prompt ──────────────────────────────────────────────
     function openEnrollPrompt() {
       if (!sessionId) return;
       document.getElementById("enroll-prompt-id").value = "";
@@ -911,7 +1268,7 @@
       const video = document.getElementById("enroll-video");
       const countdownEl = document.getElementById("enroll-countdown");
 
-      statusText.textContent = `Hi ${name.split(" ")[0]}! Let's set up your Face Check-in`;
+      statusText.textContent = `Hi ${name.split(" ")[0]}! Let's set up your Face ID`;
       overlay.style.display = "flex";
 
       try {
@@ -920,7 +1277,6 @@
         });
         video.srcObject = enrollmentStream;
 
-        // Start countdown
         let count = 3;
         countdownEl.textContent = count;
         const timer = setInterval(async () => {
@@ -963,11 +1319,7 @@
 
         if (res.ok) {
           document.getElementById("enroll-status").textContent = "Face ID saved!";
-          document.getElementById("enroll-countdown").innerHTML = `
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-          `;
+          document.getElementById("enroll-countdown").innerHTML = "✓";
           setTimeout(stopEnrollment, 2000);
         } else {
           const msg = data.detail || "No face detected";
@@ -996,8 +1348,7 @@
       document.getElementById("attendee-count").textContent = "0";
       document.getElementById("active-session").style.display = "none";
       document.getElementById("no-session").style.display = "block";
-      document.getElementById("subtitle").textContent =
-        "Scan QR code with your phone to check in";
+      document.getElementById("subtitle").textContent = "Scan QR code with your phone to check in";
     }
 
     // ── Init ──────────────────────────────────────────────────────────────
@@ -1007,12 +1358,10 @@
         startActiveSessionPolling();
       } catch (e) {
         console.error("Failed to initialize kiosk:", e);
-        // Retry in 5 seconds
         setTimeout(init, 5000);
       }
     }
 
-    // Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/kiosk/sw.js')

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from redis.asyncio import Redis, ConnectionPool
 from app.config import get_settings
 from app.core.logging import logger

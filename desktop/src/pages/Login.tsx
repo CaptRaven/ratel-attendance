@@ -20,7 +20,14 @@ export default function Login() {
       const data = await login(email, password);
       setAuth(data.access_token, data.user);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Login failed");
+      const d = err.response?.data?.detail;
+      if (typeof d === "string") {
+        setError(d);
+      } else if (Array.isArray(d) && d.length > 0) {
+        setError(d[0]?.msg || "Login failed");
+      } else {
+        setError("Login failed. Please check your credentials.");
+      }
     } finally {
       setLoading(false);
     }

@@ -19,6 +19,7 @@ async def export_attendance_csv(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
     session_id: str = Query(default=None),
+    employee_id: str = Query(default=None),
     date_from: date = Query(default=None),
     date_to: date = Query(default=None),
 ):
@@ -27,12 +28,21 @@ async def export_attendance_csv(
     Columns: Name, Department, Check-in, Check-out, Hours Clocked
     Sorted by total hours clocked (highest to lowest).
     """
+    from sqlalchemy import or_
 
     # Build query
-    query = select(Attendance)
+    query = select(Attendance).join(User, Attendance.employee_id == User.id)
 
     if session_id:
         query = query.where(Attendance.session_id == session_id)
+
+    if employee_id:
+        query = query.where(
+            or_(
+                User.employee_id == employee_id,
+                func.cast(User.id, String) == employee_id,
+            )
+        )
 
     if date_from:
         query = query.where(
@@ -73,6 +83,7 @@ async def export_attendance_csv(
             "checked_out_at": r.checked_out_at.strftime("%Y-%m-%d %H:%M:%S")
             if r.checked_out_at else "—",
             "hours": r.hours_clocked or 0.0,
+            "work_report": r.work_report or "—",
         })
 
     # Sort by total hours descending
@@ -97,6 +108,7 @@ async def export_attendance_csv(
         "Check-in Time",
         "Check-out Time",
         "Hours Clocked",
+        "Work Report",
         "Total Hours",
     ])
 
@@ -113,6 +125,7 @@ async def export_attendance_csv(
                 s["checked_in_at"],
                 s["checked_out_at"],
                 f"{s['hours']:.2f}h",
+                s["work_report"],
                 f"{emp['total_hours']:.2f}h" if i == 0 else "",
             ])
 
@@ -133,20 +146,44 @@ async def get_attendance_summary(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(require_admin),
     session_id: str = Query(default=None),
+    employee_id: str = Query(default=None),
+    date_from: date = Query(default=None),
+    date_to: date = Query(default=None),
 ):
     """
     Summary view — used by desktop app to show report preview.
     Returns all attendance records sorted by checked_in_at descending.
     """
-    query = select(Attendance).order_by(Attendance.checked_in_at.desc())
+    from sqlalchemy import or_, String
+
+    query = select(Attendance).join(User, Attendance.employee_id == User.id).order_by(Attendance.checked_in_at.desc())
+
     if session_id:
         query = query.where(Attendance.session_id == session_id)
+
+    if employee_id:
+        query = query.where(
+            or_(
+                User.employee_id == employee_id,
+                func.cast(User.id, String) == employee_id,
+            )
+        )
+
+    if date_from:
+        query = query.where(
+            func.date(Attendance.checked_in_at) >= date_from
+        )
+
+    if date_to:
+        query = query.where(
+            func.date(Attendance.checked_in_at) <= date_to
+        )
 
     result = await db.execute(query)
     records = result.scalars().all()
 
     return {
-        "total_employees": len(set(r.employee.id for r in records)),
+        "total_employees": len(set(r.employee.id for r in records if r.employee)),
         "records": [
             {
                 "employee": r.employee.full_name if r.employee else "Unknown",
@@ -157,6 +194,7 @@ async def get_attendance_summary(
                 "checked_out_at": r.checked_out_at,
                 "hours_clocked": r.hours_clocked,
                 "shift": r.shift,
+                "work_report": r.work_report,
             }
             for r in records
         ],

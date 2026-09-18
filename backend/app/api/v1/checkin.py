@@ -27,6 +27,7 @@ from app.database import get_db
 from app.redis_client import get_redis
 from app.core.qr_token import (
     decode_qr_token,
+    decode_scan_ticket,
     is_token_active,
     consume_token,
     QR_TYPE,
@@ -54,8 +55,10 @@ settings = get_settings()
 
 class CheckInRequest(BaseModel):
     qr_token: str = Field(..., min_length=10)
+    scan_ticket: Optional[str] = Field(None, max_length=2000)
     employee_id: Optional[str] = Field(None, min_length=2, max_length=50)
     fingerprint: Optional[str] = Field(None, max_length=255)
+    work_report: Optional[str] = Field(None, max_length=2000)
 
 
 class EnrollFaceRequest(BaseModel):
@@ -184,6 +187,7 @@ async def enroll_face_kiosk(
 class FaceCheckinRequest(BaseModel):
     qr_token: str = Field(..., min_length=10)
     face_image: str  # base64 JPEG
+    work_report: Optional[str] = Field(None, max_length=2000)
 
 
 @router.post("/face", status_code=200)
@@ -338,6 +342,8 @@ async def face_check_in(
         hours = round((now - attendance.checked_in_at).total_seconds() / 3600, 2)
         attendance.checked_out_at = now
         attendance.hours_clocked = hours
+        if payload.work_report:
+            attendance.work_report = payload.work_report.strip()
         attendance.check_status = CheckStatus.CHECKED_OUT
         await db.flush()
         action = "checked_out"
@@ -364,6 +370,7 @@ async def face_check_in(
             "action": action,
             "checked_in_at": attendance.checked_in_at.isoformat(),
             "checked_out_at": attendance.checked_out_at.isoformat() if attendance.checked_out_at else None,
+            "work_report": attendance.work_report,
             "needs_enrollment": False,
         },
     )
@@ -450,9 +457,20 @@ async def check_in_or_out(
             except Exception:
                 pass
 
+        scanned_at_override = None
         token_data = decode_qr_token(qr_token)
-        
-        if not token_data or token_data.get("type") != QR_TYPE:
+
+        if not token_data and payload.scan_ticket:
+            ticket_data = decode_scan_ticket(payload.scan_ticket)
+            if ticket_data:
+                token_data = ticket_data
+                if ticket_data.get("scanned_at"):
+                    try:
+                        scanned_at_override = datetime.fromisoformat(ticket_data["scanned_at"])
+                    except Exception:
+                        pass
+
+        if not token_data or token_data.get("type") not in (QR_TYPE, "scan_ticket"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid or expired QR code. Please scan the latest code.",
@@ -463,8 +481,8 @@ async def check_in_or_out(
         shift = token_data.get("shift")
 
         # ── 2. Verify token is active in Redis ───────────────────────────────
-        # Anti-replay is still handled by the database check below.
-        if not await is_token_active(redis, qr_token):
+        # Skip redis active check if validated via signed scan ticket issued during scan
+        if not scanned_at_override and not await is_token_active(redis, qr_token):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="QR code has expired. Please scan the latest code.",
@@ -591,11 +609,16 @@ async def check_in_or_out(
 
         elif attendance.check_status == CheckStatus.CHECKED_IN:
             # ── 7b. Already checked in → CHECK OUT ───────────────────────────
-            hours = round(
-                (now - attendance.checked_in_at).total_seconds() / 3600, 2
-            )
-            attendance.checked_out_at = now
+            if not payload.work_report or not payload.work_report.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Work report is required when clocking out. Please summarize what you did today.",
+                )
+            checkout_time = scanned_at_override or now
+            hours = max(round((checkout_time - attendance.checked_in_at).total_seconds() / 3600, 2), 0.0)
+            attendance.checked_out_at = checkout_time
             attendance.hours_clocked = hours
+            attendance.work_report = payload.work_report.strip()
             attendance.check_status = CheckStatus.CHECKED_OUT
             await db.flush()
 
@@ -632,6 +655,7 @@ async def check_in_or_out(
                 "checked_in_at": attendance.checked_in_at.isoformat(),
                 "checked_out_at": attendance.checked_out_at.isoformat()
                 if attendance.checked_out_at else None,
+                "work_report": attendance.work_report,
                 "needs_enrollment": not employee.is_face_enrolled,
             },
         )
@@ -659,6 +683,7 @@ async def check_in_or_out(
             "checked_in_at": attendance.checked_in_at,
             "checked_out_at": attendance.checked_out_at,
             "hours_clocked": attendance.hours_clocked,
+            "work_report": attendance.work_report,
         }
     except HTTPException:
         raise
@@ -696,6 +721,7 @@ async def get_session_attendance(
                     "checked_out_at": r.checked_out_at,
                     "hours_clocked": r.hours_clocked,
                     "shift": r.shift,
+                    "work_report": r.work_report,
                 }
                 for r in records
             ],

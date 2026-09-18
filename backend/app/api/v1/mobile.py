@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, and_
 from fastapi import Cookie, Depends
 from app.database import get_db
-from app.core.qr_token import decode_qr_token, QR_TYPE
+from app.core.qr_token import decode_qr_token, generate_scan_ticket, QR_TYPE
 from app.core.session_manager import get_session
 from app.core.business_day import get_business_day_start, get_night_shift_lookback_start
 from app.redis_client import get_redis_pool
@@ -41,6 +41,16 @@ async def mobile_checkin_page(
                 "message": "This QR code is invalid or has expired. Please scan the latest code.",
             }, status_code=400,
         )
+
+    # Record scan timestamp when employee opens checkin form
+    now_utc = datetime.now(timezone.utc)
+    scanned_at_iso = now_utc.isoformat()
+    scan_ticket = generate_scan_ticket(
+        session_id=token_data["session_id"],
+        location_id=token_data["location_id"],
+        scanned_at=scanned_at_iso,
+        shift=token_data.get("shift"),
+    )
 
     # Verify session
     redis = Redis(connection_pool=get_redis_pool())
@@ -117,6 +127,8 @@ async def mobile_checkin_page(
         name="checkin.html",
         context={
             "qr_token": token,
+            "scan_ticket": scan_ticket,
+            "scanned_at": scanned_at_iso,
             "session_id": token_data["session_id"],
             "session_name": session["name"],
             "shift": token_data.get("shift"),

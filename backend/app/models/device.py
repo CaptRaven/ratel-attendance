@@ -1,4 +1,6 @@
+from __future__ import annotations
 import uuid
+from typing import Optional
 from datetime import datetime
 from sqlalchemy import String, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,7 +21,7 @@ class DeviceBinding(Base):
         String(255), unique=True, nullable=False, index=True
     )
     # Browser fingerprint for extra validation
-    fingerprint: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     bound_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )

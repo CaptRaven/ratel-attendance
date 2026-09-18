@@ -1,6 +1,8 @@
+from __future__ import annotations
 import uuid
+from typing import Optional
 from datetime import datetime
-from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum, Index, UniqueConstraint
+from sqlalchemy import String, DateTime, ForeignKey, Enum as SAEnum, Index, UniqueConstraint, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
@@ -45,14 +47,15 @@ class Attendance(Base):
     checked_in_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, nullable=False
     )
-    checked_out_at: Mapped[datetime | None] = mapped_column(
+    checked_out_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     # Hours clocked — computed on checkout
-    hours_clocked: Mapped[float | None] = mapped_column(
+    hours_clocked: Mapped[Optional[float]] = mapped_column(
         nullable=True
     )
-    shift: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    shift: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    work_report: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     token_used: Mapped[str] = mapped_column(String(512), nullable=False)
 
     employee: Mapped["User"] = relationship("User", lazy="selectin")  # noqa: F821

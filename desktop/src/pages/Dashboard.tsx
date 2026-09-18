@@ -168,6 +168,7 @@ export default function Dashboard() {
           check_status: data.action,
           checked_in_at: data.checked_in_at,
           checked_out_at: data.checked_out_at,
+          work_report: data.work_report,
         });
       }
     };
