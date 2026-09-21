@@ -295,18 +295,35 @@
 
     async function tryResolveFingerprint() {
       if (IS_KNOWN) return;
-      
+
       const fp = getFingerprint();
       try {
         const res = await fetch(`/api/v1/checkin/resolve-fingerprint?fingerprint=${fp}`);
         const data = await res.json();
-        
+
         if (data.found) {
           IS_KNOWN = true;
           KNOWN_NAME = data.full_name;
           KNOWN_ID = data.employee_id;
+
+          // Fetch actual check status before rendering — otherwise CHECK_STATUS
+          // stays "none" and the page shows "Clock In" for a checked-in employee,
+          // hiding the work report section and causing the backend to reject clock-out.
+          try {
+            const statusRes = await fetch(
+              `/api/v1/checkin/status?employee_id=${encodeURIComponent(KNOWN_ID)}&session_id=${encodeURIComponent(SESSION_ID)}`
+            );
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              if (statusData.found) {
+                CHECK_STATUS = statusData.check_status;
+              }
+            }
+          } catch (e) {
+            console.warn("Status check after fingerprint failed", e);
+          }
+
           initPage();
-          console.log("Consistency achieved: Resolved identity from device fingerprint.");
         }
       } catch (e) {
         console.warn("Fingerprint resolution failed", e);
