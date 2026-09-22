@@ -9,11 +9,11 @@ WAT = timezone(timedelta(hours=1))
 BUSINESS_DAY_ROLLOVER_HOUR = 6
 
 # Night shift (22:00-06:00 WAT) is the only shift that spans the rollover.
-# Set to 11h so the lookback reaches 19:00 WAT the previous evening — this
-# covers employees who arrive early (observed: ~20:00-20:30 WAT) when the
-# admin has already switched the kiosk to night shift.  Any record older
-# than 19:00 WAT is genuinely stale and must be closed via "Fix Open Records".
-NIGHT_SHIFT_HOURS = 11
+# Set to 12h so the lookback reaches 18:00 WAT the previous evening — this
+# covers employees who arrive early (observed as early as ~18:20 WAT) when
+# the admin has already switched the kiosk to night shift.  Any record older
+# than 18:00 WAT is genuinely stale and must be closed via "Fix Open Records".
+NIGHT_SHIFT_HOURS = 12
 
 
 def get_business_day_start(now: datetime | None = None) -> datetime:
