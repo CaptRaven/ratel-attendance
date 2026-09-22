@@ -1,5 +1,6 @@
 .env
 .env.deployment
+.env.ssh
 .env*.local
 .venv/
 venv/
