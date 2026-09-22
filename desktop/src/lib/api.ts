@@ -4,15 +4,13 @@ const getBaseURL = () => {
   // 1. Try Environment Variable
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
 
-  // 2. Try to derive from current origin if we are on the web
-  if (window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
-    if (window.location.origin.includes("ratelplus.net.ng")) {
-      return `${window.location.origin}/api/v1`;
-    }
+  // 2. Try to derive from current origin if running on production domain
+  if (typeof window !== "undefined" && window.location.hostname.includes("ratelplus.net.ng")) {
+    return "https://attendance.ratelplus.net.ng/api/v1";
   }
 
-  // 3. Absolute Fallback to Production
-  return "https://attendance.ratelplus.net.ng/api/v1";
+  // 3. Fallback for Local Development
+  return "http://localhost:8000/api/v1";
 };
 
 const BASE_URL = getBaseURL();
@@ -352,3 +350,122 @@ export const getStatusBreakdown = async () => {
   const res = await api.get("/analytics/status-breakdown");
   return res.data;
 };
+
+// Job Openings / Careers
+export interface JobOpening {
+  id: string;
+  title: string;
+  department: string;
+  category: string;
+  location: string;
+  type: string;
+  experience: string;
+  description: string;
+  requirements: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getJobOpenings = async (
+  category?: string,
+  search?: string,
+  active_only = false
+): Promise<JobOpening[]> => {
+  const p = new URLSearchParams();
+  if (category) p.set("category", category);
+  if (search) p.set("search", search);
+  p.set("active_only", String(active_only));
+  const query = p.toString() ? `?${p.toString()}` : "";
+  const res = await api.get(`/jobs/${query}`);
+  return res.data;
+};
+
+export const createJobOpening = async (data: {
+  title: string;
+  department: string;
+  category: string;
+  location: string;
+  type: string;
+  experience: string;
+  description: string;
+  requirements: string[];
+}): Promise<JobOpening> => {
+  const res = await api.post("/jobs/", data);
+  return res.data;
+};
+
+export const updateJobOpening = async (
+  id: string,
+  data: Partial<{
+    title: string;
+    department: string;
+    category: string;
+    location: string;
+    type: string;
+    experience: string;
+    description: string;
+    requirements: string[];
+    is_active: boolean;
+  }>
+): Promise<JobOpening> => {
+  const res = await api.put(`/jobs/${id}`, data);
+  return res.data;
+};
+
+export const toggleJobOpeningStatus = async (id: string): Promise<JobOpening> => {
+  const res = await api.patch(`/jobs/${id}/toggle-status`);
+  return res.data;
+};
+
+export const deleteJobOpening = async (id: string): Promise<void> => {
+  await api.delete(`/jobs/${id}`);
+};
+
+// Job Applications
+export interface JobApplication {
+  id: string;
+  job_id?: string | null;
+  job_title: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  portfolio_url?: string | null;
+  cover_note?: string | null;
+  resume_filename?: string | null;
+  status: "pending" | "reviewed" | "shortlisted" | "rejected";
+  created_at: string;
+  updated_at: string;
+}
+
+export const getJobApplications = async (
+  job_id?: string,
+  status?: string,
+  search?: string
+): Promise<JobApplication[]> => {
+  const p = new URLSearchParams();
+  if (job_id) p.set("job_id", job_id);
+  if (status) p.set("status", status);
+  if (search) p.set("search", search);
+  const query = p.toString() ? `?${p.toString()}` : "";
+  const res = await api.get(`/jobs/applications${query}`);
+  return res.data;
+};
+
+export const updateJobApplicationStatus = async (
+  id: string,
+  status: string
+): Promise<JobApplication> => {
+  const res = await api.patch(`/jobs/applications/${id}/status`, { status });
+  return res.data;
+};
+
+export const deleteJobApplication = async (id: string): Promise<void> => {
+  await api.delete(`/jobs/applications/${id}`);
+};
+
+export const getResumeUrl = (filename: string) => {
+  return `${BASE_URL.replace(/\/api\/v1\/?$/, "")}/static/uploads/resumes/${filename}`;
+};
+
+

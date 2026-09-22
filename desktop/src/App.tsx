@@ -5,11 +5,12 @@ import Dashboard from "@/pages/Dashboard";
 import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
 import Reports from "@/pages/Reports";
+import Careers from "@/pages/Careers";
 import { theme } from "@/lib/theme";
 import logo from "@/assets/rATEL-LOGO.png";
-import { BarChart3, LayoutGrid, LogOut, Users, FileText, ChevronLeft, ChevronRight } from "lucide-react";
+import { BarChart3, LayoutGrid, LogOut, Users, FileText, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Page = "dashboard" | "analytics" | "staff" | "reports";
+type Page = "dashboard" | "analytics" | "staff" | "reports" | "careers";
 
 export default function App() {
   const { token, logout } = useAuthStore();
@@ -102,6 +103,7 @@ export default function App() {
             { id: "analytics", icon: BarChart3, label: "Analytics" },
             { id: "staff", icon: Users, label: "Staff" },
             { id: "reports", icon: FileText, label: "Reports" },
+            { id: "careers", icon: Briefcase, label: "Job Openings" },
           ].map((item) => (
             <button
               key={item.id}
@@ -167,6 +169,7 @@ export default function App() {
             onClearStaffFilter={() => setSelectedEmployeeForReports(undefined)}
           />
         )}
+        {page === "careers" && <Careers />}
       </div>
     </div>
   );

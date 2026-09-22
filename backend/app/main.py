@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import get_settings
 from app.core.logging import setup_logging, logger
 from fastapi.templating import Jinja2Templates  
-from app.api.v1 import auth, employees, sessions, checkin, websocket, mobile, reports, department, analytics
+from app.api.v1 import auth, employees, sessions, checkin, websocket, mobile, reports, department, analytics, jobs
 from app.database import get_db
 from app.redis_client import get_redis
 
@@ -20,12 +20,16 @@ settings = get_settings()
 limiter = Limiter(key_func=get_remote_address)
 
 
+import os
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
+    os.makedirs("app/static/uploads/resumes", exist_ok=True)
     logger.info("startup", app=settings.APP_NAME, env=settings.ENVIRONMENT)
     yield
     logger.info("shutdown", app=settings.APP_NAME)
+
 
 
 app = FastAPI(
@@ -67,9 +71,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://attendance.ratelplus.net.ng",
+        "https://ratelplus.net.ng",
+        "https://www.ratelplus.net.ng",
+        "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:1420",
         "http://localhost:8000",
         "tauri://localhost",
+        "*",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -85,6 +94,7 @@ app.include_router(mobile.router)
 app.include_router(reports.router, prefix="/api/v1")
 app.include_router(department.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(jobs.router, prefix="/api/v1")
 
 async def check_database_health(db: AsyncSession) -> bool:
     try:
