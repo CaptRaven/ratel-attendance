@@ -77,6 +77,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://attendance.ratelplus.net.ng",
+        "https://www.attendance.ratelplus.net.ng",
+        "https://portal.ratelplus.net.ng",
+        "https://www.portal.ratelplus.net.ng",
         "https://ratelplus.net.ng",
         "https://www.ratelplus.net.ng",
         "http://localhost:3000",
@@ -84,12 +87,13 @@ app.add_middleware(
         "http://localhost:1420",
         "http://localhost:8000",
         "tauri://localhost",
-        "*",
     ],
+    allow_origin_regex=r"https://.*\.ratelplus\.net\.ng",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(employees.router, prefix="/api/v1")
