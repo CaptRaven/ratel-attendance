@@ -21,14 +21,20 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 import os
+from app.seed_jobs import seed_jobs
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logging()
     os.makedirs("app/static/uploads/resumes", exist_ok=True)
+    try:
+        await seed_jobs()
+    except Exception as e:
+        logger.warning("auto_seed_jobs_failed", error=str(e))
     logger.info("startup", app=settings.APP_NAME, env=settings.ENVIRONMENT)
     yield
     logger.info("shutdown", app=settings.APP_NAME)
+
 
 
 
