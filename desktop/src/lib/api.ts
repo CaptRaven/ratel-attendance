@@ -69,6 +69,7 @@ export interface User {
   referee2_relationship?: string | null;
   referee2_notes?: string | null;
   referee_pdf_filename?: string | null;
+  profile_picture_filename?: string | null;
   days_present?: number;
   created_at: string;
 }
@@ -302,6 +303,24 @@ export const getRefereePdfUrl = (filename: string) => {
 export const deleteRefereePDF = async (employee_id: string): Promise<User> => {
   const res = await api.delete(`/employees/${employee_id}/referee-pdf`);
   return res.data;
+};
+
+export const uploadEmployeePicture = async (employee_id: string, file: File): Promise<User> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await api.post(`/employees/${employee_id}/upload-picture`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+export const deleteEmployeePicture = async (employee_id: string): Promise<User> => {
+  const res = await api.delete(`/employees/${employee_id}/picture`);
+  return res.data;
+};
+
+export const getProfilePictureUrl = (filename: string) => {
+  return `${BASE_URL.replace(/\/api\/v1\/?$/, "")}/static/uploads/avatars/${filename}`;
 };
 
 export const updateEmployee = async (

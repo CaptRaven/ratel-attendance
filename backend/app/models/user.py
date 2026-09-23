@@ -65,6 +65,7 @@ class User(Base):
     address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     designation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     expected_days_per_week: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=5)
+    profile_picture_filename: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     # Referee 1 Information
     referee_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

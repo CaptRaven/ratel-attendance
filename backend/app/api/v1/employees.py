@@ -17,6 +17,7 @@ from app.core.logging import logger
 router = APIRouter(prefix="/employees", tags=["Employees"])
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "uploads", "referees")
+AVATAR_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "uploads", "avatars")
 
 
 def _clean_ocr_name(val: str) -> str:
@@ -116,16 +117,14 @@ def parse_referee_pdf(pdf_bytes: bytes) -> dict:
         if not pages_ocr or not any(p.strip() for p in pages_ocr):
             return extracted
 
-        # Group pages into Referee 1 and Referee 2 (e.g. 2 pages per referee)
+        # Group pages into Referee 1 (Page 1 & 2) and Referee 2 (Page 3 & 4)
+        ref1_text = pages_ocr[0] if len(pages_ocr) > 0 else ""
+        if len(pages_ocr) >= 2:
+            ref1_text += "\n" + pages_ocr[1]
+
+        ref2_text = pages_ocr[2] if len(pages_ocr) >= 3 else ""
         if len(pages_ocr) >= 4:
-            ref1_text = "\n".join(pages_ocr[0:2])
-            ref2_text = "\n".join(pages_ocr[2:4])
-        elif len(pages_ocr) == 2 or len(pages_ocr) == 3:
-            ref1_text = "\n".join(pages_ocr[0:2])
-            ref2_text = "\n".join(pages_ocr[2:]) if len(pages_ocr) > 2 else ""
-        else:
-            ref1_text = "\n".join(pages_ocr)
-            ref2_text = ""
+            ref2_text += "\n" + pages_ocr[3]
 
         ref1_info = _extract_single_referee_info(ref1_text)
         ref2_info = _extract_single_referee_info(ref2_text) if ref2_text else {}
@@ -305,6 +304,93 @@ async def delete_referee_pdf(
     await db.flush()
     await db.refresh(user)
     logger.info("referee_pdf_deleted", employee_id=user.employee_id)
+
+    dp = await _get_days_present(db, user.id)
+    return UserResponse.from_orm_with_dept(user, days_present=dp)
+
+
+@router.post("/{employee_id}/upload-picture", response_model=UserResponse)
+async def upload_employee_picture(
+    employee_id: str,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    from sqlalchemy import or_, String
+    result = await db.execute(
+        select(User).where(
+            or_(
+                User.employee_id == employee_id,
+                func.cast(User.id, String) == employee_id,
+            )
+        )
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    ext = os.path.splitext(file.filename.lower())[1]
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        raise HTTPException(status_code=400, detail="Only image files (.jpg, .jpeg, .png, .webp) are accepted")
+
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+    timestamp = int(time.time())
+    safe_emp = re.sub(r'[^a-zA-Z0-9_-]', '', user.employee_id)
+    saved_filename = f"{safe_emp}_picture_{timestamp}{ext}"
+    file_path = os.path.join(AVATAR_DIR, saved_filename)
+
+    if user.profile_picture_filename:
+        old_file = os.path.join(AVATAR_DIR, user.profile_picture_filename)
+        if os.path.exists(old_file):
+            try:
+                os.remove(old_file)
+            except Exception:
+                pass
+
+    content = await file.read()
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    user.profile_picture_filename = saved_filename
+    await db.flush()
+    await db.refresh(user)
+    logger.info("employee_picture_uploaded", employee_id=user.employee_id, filename=saved_filename)
+
+    dp = await _get_days_present(db, user.id)
+    return UserResponse.from_orm_with_dept(user, days_present=dp)
+
+
+@router.delete("/{employee_id}/picture", response_model=UserResponse)
+async def delete_employee_picture(
+    employee_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    from sqlalchemy import or_, String
+    result = await db.execute(
+        select(User).where(
+            or_(
+                User.employee_id == employee_id,
+                func.cast(User.id, String) == employee_id,
+            )
+        )
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    if user.profile_picture_filename:
+        file_path = os.path.join(AVATAR_DIR, user.profile_picture_filename)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                logger.warning("delete_picture_warning", error=str(e))
+        user.profile_picture_filename = None
+
+    await db.flush()
+    await db.refresh(user)
+    logger.info("employee_picture_deleted", employee_id=user.employee_id)
 
     dp = await _get_days_present(db, user.id)
     return UserResponse.from_orm_with_dept(user, days_present=dp)

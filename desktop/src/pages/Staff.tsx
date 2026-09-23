@@ -10,6 +10,7 @@ import {
   getDepartments, createDepartment,
   getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee,
   clearFaceEnrollment, getEmployeeDetail, uploadRefereePDF, getRefereePdfUrl, deleteRefereePDF,
+  uploadEmployeePicture, deleteEmployeePicture, getProfilePictureUrl,
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
@@ -34,6 +35,8 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
   const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pictureInputRef = useRef<HTMLInputElement>(null);
+  const editPictureInputRef = useRef<HTMLInputElement>(null);
 
   // Employee form state
   const [empForm, setEmpForm] = useState({
@@ -161,6 +164,53 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       setError(axiosError.response?.data?.detail || "Failed to delete Referee PDF");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePictureFileSelected = async (employeeId: string, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file (JPG, PNG, WebP).");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Image size must be less than 10MB.");
+      return;
+    }
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await uploadEmployeePicture(employeeId, file);
+      if (editingEmployee && editingEmployee.employee_id === employeeId) {
+        setEditingEmployee(updated);
+      }
+      if (selectedEmployee && selectedEmployee.employee_id === employeeId) {
+        setSelectedEmployee(updated);
+      }
+      setSuccess("Employee profile picture uploaded successfully!");
+      await fetchEmployees();
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || "Failed to upload profile picture");
+    }
+  };
+
+  const handleDeletePicture = async (employeeId: string) => {
+    if (!confirm("Are you sure you want to delete the employee's picture?")) return;
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await deleteEmployeePicture(employeeId);
+      if (editingEmployee && editingEmployee.employee_id === employeeId) {
+        setEditingEmployee(updated);
+      }
+      if (selectedEmployee && selectedEmployee.employee_id === employeeId) {
+        setSelectedEmployee(updated);
+      }
+      setSuccess("Profile picture removed successfully.");
+      await fetchEmployees();
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || "Failed to remove picture");
     }
   };
 
@@ -636,13 +686,22 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                   {/* Name + avatar */}
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <div style={{
-                      width: "32px", height: "32px", borderRadius: "50%",
+                      width: "36px", height: "36px", borderRadius: "50%",
                       background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
                       display: "flex", alignItems: "center",
                       justifyContent: "center", fontSize: "13px",
                       fontWeight: "700", flexShrink: 0, color: "white",
+                      overflow: "hidden",
                     }}>
-                      {emp.full_name ? emp.full_name.charAt(0).toUpperCase() : <Users size={16} />}
+                      {emp.profile_picture_filename ? (
+                        <img
+                          src={getProfilePictureUrl(emp.profile_picture_filename)}
+                          alt={emp.full_name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      ) : (
+                        emp.full_name ? emp.full_name.charAt(0).toUpperCase() : <Users size={16} />
+                      )}
                     </div>
                     <div>
                       <p style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>
@@ -826,14 +885,54 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
             {/* Modal Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                <div style={{
-                  width: "56px", height: "56px", borderRadius: "18px",
-                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "22px", fontWeight: "700", color: "white",
-                  boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
-                }}>
-                  {selectedEmployee.full_name ? selectedEmployee.full_name.charAt(0).toUpperCase() : "U"}
+                <div style={{ position: "relative" }}>
+                  <div style={{
+                    width: "64px", height: "64px", borderRadius: "20px",
+                    background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: "24px", fontWeight: "700", color: "white",
+                    boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
+                    overflow: "hidden", cursor: "pointer",
+                  }}
+                  onClick={() => pictureInputRef.current?.click()}
+                  title="Click to Upload / Change Employee Picture"
+                  >
+                    {selectedEmployee.profile_picture_filename ? (
+                      <img
+                        src={getProfilePictureUrl(selectedEmployee.profile_picture_filename)}
+                        alt={selectedEmployee.full_name}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      selectedEmployee.full_name ? selectedEmployee.full_name.charAt(0).toUpperCase() : "U"
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    ref={pictureInputRef}
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0] && selectedEmployee) {
+                        handlePictureFileSelected(selectedEmployee.employee_id, e.target.files[0]);
+                      }
+                    }}
+                    style={{ display: "none" }}
+                  />
+                  {selectedEmployee.profile_picture_filename && (
+                    <button
+                      onClick={() => handleDeletePicture(selectedEmployee.employee_id)}
+                      title="Remove Picture"
+                      style={{
+                        position: "absolute", bottom: "-6px", right: "-6px",
+                        background: theme.danger, color: "white", border: "none",
+                        borderRadius: "50%", width: "22px", height: "22px",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer", boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                      }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
                 </div>
                 <div>
                   <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1307,6 +1406,72 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
           </div>
 
           <div style={s.card}>
+            {/* Employee Photo Upload Section */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: "16px",
+              padding: "14px", borderRadius: "12px",
+              background: theme.panelMuted, border: `1px solid ${theme.panelBorder}`,
+              marginBottom: "16px",
+            }}>
+              <div style={{
+                position: "relative", width: "56px", height: "56px", borderRadius: "14px",
+                background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "20px", fontWeight: "700", color: "white",
+                overflow: "hidden", flexShrink: 0,
+              }}>
+                {editingEmployee?.profile_picture_filename ? (
+                  <img
+                    src={getProfilePictureUrl(editingEmployee.profile_picture_filename)}
+                    alt={editingEmployee.full_name}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : (
+                  editingEmployee?.full_name ? editingEmployee.full_name.charAt(0).toUpperCase() : "U"
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: "14px", fontWeight: "600", color: theme.text }}>Employee Picture</div>
+                <div style={{ fontSize: "12px", color: theme.textMuted }}>Upload or update employee profile photo.</div>
+              </div>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => editPictureInputRef.current?.click()}
+                  style={{
+                    padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: "600",
+                    background: theme.primary, color: "white", border: "none", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: "6px"
+                  }}
+                >
+                  <Camera size={14} /> Upload Photo
+                </button>
+                <input
+                  type="file"
+                  ref={editPictureInputRef}
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0] && editingEmployee) {
+                      handlePictureFileSelected(editingEmployee.employee_id, e.target.files[0]);
+                    }
+                  }}
+                  style={{ display: "none" }}
+                />
+                {editingEmployee?.profile_picture_filename && (
+                  <button
+                    type="button"
+                    onClick={() => editingEmployee && handleDeletePicture(editingEmployee.employee_id)}
+                    style={{
+                      padding: "6px 10px", borderRadius: "8px", fontSize: "12px", fontWeight: "600",
+                      background: theme.dangerSoft, color: theme.danger, border: "none", cursor: "pointer",
+                      display: "flex", alignItems: "center", gap: "4px"
+                    }}
+                  >
+                    <Trash2 size={13} /> Remove
+                  </button>
+                )}
+              </div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
               <div>
                 <label style={s.label}>Full Name</label>
