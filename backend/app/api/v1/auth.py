@@ -58,9 +58,45 @@ async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depe
     )
     logger.info("login_success", user_id=str(user.id), role=str(user.role))
 
+    try:
+        user_resp = UserResponse.from_orm_with_dept(user)
+    except Exception as e:
+        logger.error("login_user_response_serialization_failed", error=str(e))
+        dept_name = None
+        try:
+            if user.department:
+                dept_name = user.department.name
+        except Exception:
+            pass
+
+        user_resp = UserResponse(
+            id=user.id,
+            email=user.email,
+            full_name=user.full_name,
+            employee_id=user.employee_id,
+            role=user.role,
+            is_active=user.is_active,
+            is_face_enrolled=bool(getattr(user, "is_face_enrolled", False)),
+            location_id=user.location_id,
+            department_id=user.department_id,
+            department_name=dept_name,
+            phone_number=getattr(user, "phone_number", None),
+            address=getattr(user, "address", None),
+            designation=getattr(user, "designation", None),
+            expected_days_per_week=getattr(user, "expected_days_per_week", 5) or 5,
+            referee_name=getattr(user, "referee_name", None),
+            referee_phone=getattr(user, "referee_phone", None),
+            referee_email=getattr(user, "referee_email", None),
+            referee_relationship=getattr(user, "referee_relationship", None),
+            referee_notes=getattr(user, "referee_notes", None),
+            referee_pdf_filename=getattr(user, "referee_pdf_filename", None),
+            days_present=0,
+            created_at=user.created_at,
+        )
+
     return TokenResponse(
         access_token=token,
-        user=UserResponse.from_orm_with_dept(user),
+        user=user_resp,
     )
 
 

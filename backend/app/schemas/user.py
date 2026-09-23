@@ -6,7 +6,7 @@ from app.models.user import UserRole
 
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    email: str
     full_name: str = Field(..., min_length=2, max_length=255)
     employee_id: str = Field(..., min_length=2, max_length=50)
     password: Optional[str] = Field(None, min_length=8, max_length=128)
@@ -25,7 +25,7 @@ class UserCreate(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
+    email: Optional[str] = None
     full_name: Optional[str] = Field(None, min_length=2, max_length=255)
     employee_id: Optional[str] = Field(None, min_length=2, max_length=50)
     password: Optional[str] = Field(None, min_length=8, max_length=128)
@@ -47,7 +47,7 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    email: EmailStr
+    email: str
     full_name: str
     employee_id: str
     role: UserRole
