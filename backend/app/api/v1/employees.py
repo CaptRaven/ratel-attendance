@@ -30,38 +30,92 @@ def parse_referee_pdf(pdf_bytes: bytes) -> dict:
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(pdf_bytes))
-        full_text = "\n".join([page.extract_text() or "" for page in reader.pages])
+        pages_text = [page.extract_text() or "" for page in reader.pages]
+        full_text = "\n".join(pages_text).strip()
 
-        if full_text.strip():
-            extracted["referee_notes"] = full_text[:600].strip()
+        if not full_text:
+            return extracted
 
-            # Email extraction
-            emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', full_text)
-            if emails:
-                extracted["referee_email"] = emails[0]
+        # Store text excerpt for notes (up to 1000 chars)
+        extracted["referee_notes"] = full_text[:1000].strip()
 
-            # Phone extraction
-            phones = re.findall(r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', full_text)
-            if phones:
-                extracted["referee_phone"] = phones[0]
+        # 1. Email extraction (most reliable)
+        emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', full_text)
+        if emails:
+            valid_emails = [e for e in emails if not any(domain in e.lower() for domain in ["example.com", "test.com", "domain.com"])]
+            extracted["referee_email"] = valid_emails[0] if valid_emails else emails[0]
 
-            # Line by line inspection
-            for line in full_text.splitlines():
-                line_str = line.strip()
-                if not line_str:
-                    continue
-                lower = line_str.lower()
-                if "referee name" in lower or "name:" in lower:
-                    extracted["referee_name"] = re.sub(r'(?i)referee\s*name\s*:\s*|name\s*:\s*', '', line_str).strip()
-                elif "relationship" in lower or "relation" in lower:
-                    extracted["referee_relationship"] = re.sub(r'(?i)relationship\s*:\s*|relation\s*:\s*', '', line_str).strip()
-                elif ("position:" in lower or "title:" in lower or "designation:" in lower) and not extracted["referee_relationship"]:
-                    extracted["referee_relationship"] = re.sub(r'(?i)position\s*:\s*|title\s*:\s*|designation\s*:\s*', '', line_str).strip()
+        # 2. Phone extraction
+        phone_patterns = [
+            r'(?:\+?234|0)\s*\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}',
+            r'(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
+            r'(?:Phone|Tel|Mobile|Contact|Cell)\s*[:.-]?\s*([\+?\d\s\(\)-]{7,20})',
+        ]
+        for pattern in phone_patterns:
+            matches = re.findall(pattern, full_text, re.IGNORECASE)
+            if matches:
+                phone_val = matches[0] if isinstance(matches[0], str) else matches[0]
+                phone_clean = re.sub(r'[^\d+]', '', phone_val.strip())
+                if len(phone_clean) >= 7:
+                    extracted["referee_phone"] = phone_val.strip()
+                    break
 
+        # 3. Label-based search line by line
+        lines = [line.strip() for line in full_text.splitlines() if line.strip()]
+
+        for i, line in enumerate(lines):
+            lower = line.lower()
+
+            # Referee Name patterns
             if not extracted["referee_name"]:
-                lines = [l.strip() for l in full_text.splitlines() if l.strip()]
-                if lines:
-                    extracted["referee_name"] = lines[0][:100]
+                if any(k in lower for k in ["referee name", "referee's name", "recommender name", "reference name", "name of referee", "referee:"]):
+                    val = re.sub(r'(?i)(referee|recommender|reference)\'?s?\s*name\s*[:.-]?\s*|referee\s*:\s*', '', line).strip()
+                    if val and len(val) > 2:
+                        extracted["referee_name"] = val
+                    elif i + 1 < len(lines) and len(lines[i+1]) < 80:
+                        extracted["referee_name"] = lines[i+1].strip()
+
+            # Relationship / Designation / Title patterns
+            if not extracted["referee_relationship"]:
+                if any(k in lower for k in ["relationship", "relation to candidate", "capacity", "designation", "position", "title", "occupation"]):
+                    val = re.sub(r'(?i)(relationship|relation\s*to\s*candidate|capacity|designation|position|title|occupation)\s*[:.-]?\s*', '', line).strip()
+                    if val and len(val) > 2:
+                        extracted["referee_relationship"] = val
+                    elif i + 1 < len(lines) and len(lines[i+1]) < 80:
+                        extracted["referee_relationship"] = lines[i+1].strip()
+
+        # 4. Fallback signature blocks & titles
+        if not extracted["referee_name"]:
+            signoff_patterns = [
+                r'(?:Sincerely|Yours\s+faithfully|Regards|Best\s+regards|Kind\s+regards)\s*,\s*\n+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})',
+                r'Name\s*[:.-]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})',
+                r'(?:Prof\.|Dr\.|Mr\.|Mrs\.|Ms\.|Engr\.|Chief)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}',
+            ]
+            for pat in signoff_patterns:
+                m = re.search(pat, full_text)
+                if m:
+                    extracted["referee_name"] = m.group(1) if len(m.groups()) > 0 else m.group(0)
+                    break
+
+        if not extracted["referee_name"] and lines:
+            for l in lines:
+                if len(l) < 60 and not any(w in l.lower() for w in ["reference", "recommendation", "letter", "curriculum", "vitae", "resume", "page", "date"]):
+                    extracted["referee_name"] = l
+                    break
+
+        if not extracted["referee_relationship"]:
+            low_full = full_text.lower()
+            if "manager" in low_full:
+                extracted["referee_relationship"] = "Manager"
+            elif "supervisor" in low_full:
+                extracted["referee_relationship"] = "Supervisor"
+            elif "director" in low_full:
+                extracted["referee_relationship"] = "Director"
+            elif "professor" in low_full or "head of department" in low_full or "hod" in low_full:
+                extracted["referee_relationship"] = "Professor / HOD"
+            elif "colleague" in low_full:
+                extracted["referee_relationship"] = "Colleague"
+
     except Exception as e:
         logger.warning("pdf_parsing_warning", error=str(e))
 
