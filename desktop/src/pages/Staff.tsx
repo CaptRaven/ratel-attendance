@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { AxiosError } from "axios";
 import {
   Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus,
-  Download, Camera, CameraOff, FileText, X, UploadCloud, Phone, Mail, MapPin, Briefcase, Calendar,
-  CheckCircle2
+  Download, Camera, CameraOff, FileText, X, UploadCloud, Phone, Mail, MapPin, Briefcase, Calendar
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -34,8 +33,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
   // Detailed Info Modal State
   const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [pdfUploadSuccess, setPdfUploadSuccess] = useState("");
-  const [pdfUploadError, setPdfUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Employee form state
@@ -88,8 +85,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
 
   const handleOpenDetail = async (emp: User) => {
     setSelectedEmployee(emp);
-    setPdfUploadSuccess("");
-    setPdfUploadError("");
     try {
       const detail = await getEmployeeDetail(emp.employee_id);
       setSelectedEmployee(detail);
