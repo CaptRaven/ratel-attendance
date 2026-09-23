@@ -19,6 +19,13 @@ router = APIRouter(prefix="/employees", tags=["Employees"])
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "uploads", "referees")
 
 
+def _clean_ocr_name(text: str) -> str:
+    text = re.sub(r'^(?:None|Name|Guarantor|Referee|1|2|3|4|5|6|7|8|9|0|\.|:|-|\s)+', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'[^a-zA-Z\s]', ' ', text)
+    words = [w for w in text.split() if len(w) >= 2 and w.lower() not in ('gera', 'full', 'name', 'nationality', 'applicant', 'declaration')]
+    return ' '.join(words).title()
+
+
 def parse_referee_pdf(pdf_bytes: bytes) -> dict:
     extracted = {
         "referee_name": None,
@@ -30,8 +37,35 @@ def parse_referee_pdf(pdf_bytes: bytes) -> dict:
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(pdf_bytes))
-        pages_text = [page.extract_text() or "" for page in reader.pages]
+        pages_text = []
+
+        for page in reader.pages:
+            t = page.extract_text() or ""
+            if t.strip():
+                pages_text.append(t.strip())
+
         full_text = "\n".join(pages_text).strip()
+
+        # If pypdf extracted no text or very little text (< 30 chars), run OCR on embedded page images
+        if len(full_text) < 30:
+            ocr_texts = []
+            try:
+                import pytesseract
+                from PIL import Image
+                for page in reader.pages:
+                    for img_file in page.images:
+                        try:
+                            pil_img = Image.open(io.BytesIO(img_file.data))
+                            ocr_t = pytesseract.image_to_string(pil_img)
+                            if ocr_t.strip():
+                                ocr_texts.append(ocr_t.strip())
+                        except Exception:
+                            pass
+            except Exception as ocr_err:
+                logger.warning("ocr_extraction_warning", error=str(ocr_err))
+
+            if ocr_texts:
+                full_text = "\n".join(ocr_texts).strip()
 
         if not full_text:
             return extracted
@@ -39,82 +73,69 @@ def parse_referee_pdf(pdf_bytes: bytes) -> dict:
         # Store text excerpt for notes (up to 1000 chars)
         extracted["referee_notes"] = full_text[:1000].strip()
 
-        # 1. Email extraction (most reliable)
+        # 1. Email extraction (ignore company domain headers)
         emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', full_text)
         if emails:
-            valid_emails = [e for e in emails if not any(domain in e.lower() for domain in ["example.com", "test.com", "domain.com"])]
-            extracted["referee_email"] = valid_emails[0] if valid_emails else emails[0]
-
-        # 2. Phone extraction
-        phone_patterns = [
-            r'(?:\+?234|0)\s*\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}',
-            r'(?:\+\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}',
-            r'(?:Phone|Tel|Mobile|Contact|Cell)\s*[:.-]?\s*([\+?\d\s\(\)-]{7,20})',
-        ]
-        for pattern in phone_patterns:
-            matches = re.findall(pattern, full_text, re.IGNORECASE)
-            if matches:
-                phone_val = matches[0] if isinstance(matches[0], str) else matches[0]
-                phone_clean = re.sub(r'[^\d+]', '', phone_val.strip())
-                if len(phone_clean) >= 7:
-                    extracted["referee_phone"] = phone_val.strip()
-                    break
-
-        # 3. Label-based search line by line
-        lines = [line.strip() for line in full_text.splitlines() if line.strip()]
-
-        for i, line in enumerate(lines):
-            lower = line.lower()
-
-            # Referee Name patterns
-            if not extracted["referee_name"]:
-                if any(k in lower for k in ["referee name", "referee's name", "recommender name", "reference name", "name of referee", "referee:"]):
-                    val = re.sub(r'(?i)(referee|recommender|reference)\'?s?\s*name\s*[:.-]?\s*|referee\s*:\s*', '', line).strip()
-                    if val and len(val) > 2:
-                        extracted["referee_name"] = val
-                    elif i + 1 < len(lines) and len(lines[i+1]) < 80:
-                        extracted["referee_name"] = lines[i+1].strip()
-
-            # Relationship / Designation / Title patterns
-            if not extracted["referee_relationship"]:
-                if any(k in lower for k in ["relationship", "relation to candidate", "capacity", "designation", "position", "title", "occupation"]):
-                    val = re.sub(r'(?i)(relationship|relation\s*to\s*candidate|capacity|designation|position|title|occupation)\s*[:.-]?\s*', '', line).strip()
-                    if val and len(val) > 2:
-                        extracted["referee_relationship"] = val
-                    elif i + 1 < len(lines) and len(lines[i+1]) < 80:
-                        extracted["referee_relationship"] = lines[i+1].strip()
-
-        # 4. Fallback signature blocks & titles
-        if not extracted["referee_name"]:
-            signoff_patterns = [
-                r'(?:Sincerely|Yours\s+faithfully|Regards|Best\s+regards|Kind\s+regards)\s*,\s*\n+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})',
-                r'Name\s*[:.-]?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})',
-                r'(?:Prof\.|Dr\.|Mr\.|Mrs\.|Ms\.|Engr\.|Chief)\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}',
+            valid_emails = [
+                e for e in emails 
+                if not any(domain in e.lower() for domain in ["example.com", "test.com", "ratelplus.net", "domain.com"])
             ]
-            for pat in signoff_patterns:
-                m = re.search(pat, full_text)
-                if m:
-                    extracted["referee_name"] = m.group(1) if len(m.groups()) > 0 else m.group(0)
-                    break
+            if valid_emails:
+                extracted["referee_email"] = valid_emails[0]
 
-        if not extracted["referee_name"] and lines:
-            for l in lines:
-                if len(l) < 60 and not any(w in l.lower() for w in ["reference", "recommendation", "letter", "curriculum", "vitae", "resume", "page", "date"]):
-                    extracted["referee_name"] = l
-                    break
+        # 2. Phone extraction (robust matching for 11-digit local / 13-digit intl numbers, ignoring company header numbers)
+        cleaned_text = re.sub(r'\(68', '08', full_text)
+        cleaned_text = re.sub(r'\(80', '08', cleaned_text)
+        cleaned_text = re.sub(r'\(90', '09', cleaned_text)
+        cleaned_text = re.sub(r'\(70', '07', cleaned_text)
 
-        if not extracted["referee_relationship"]:
-            low_full = full_text.lower()
-            if "manager" in low_full:
-                extracted["referee_relationship"] = "Manager"
-            elif "supervisor" in low_full:
-                extracted["referee_relationship"] = "Supervisor"
-            elif "director" in low_full:
-                extracted["referee_relationship"] = "Director"
-            elif "professor" in low_full or "head of department" in low_full or "hod" in low_full:
-                extracted["referee_relationship"] = "Professor / HOD"
-            elif "colleague" in low_full:
-                extracted["referee_relationship"] = "Colleague"
+        phone_candidates = re.findall(r'(?:0|\+?234)[\d\s-]{8,18}', cleaned_text)
+        for p in phone_candidates:
+            clean_p = re.sub(r'[^\d]', '', p)
+            if len(clean_p) == 11 and clean_p.startswith(('07', '08', '09')) and not clean_p.startswith('064'):
+                extracted["referee_phone"] = clean_p
+                break
+            elif len(clean_p) == 13 and clean_p.startswith('234'):
+                extracted["referee_phone"] = '+' + clean_p
+                break
+
+        # 3. Name extraction
+        # Check DECLARATION block e.g. "DECLARATION \n Mahubakar Saleh Gambo \n (Full Name)"
+        decl_matches = re.findall(r'DECLARATION[\s\S]*?\n([^\n]+)\n\s*(?:/|\()?.*(?:Full|Full Name|Nationality)', full_text, re.IGNORECASE)
+        for raw in decl_matches:
+            cand = _clean_ocr_name(raw)
+            if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "full name"]):
+                extracted["referee_name"] = cand
+                break
+
+        # Check PARTICULARS OF THE GUARANTOR / REFEREE section
+        if not extracted["referee_name"]:
+            m_part = re.search(r'(?:PARTICULARS OF THE GUARANTOR|GUARANTOR FORM|REFEREE FORM)[\s\S]*?\n([^\n]+)', full_text, re.IGNORECASE)
+            if m_part:
+                cand = _clean_ocr_name(m_part.group(1))
+                if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "profession", "occupation"]):
+                    extracted["referee_name"] = cand
+
+        # Check Label-based search
+        if not extracted["referee_name"]:
+            for line in full_text.splitlines():
+                lower = line.lower()
+                if any(k in lower for k in ["referee name", "referee's name", "guarantor name", "name of referee", "name of guarantor", "referee:", "guarantor:"]):
+                    val = re.sub(r'(?i)(referee|guarantor|recommender|reference)\'?s?\s*name\s*[:.-]?\s*|(referee|guarantor)\s*:\s*', '', line).strip()
+                    cand = _clean_ocr_name(val)
+                    if len(cand) > 3 and not any(w in cand.lower() for w in ["form", "letter", "document", "passport"]):
+                        extracted["referee_name"] = cand
+                        break
+
+        # 4. Relationship
+        if any(w in full_text.lower() for w in ["guarantor", "guarantor form"]):
+            extracted["referee_relationship"] = "Guarantor"
+
+        rel_match = re.search(r'Relationship\s*(?:to\s*Applicant)?\s*[:.\s-]+\s*([A-Za-z\s]{3,30})', full_text, re.IGNORECASE)
+        if rel_match:
+            rel_val = re.sub(r'[\._\-\(\)]+', '', rel_match.group(1)).strip()
+            if rel_val and len(rel_val) > 2 and not any(w in rel_val.lower() for w in ["if not related", "state any"]):
+                extracted["referee_relationship"] = rel_val.title()
 
     except Exception as e:
         logger.warning("pdf_parsing_warning", error=str(e))
