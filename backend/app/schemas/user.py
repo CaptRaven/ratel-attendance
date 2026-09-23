@@ -72,8 +72,13 @@ class UserResponse(BaseModel):
     @classmethod
     def from_orm_with_dept(cls, user, days_present: int = 0) -> "UserResponse":
         obj = cls.model_validate(user)
-        if hasattr(user, "department") and user.department:
-            obj.department_name = user.department.name
+        try:
+            from sqlalchemy.orm import attributes
+            state = attributes.instance_state(user)
+            if "department" in state.dict and state.dict["department"]:
+                obj.department_name = state.dict["department"].name
+        except Exception:
+            pass
         obj.days_present = days_present
         return obj
 
@@ -86,7 +91,7 @@ class TokenResponse(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str = Field(..., min_length=1)
     password: str = Field(..., min_length=1)
 
 

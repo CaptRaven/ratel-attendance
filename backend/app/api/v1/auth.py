@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import (
@@ -31,7 +32,11 @@ limiter = Limiter(key_func=get_remote_address)
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("20/minute")
 async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == payload.email))
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.department))
+        .where((User.email == payload.email) | (User.employee_id == payload.email))
+    )
     user = result.scalar_one_or_none()
 
     if not user or not verify_password(payload.password, user.hashed_password):
