@@ -144,10 +144,18 @@ def parse_referee_pdf(pdf_bytes: bytes) -> dict:
     return extracted
 
 
+from datetime import datetime, timedelta
+
+
 async def _get_days_present(db: AsyncSession, user_id) -> int:
+    now = datetime.now()
+    start_of_week = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
     result = await db.execute(
         select(func.count(distinct(func.date(Attendance.checked_in_at))))
-        .where(Attendance.employee_id == user_id)
+        .where(
+            Attendance.employee_id == user_id,
+            Attendance.checked_in_at >= start_of_week,
+        )
     )
     return result.scalar_one_or_none() or 0
 

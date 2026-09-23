@@ -1123,14 +1123,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                     <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Email Address</span>
                     <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_email || "—"}</span>
                   </div>
-                  {selectedEmployee.referee_notes && (
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Notes / Excerpt</span>
-                      <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: theme.text, background: theme.panelMuted, padding: "8px 10px", borderRadius: "8px", whiteSpace: "pre-wrap" }}>
-                        {selectedEmployee.referee_notes}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -1160,14 +1152,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                     <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Email Address</span>
                     <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee2_email || "—"}</span>
                   </div>
-                  {selectedEmployee.referee2_notes && (
-                    <div style={{ gridColumn: "1 / -1" }}>
-                      <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Notes / Excerpt</span>
-                      <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: theme.text, background: theme.panelMuted, padding: "8px 10px", borderRadius: "8px", whiteSpace: "pre-wrap" }}>
-                        {selectedEmployee.referee2_notes}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -1643,7 +1627,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                   {uploadingPdf ? "Parsing & Uploading Referee PDF..." : "Drop Referee PDF here or click to browse"}
                 </p>
                 <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>
-                  Uploaded PDFs automatically extract Referee Name, Contact, Email & Notes into fields below
+                  Uploaded PDFs automatically extract Referee Name, Phone & Relationship into fields below
                 </p>
               </div>
 
@@ -1679,13 +1663,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                     onChange={(e) => setEmpForm({ ...empForm, referee_email: e.target.value })} />
                 </div>
               </div>
-              <label style={s.label}>Referee 1 Notes</label>
-              <textarea
-                style={{ ...s.input, minHeight: "60px", resize: "none" }}
-                placeholder="Additional notes about referee 1..."
-                value={empForm.referee_notes}
-                onChange={(e) => setEmpForm({ ...empForm, referee_notes: e.target.value })}
-              />
 
               {/* Referee 2 Inputs */}
               <p style={{ margin: "16px 0 8px 0", fontSize: "12px", fontWeight: "700", color: theme.primary, textTransform: "uppercase" }}>
@@ -1719,13 +1696,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                     onChange={(e) => setEmpForm({ ...empForm, referee2_email: e.target.value })} />
                 </div>
               </div>
-              <label style={s.label}>Referee 2 Notes</label>
-              <textarea
-                style={{ ...s.input, minHeight: "60px", resize: "none" }}
-                placeholder="Additional notes about referee 2..."
-                value={empForm.referee2_notes}
-                onChange={(e) => setEmpForm({ ...empForm, referee2_notes: e.target.value })}
-              />
             </div>
 
             {error && (
