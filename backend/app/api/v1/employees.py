@@ -37,24 +37,12 @@ def _extract_single_referee_info(full_text: str) -> dict:
     info = {
         "name": None,
         "phone": None,
-        "email": None,
-        "relationship": "Guarantor",
-        "notes": full_text[:800].strip() if full_text else None,
+        "relationship": None,
     }
     if not full_text:
         return info
 
-    # Email
-    emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', full_text)
-    if emails:
-        valid_emails = [
-            e for e in emails 
-            if not any(domain in e.lower() for domain in ["example.com", "test.com", "ratelplus.net", "domain.com"])
-        ]
-        if valid_emails:
-            info["email"] = valid_emails[0]
-
-    # Phone
+    # 1. Telephone Nos (11-digit local 07/08/09 or 13-digit +234)
     cleaned_text = re.sub(r'\((?:68|80|90|70)', '08', full_text)
     phone_candidates = re.findall(r'(?:0|\+?234)[\d\s-]{8,18}', cleaned_text)
     for p in phone_candidates:
@@ -66,38 +54,37 @@ def _extract_single_referee_info(full_text: str) -> dict:
             info["phone"] = '+' + clean_p
             break
 
-    # Name: Try DECLARATION block
-    decl_matches = re.findall(r'DECLARATION[\s\S]*?\n\s*([A-Za-z\s]{4,60})', full_text, re.IGNORECASE)
-    for raw in decl_matches:
-        cand = _clean_ocr_name(raw)
-        if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "including", "prosecution", "gave above"]):
-            info["name"] = cand
-            break
+    # 2. Relationship to Applicant
+    rel_match = re.search(r'Relationship\s*(?:to\s*Applicant)?\s*[:.\s-]+\s*([A-Za-z\s]{3,30})', full_text, re.IGNORECASE)
+    if rel_match:
+        rel_val = re.sub(r'[\._\-\(\)]+', '', rel_match.group(1)).strip()
+        if rel_val and len(rel_val) >= 3 and not any(w in rel_val.lower() for w in ["if not related", "state any", "applicant"]):
+            info["relationship"] = rel_val.title()
 
-    # Name: Try I [Name] ...
+    if not info["relationship"] and any(w in full_text.lower() for w in ["guarantor", "guarantor form"]):
+        info["relationship"] = "Guarantor"
+
+    # 3. Name: Try Name line, DECLARATION line, or PARTICULARS OF THE GUARANTOR line
+    m_name = re.search(r'(?:Name|Guarantor|Referee)\s*[\.\s\:\_]+\s*([A-Za-z\s]{4,60})', full_text, re.IGNORECASE)
+    if m_name:
+        cand = _clean_ocr_name(m_name.group(1))
+        if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "profession", "occupation", "particulars", "including", "prosecution", "form", "of no"]):
+            info["name"] = cand
+
+    if not info["name"]:
+        decl_matches = re.findall(r'DECLARATION[\s\S]*?\n\s*([A-Za-z\s]{4,60})', full_text, re.IGNORECASE)
+        for raw in decl_matches:
+            cand = _clean_ocr_name(raw)
+            if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "including", "prosecution", "gave above", "form", "of no"]):
+                info["name"] = cand
+                break
+
     if not info["name"]:
         m_i = re.search(r'\bI\s+([A-Za-z\s]{4,60})\s+(?:a|an|\(Full Name\)|Nigerian)', full_text, re.IGNORECASE)
         if m_i:
             cand = _clean_ocr_name(m_i.group(1))
             if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "gave above"]):
                 info["name"] = cand
-
-    if not info["name"]:
-        m_part = re.search(r'(?:PARTICULARS OF THE GUARANTOR|GUARANTOR FORM|REFEREE FORM)[\s\S]*?\n\s*([A-Za-z\s]{4,60})', full_text, re.IGNORECASE)
-        if m_part:
-            cand = _clean_ocr_name(m_part.group(1))
-            if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "profession", "occupation", "including"]):
-                info["name"] = cand
-
-    # Relationship
-    if any(w in full_text.lower() for w in ["guarantor", "guarantor form"]):
-        info["relationship"] = "Guarantor"
-
-    rel_match = re.search(r'Relationship\s*(?:to\s*Applicant)?\s*[:.\s-]+\s*([A-Za-z\s]{3,30})', full_text, re.IGNORECASE)
-    if rel_match:
-        rel_val = re.sub(r'[\._\-\(\)]+', '', rel_match.group(1)).strip()
-        if rel_val and len(rel_val) > 2 and not any(w in rel_val.lower() for w in ["if not related", "state any"]):
-            info["relationship"] = rel_val.title()
 
     return info
 
@@ -153,15 +140,11 @@ def parse_referee_pdf(pdf_bytes: bytes) -> dict:
 
         extracted["referee_name"] = ref1_info.get("name")
         extracted["referee_phone"] = ref1_info.get("phone")
-        extracted["referee_email"] = ref1_info.get("email")
         extracted["referee_relationship"] = ref1_info.get("relationship")
-        extracted["referee_notes"] = ref1_info.get("notes")
 
         extracted["referee2_name"] = ref2_info.get("name")
         extracted["referee2_phone"] = ref2_info.get("phone")
-        extracted["referee2_email"] = ref2_info.get("email")
         extracted["referee2_relationship"] = ref2_info.get("relationship")
-        extracted["referee2_notes"] = ref2_info.get("notes")
 
     except Exception as e:
         logger.warning("pdf_parsing_warning", error=str(e))
