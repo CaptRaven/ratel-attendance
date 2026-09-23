@@ -52,6 +52,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     referee_email: "",
     referee_relationship: "",
     referee_notes: "",
+    referee2_name: "",
+    referee2_phone: "",
+    referee2_email: "",
+    referee2_relationship: "",
+    referee2_notes: "",
   });
 
   // Department form state
@@ -116,6 +121,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         referee_email: updated.referee_email || prev.referee_email,
         referee_relationship: updated.referee_relationship || prev.referee_relationship,
         referee_notes: updated.referee_notes || prev.referee_notes,
+        referee2_name: updated.referee2_name || prev.referee2_name,
+        referee2_phone: updated.referee2_phone || prev.referee2_phone,
+        referee2_email: updated.referee2_email || prev.referee2_email,
+        referee2_relationship: updated.referee2_relationship || prev.referee2_relationship,
+        referee2_notes: updated.referee2_notes || prev.referee2_notes,
       }));
       setSuccess("Referee PDF uploaded & details extracted successfully!");
       await fetchEmployees();
@@ -169,6 +179,8 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         phone_number: "", address: "", designation: "", expected_days_per_week: "5",
         referee_name: "", referee_phone: "", referee_email: "",
         referee_relationship: "", referee_notes: "",
+        referee2_name: "", referee2_phone: "", referee2_email: "",
+        referee2_relationship: "", referee2_notes: "",
       });
       await fetchEmployees();
       setTimeout(() => setView("employees"), 1200);
@@ -198,6 +210,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       referee_email: emp.referee_email || "",
       referee_relationship: emp.referee_relationship || "",
       referee_notes: emp.referee_notes || "",
+      referee2_name: emp.referee2_name || "",
+      referee2_phone: emp.referee2_phone || "",
+      referee2_email: emp.referee2_email || "",
+      referee2_relationship: emp.referee2_relationship || "",
+      referee2_notes: emp.referee2_notes || "",
     });
     setView("edit_employee");
     setError("");
@@ -224,6 +241,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         referee_email?: string;
         referee_relationship?: string;
         referee_notes?: string;
+        referee2_name?: string;
+        referee2_phone?: string;
+        referee2_email?: string;
+        referee2_relationship?: string;
+        referee2_notes?: string;
       }> = {
         full_name: empForm.full_name,
         email: empForm.email,
@@ -239,6 +261,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         referee_email: empForm.referee_email || undefined,
         referee_relationship: empForm.referee_relationship || undefined,
         referee_notes: empForm.referee_notes || undefined,
+        referee2_name: empForm.referee2_name || undefined,
+        referee2_phone: empForm.referee2_phone || undefined,
+        referee2_email: empForm.referee2_email || undefined,
+        referee2_relationship: empForm.referee2_relationship || undefined,
+        referee2_notes: empForm.referee2_notes || undefined,
       };
       if (empForm.password) {
         updateData.password = empForm.password;
@@ -968,40 +995,78 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                 )}
               </div>
 
-              {/* Referee Details Display */}
-              <div style={{
-                background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`,
-                borderRadius: "16px", padding: "20px",
-                display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px",
-              }}>
-                <div>
-                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Name</span>
-                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_name || "—"}</span>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Relationship</span>
-                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_relationship || "—"}</span>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Phone</span>
-                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_phone || "—"}</span>
-                </div>
-
-                <div>
-                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Email</span>
-                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_email || "—"}</span>
-                </div>
-
-                {selectedEmployee.referee_notes && (
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Notes / Excerpt</span>
-                    <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: theme.text, background: theme.panelMuted, padding: "10px 12px", borderRadius: "8px", whiteSpace: "pre-wrap" }}>
-                      {selectedEmployee.referee_notes}
-                    </p>
+              {/* Referee 1 Details Display */}
+              <div style={{ marginBottom: "14px" }}>
+                <span style={{ fontSize: "12px", fontWeight: "700", color: theme.primary, textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
+                  Referee 1 (First Guarantor)
+                </span>
+                <div style={{
+                  background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`,
+                  borderRadius: "16px", padding: "16px",
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px",
+                }}>
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Name</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_name || "—"}</span>
                   </div>
-                )}
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Relationship</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_relationship || "—"}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Phone Number</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_phone || "—"}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Email Address</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_email || "—"}</span>
+                  </div>
+                  {selectedEmployee.referee_notes && (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Notes / Excerpt</span>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: theme.text, background: theme.panelMuted, padding: "8px 10px", borderRadius: "8px", whiteSpace: "pre-wrap" }}>
+                        {selectedEmployee.referee_notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Referee 2 Details Display */}
+              <div>
+                <span style={{ fontSize: "12px", fontWeight: "700", color: theme.primary, textTransform: "uppercase", display: "block", marginBottom: "6px" }}>
+                  Referee 2 (Second Guarantor)
+                </span>
+                <div style={{
+                  background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`,
+                  borderRadius: "16px", padding: "16px",
+                  display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px",
+                }}>
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Name</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee2_name || "—"}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Relationship</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee2_relationship || "—"}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Phone Number</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee2_phone || "—"}</span>
+                  </div>
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Email Address</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee2_email || "—"}</span>
+                  </div>
+                  {selectedEmployee.referee2_notes && (
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Notes / Excerpt</span>
+                      <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: theme.text, background: theme.panelMuted, padding: "8px 10px", borderRadius: "8px", whiteSpace: "pre-wrap" }}>
+                        {selectedEmployee.referee2_notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1413,15 +1478,19 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                 </p>
               </div>
 
+              {/* Referee 1 Inputs */}
+              <p style={{ margin: "16px 0 8px 0", fontSize: "12px", fontWeight: "700", color: theme.primary, textTransform: "uppercase" }}>
+                Referee 1 Details
+              </p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
                 <div>
-                  <label style={s.label}>Referee Name</label>
+                  <label style={s.label}>Referee 1 Name</label>
                   <input style={s.input} placeholder="Dr. Jane Smith"
                     value={empForm.referee_name}
                     onChange={(e) => setEmpForm({ ...empForm, referee_name: e.target.value })} />
                 </div>
                 <div>
-                  <label style={s.label}>Referee Relationship</label>
+                  <label style={s.label}>Referee 1 Relationship</label>
                   <input style={s.input} placeholder="Former Supervisor"
                     value={empForm.referee_relationship}
                     onChange={(e) => setEmpForm({ ...empForm, referee_relationship: e.target.value })} />
@@ -1429,24 +1498,64 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
                 <div>
-                  <label style={s.label}>Referee Phone</label>
+                  <label style={s.label}>Referee 1 Phone</label>
                   <input style={s.input} placeholder="+234..."
                     value={empForm.referee_phone}
                     onChange={(e) => setEmpForm({ ...empForm, referee_phone: e.target.value })} />
                 </div>
                 <div>
-                  <label style={s.label}>Referee Email</label>
-                  <input style={s.input} placeholder="referee@example.com"
+                  <label style={s.label}>Referee 1 Email</label>
+                  <input style={s.input} placeholder="referee1@example.com"
                     value={empForm.referee_email}
                     onChange={(e) => setEmpForm({ ...empForm, referee_email: e.target.value })} />
                 </div>
               </div>
-              <label style={s.label}>Referee Notes</label>
+              <label style={s.label}>Referee 1 Notes</label>
               <textarea
-                style={{ ...s.input, minHeight: "80px", resize: "none" }}
-                placeholder="Additional notes about referee..."
+                style={{ ...s.input, minHeight: "60px", resize: "none" }}
+                placeholder="Additional notes about referee 1..."
                 value={empForm.referee_notes}
                 onChange={(e) => setEmpForm({ ...empForm, referee_notes: e.target.value })}
+              />
+
+              {/* Referee 2 Inputs */}
+              <p style={{ margin: "16px 0 8px 0", fontSize: "12px", fontWeight: "700", color: theme.primary, textTransform: "uppercase" }}>
+                Referee 2 Details
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                <div>
+                  <label style={s.label}>Referee 2 Name</label>
+                  <input style={s.input} placeholder="Prof. John Doe"
+                    value={empForm.referee2_name}
+                    onChange={(e) => setEmpForm({ ...empForm, referee2_name: e.target.value })} />
+                </div>
+                <div>
+                  <label style={s.label}>Referee 2 Relationship</label>
+                  <input style={s.input} placeholder="Manager / Recommender"
+                    value={empForm.referee2_relationship}
+                    onChange={(e) => setEmpForm({ ...empForm, referee2_relationship: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                <div>
+                  <label style={s.label}>Referee 2 Phone</label>
+                  <input style={s.input} placeholder="+234..."
+                    value={empForm.referee2_phone}
+                    onChange={(e) => setEmpForm({ ...empForm, referee2_phone: e.target.value })} />
+                </div>
+                <div>
+                  <label style={s.label}>Referee 2 Email</label>
+                  <input style={s.input} placeholder="referee2@example.com"
+                    value={empForm.referee2_email}
+                    onChange={(e) => setEmpForm({ ...empForm, referee2_email: e.target.value })} />
+                </div>
+              </div>
+              <label style={s.label}>Referee 2 Notes</label>
+              <textarea
+                style={{ ...s.input, minHeight: "60px", resize: "none" }}
+                placeholder="Additional notes about referee 2..."
+                value={empForm.referee2_notes}
+                onChange={(e) => setEmpForm({ ...empForm, referee2_notes: e.target.value })}
               />
             </div>
 

@@ -66,13 +66,20 @@ class User(Base):
     designation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     expected_days_per_week: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=5)
 
-    # Referee Information
+    # Referee 1 Information
     referee_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     referee_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     referee_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     referee_relationship: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     referee_notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     referee_pdf_filename: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Referee 2 Information
+    referee2_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    referee2_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    referee2_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    referee2_relationship: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    referee2_notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Face Recognition
     face_encoding: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Store as JSON string of list

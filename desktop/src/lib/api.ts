@@ -63,6 +63,11 @@ export interface User {
   referee_email?: string | null;
   referee_relationship?: string | null;
   referee_notes?: string | null;
+  referee2_name?: string | null;
+  referee2_phone?: string | null;
+  referee2_email?: string | null;
+  referee2_relationship?: string | null;
+  referee2_notes?: string | null;
   referee_pdf_filename?: string | null;
   days_present?: number;
   created_at: string;

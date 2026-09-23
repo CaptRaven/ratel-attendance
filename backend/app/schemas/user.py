@@ -22,6 +22,11 @@ class UserCreate(BaseModel):
     referee_email: Optional[str] = None
     referee_relationship: Optional[str] = None
     referee_notes: Optional[str] = None
+    referee2_name: Optional[str] = None
+    referee2_phone: Optional[str] = None
+    referee2_email: Optional[str] = None
+    referee2_relationship: Optional[str] = None
+    referee2_notes: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -41,6 +46,11 @@ class UserUpdate(BaseModel):
     referee_email: Optional[str] = None
     referee_relationship: Optional[str] = None
     referee_notes: Optional[str] = None
+    referee2_name: Optional[str] = None
+    referee2_phone: Optional[str] = None
+    referee2_email: Optional[str] = None
+    referee2_relationship: Optional[str] = None
+    referee2_notes: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -65,6 +75,11 @@ class UserResponse(BaseModel):
     referee_email: Optional[str] = None
     referee_relationship: Optional[str] = None
     referee_notes: Optional[str] = None
+    referee2_name: Optional[str] = None
+    referee2_phone: Optional[str] = None
+    referee2_email: Optional[str] = None
+    referee2_relationship: Optional[str] = None
+    referee2_notes: Optional[str] = None
     referee_pdf_filename: Optional[str] = None
     days_present: int = 0
     created_at: Optional[datetime] = None

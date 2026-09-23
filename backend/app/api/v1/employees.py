@@ -27,32 +27,98 @@ def _clean_ocr_name(text: str) -> str:
 
 
 def parse_referee_pdf(pdf_bytes: bytes) -> dict:
+def _clean_ocr_name(val):
+    val = re.sub(r'[\._\-\(\)]+', ' ', val).strip()
+    words = [w.capitalize() for w in val.split() if len(w) > 1 and not any(c.isdigit() for c in w)]
+    return ' '.join(words)
+
+
+def _extract_single_referee_info(full_text: str) -> dict:
+    info = {
+        "name": None,
+        "phone": None,
+        "email": None,
+        "relationship": "Guarantor",
+        "notes": full_text[:800].strip() if full_text else None,
+    }
+    if not full_text:
+        return info
+
+    # Email
+    emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', full_text)
+    if emails:
+        valid_emails = [
+            e for e in emails 
+            if not any(domain in e.lower() for domain in ["example.com", "test.com", "ratelplus.net", "domain.com"])
+        ]
+        if valid_emails:
+            info["email"] = valid_emails[0]
+
+    # Phone
+    cleaned_text = re.sub(r'\((?:68|80|90|70)', '08', full_text)
+    phone_candidates = re.findall(r'(?:0|\+?234)[\d\s-]{8,18}', cleaned_text)
+    for p in phone_candidates:
+        clean_p = re.sub(r'[^\d]', '', p)
+        if len(clean_p) == 11 and clean_p.startswith(('07', '08', '09')) and not clean_p.startswith('064'):
+            info["phone"] = clean_p
+            break
+        elif len(clean_p) == 13 and clean_p.startswith('234'):
+            info["phone"] = '+' + clean_p
+            break
+
+    # Name: Try DECLARATION block
+    decl_matches = re.findall(r'DECLARATION[\s\S]*?\n\s*([A-Za-z\s]{4,60})', full_text, re.IGNORECASE)
+    for raw in decl_matches:
+        cand = _clean_ocr_name(raw)
+        if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "including", "prosecution", "gave above"]):
+            info["name"] = cand
+            break
+
+    # Name: Try I [Name] ...
+    if not info["name"]:
+        m_i = re.search(r'\bI\s+([A-Za-z\s]{4,60})\s+(?:a|an|\(Full Name\)|Nigerian)', full_text, re.IGNORECASE)
+        if m_i:
+            cand = _clean_ocr_name(m_i.group(1))
+            if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "gave above"]):
+                info["name"] = cand
+
+    if not info["name"]:
+        m_part = re.search(r'(?:PARTICULARS OF THE GUARANTOR|GUARANTOR FORM|REFEREE FORM)[\s\S]*?\n\s*([A-Za-z\s]{4,60})', full_text, re.IGNORECASE)
+        if m_part:
+            cand = _clean_ocr_name(m_part.group(1))
+            if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "profession", "occupation", "including"]):
+                info["name"] = cand
+
+    # Relationship
+    if any(w in full_text.lower() for w in ["guarantor", "guarantor form"]):
+        info["relationship"] = "Guarantor"
+
+    rel_match = re.search(r'Relationship\s*(?:to\s*Applicant)?\s*[:.\s-]+\s*([A-Za-z\s]{3,30})', full_text, re.IGNORECASE)
+    if rel_match:
+        rel_val = re.sub(r'[\._\-\(\)]+', '', rel_match.group(1)).strip()
+        if rel_val and len(rel_val) > 2 and not any(w in rel_val.lower() for w in ["if not related", "state any"]):
+            info["relationship"] = rel_val.title()
+
+    return info
+
+
+def parse_referee_pdf(pdf_bytes: bytes) -> dict:
     extracted = {
-        "referee_name": None,
-        "referee_phone": None,
-        "referee_email": None,
-        "referee_relationship": None,
-        "referee_notes": None,
+        "referee_name": None, "referee_phone": None, "referee_email": None, "referee_relationship": None, "referee_notes": None,
+        "referee2_name": None, "referee2_phone": None, "referee2_email": None, "referee2_relationship": None, "referee2_notes": None,
     }
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(pdf_bytes))
-        pages_text = []
+        pages_ocr = []
 
         for page in reader.pages:
             t = page.extract_text() or ""
-            if t.strip():
-                pages_text.append(t.strip())
-
-        full_text = "\n".join(pages_text).strip()
-
-        # If pypdf extracted no text or very little text (< 30 chars), run OCR on embedded page images
-        if len(full_text) < 30:
-            ocr_texts = []
-            try:
-                import pytesseract
-                from PIL import Image
-                for page in reader.pages:
+            if len(t.strip()) < 30:
+                ocr_texts = []
+                try:
+                    import pytesseract
+                    from PIL import Image
                     for img_file in page.images:
                         try:
                             pil_img = Image.open(io.BytesIO(img_file.data))
@@ -61,81 +127,41 @@ def parse_referee_pdf(pdf_bytes: bytes) -> dict:
                                 ocr_texts.append(ocr_t.strip())
                         except Exception:
                             pass
-            except Exception as ocr_err:
-                logger.warning("ocr_extraction_warning", error=str(ocr_err))
+                except Exception as ocr_err:
+                    logger.warning("ocr_extraction_warning", error=str(ocr_err))
 
-            if ocr_texts:
-                full_text = "\n".join(ocr_texts).strip()
+                if ocr_texts:
+                    t = "\n".join(ocr_texts).strip()
+            pages_ocr.append(t)
 
-        if not full_text:
+        if not pages_ocr or not any(p.strip() for p in pages_ocr):
             return extracted
 
-        # Store text excerpt for notes (up to 1000 chars)
-        extracted["referee_notes"] = full_text[:1000].strip()
+        # Group pages into Referee 1 and Referee 2 (e.g. 2 pages per referee)
+        if len(pages_ocr) >= 4:
+            ref1_text = "\n".join(pages_ocr[0:2])
+            ref2_text = "\n".join(pages_ocr[2:4])
+        elif len(pages_ocr) == 2 or len(pages_ocr) == 3:
+            ref1_text = "\n".join(pages_ocr[0:2])
+            ref2_text = "\n".join(pages_ocr[2:]) if len(pages_ocr) > 2 else ""
+        else:
+            ref1_text = "\n".join(pages_ocr)
+            ref2_text = ""
 
-        # 1. Email extraction (ignore company domain headers)
-        emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', full_text)
-        if emails:
-            valid_emails = [
-                e for e in emails 
-                if not any(domain in e.lower() for domain in ["example.com", "test.com", "ratelplus.net", "domain.com"])
-            ]
-            if valid_emails:
-                extracted["referee_email"] = valid_emails[0]
+        ref1_info = _extract_single_referee_info(ref1_text)
+        ref2_info = _extract_single_referee_info(ref2_text) if ref2_text else {}
 
-        # 2. Phone extraction (robust matching for 11-digit local / 13-digit intl numbers, ignoring company header numbers)
-        cleaned_text = re.sub(r'\(68', '08', full_text)
-        cleaned_text = re.sub(r'\(80', '08', cleaned_text)
-        cleaned_text = re.sub(r'\(90', '09', cleaned_text)
-        cleaned_text = re.sub(r'\(70', '07', cleaned_text)
+        extracted["referee_name"] = ref1_info.get("name")
+        extracted["referee_phone"] = ref1_info.get("phone")
+        extracted["referee_email"] = ref1_info.get("email")
+        extracted["referee_relationship"] = ref1_info.get("relationship")
+        extracted["referee_notes"] = ref1_info.get("notes")
 
-        phone_candidates = re.findall(r'(?:0|\+?234)[\d\s-]{8,18}', cleaned_text)
-        for p in phone_candidates:
-            clean_p = re.sub(r'[^\d]', '', p)
-            if len(clean_p) == 11 and clean_p.startswith(('07', '08', '09')) and not clean_p.startswith('064'):
-                extracted["referee_phone"] = clean_p
-                break
-            elif len(clean_p) == 13 and clean_p.startswith('234'):
-                extracted["referee_phone"] = '+' + clean_p
-                break
-
-        # 3. Name extraction
-        # Check DECLARATION block e.g. "DECLARATION \n Mahubakar Saleh Gambo \n (Full Name)"
-        decl_matches = re.findall(r'DECLARATION[\s\S]*?\n([^\n]+)\n\s*(?:/|\()?.*(?:Full|Full Name|Nationality)', full_text, re.IGNORECASE)
-        for raw in decl_matches:
-            cand = _clean_ocr_name(raw)
-            if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "full name"]):
-                extracted["referee_name"] = cand
-                break
-
-        # Check PARTICULARS OF THE GUARANTOR / REFEREE section
-        if not extracted["referee_name"]:
-            m_part = re.search(r'(?:PARTICULARS OF THE GUARANTOR|GUARANTOR FORM|REFEREE FORM)[\s\S]*?\n([^\n]+)', full_text, re.IGNORECASE)
-            if m_part:
-                cand = _clean_ocr_name(m_part.group(1))
-                if len(cand) > 3 and not any(w in cand.lower() for w in ["declaration", "ratel", "guarantor", "applicant", "profession", "occupation"]):
-                    extracted["referee_name"] = cand
-
-        # Check Label-based search
-        if not extracted["referee_name"]:
-            for line in full_text.splitlines():
-                lower = line.lower()
-                if any(k in lower for k in ["referee name", "referee's name", "guarantor name", "name of referee", "name of guarantor", "referee:", "guarantor:"]):
-                    val = re.sub(r'(?i)(referee|guarantor|recommender|reference)\'?s?\s*name\s*[:.-]?\s*|(referee|guarantor)\s*:\s*', '', line).strip()
-                    cand = _clean_ocr_name(val)
-                    if len(cand) > 3 and not any(w in cand.lower() for w in ["form", "letter", "document", "passport"]):
-                        extracted["referee_name"] = cand
-                        break
-
-        # 4. Relationship
-        if any(w in full_text.lower() for w in ["guarantor", "guarantor form"]):
-            extracted["referee_relationship"] = "Guarantor"
-
-        rel_match = re.search(r'Relationship\s*(?:to\s*Applicant)?\s*[:.\s-]+\s*([A-Za-z\s]{3,30})', full_text, re.IGNORECASE)
-        if rel_match:
-            rel_val = re.sub(r'[\._\-\(\)]+', '', rel_match.group(1)).strip()
-            if rel_val and len(rel_val) > 2 and not any(w in rel_val.lower() for w in ["if not related", "state any"]):
-                extracted["referee_relationship"] = rel_val.title()
+        extracted["referee2_name"] = ref2_info.get("name")
+        extracted["referee2_phone"] = ref2_info.get("phone")
+        extracted["referee2_email"] = ref2_info.get("email")
+        extracted["referee2_relationship"] = ref2_info.get("relationship")
+        extracted["referee2_notes"] = ref2_info.get("notes")
 
     except Exception as e:
         logger.warning("pdf_parsing_warning", error=str(e))
@@ -231,16 +257,27 @@ async def upload_referee_pdf(
     extracted = parse_referee_pdf(pdf_bytes)
 
     user.referee_pdf_filename = saved_filename
-    if extracted["referee_name"]:
+    if extracted.get("referee_name"):
         user.referee_name = extracted["referee_name"]
-    if extracted["referee_phone"]:
+    if extracted.get("referee_phone"):
         user.referee_phone = extracted["referee_phone"]
-    if extracted["referee_email"]:
+    if extracted.get("referee_email"):
         user.referee_email = extracted["referee_email"]
-    if extracted["referee_relationship"]:
+    if extracted.get("referee_relationship"):
         user.referee_relationship = extracted["referee_relationship"]
-    if extracted["referee_notes"]:
+    if extracted.get("referee_notes"):
         user.referee_notes = extracted["referee_notes"]
+
+    if extracted.get("referee2_name"):
+        user.referee2_name = extracted["referee2_name"]
+    if extracted.get("referee2_phone"):
+        user.referee2_phone = extracted["referee2_phone"]
+    if extracted.get("referee2_email"):
+        user.referee2_email = extracted["referee2_email"]
+    if extracted.get("referee2_relationship"):
+        user.referee2_relationship = extracted["referee2_relationship"]
+    if extracted.get("referee2_notes"):
+        user.referee2_notes = extracted["referee2_notes"]
 
     await db.flush()
     await db.refresh(user)
@@ -277,6 +314,18 @@ async def delete_referee_pdf(
             except Exception as e:
                 logger.warning("failed_to_delete_old_pdf", filename=user.referee_pdf_filename, error=str(e))
         user.referee_pdf_filename = None
+
+    user.referee_name = None
+    user.referee_phone = None
+    user.referee_email = None
+    user.referee_relationship = None
+    user.referee_notes = None
+
+    user.referee2_name = None
+    user.referee2_phone = None
+    user.referee2_email = None
+    user.referee2_relationship = None
+    user.referee2_notes = None
 
     await db.flush()
     await db.refresh(user)
@@ -316,6 +365,11 @@ async def create_employee(
             existing_user.referee_email = payload.referee_email
             existing_user.referee_relationship = payload.referee_relationship
             existing_user.referee_notes = payload.referee_notes
+            existing_user.referee2_name = payload.referee2_name
+            existing_user.referee2_phone = payload.referee2_phone
+            existing_user.referee2_email = payload.referee2_email
+            existing_user.referee2_relationship = payload.referee2_relationship
+            existing_user.referee2_notes = payload.referee2_notes
 
             await db.flush()
             await db.refresh(existing_user)
@@ -345,6 +399,11 @@ async def create_employee(
         referee_email=payload.referee_email,
         referee_relationship=payload.referee_relationship,
         referee_notes=payload.referee_notes,
+        referee2_name=payload.referee2_name,
+        referee2_phone=payload.referee2_phone,
+        referee2_email=payload.referee2_email,
+        referee2_relationship=payload.referee2_relationship,
+        referee2_notes=payload.referee2_notes,
     )
     db.add(user)
     await db.flush()
