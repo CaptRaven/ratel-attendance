@@ -98,33 +98,33 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     }
   };
 
-  const handlePdfFileSelected = async (file: File) => {
-    if (!selectedEmployee) return;
+  const handlePdfFileSelectedForEdit = async (file: File) => {
+    if (!editingEmployee) return;
     if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
-      setPdfUploadError("Please upload a valid PDF document.");
+      setError("Please upload a valid PDF document.");
       return;
     }
-    setPdfUploadError("");
-    setPdfUploadSuccess("");
+    setError("");
+    setSuccess("");
     setUploadingPdf(true);
     try {
-      const updated = await uploadRefereePDF(selectedEmployee.employee_id, file);
-      setSelectedEmployee(updated);
-      setPdfUploadSuccess("Referee PDF uploaded & details extracted successfully!");
+      const updated = await uploadRefereePDF(editingEmployee.employee_id, file);
+      setEditingEmployee(updated);
+      setEmpForm(prev => ({
+        ...prev,
+        referee_name: updated.referee_name || prev.referee_name,
+        referee_phone: updated.referee_phone || prev.referee_phone,
+        referee_email: updated.referee_email || prev.referee_email,
+        referee_relationship: updated.referee_relationship || prev.referee_relationship,
+        referee_notes: updated.referee_notes || prev.referee_notes,
+      }));
+      setSuccess("Referee PDF uploaded & details extracted successfully!");
       await fetchEmployees();
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
-      setPdfUploadError(axiosError.response?.data?.detail || "Failed to process Referee PDF");
+      setError(axiosError.response?.data?.detail || "Failed to process Referee PDF");
     } finally {
       setUploadingPdf(false);
-    }
-  };
-
-  const handleDropPdf = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handlePdfFileSelected(e.dataTransfer.files[0]);
     }
   };
 
@@ -926,64 +926,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                 )}
               </div>
 
-              {/* Drag & Drop PDF Dropzone */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={handleDropPdf}
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  border: `2px dashed ${pdfUploadSuccess ? theme.success : theme.panelBorder}`,
-                  borderRadius: "16px",
-                  padding: "24px",
-                  textAlign: "center",
-                  background: uploadingPdf ? theme.accentSoft : theme.panelStrong,
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                  marginBottom: "16px",
-                }}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  accept=".pdf,application/pdf"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handlePdfFileSelected(e.target.files[0]);
-                    }
-                  }}
-                  style={{ display: "none" }}
-                />
-                <UploadCloud size={32} style={{ color: theme.primary, marginBottom: "8px", opacity: uploadingPdf ? 0.5 : 1 }} />
-                <p style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "600" }}>
-                  {uploadingPdf ? "Parsing & Uploading Referee PDF..." : "Drop Referee PDF here or click to browse"}
-                </p>
-                <p style={{ margin: 0, fontSize: "12px", color: theme.textMuted }}>
-                  Uploaded PDFs will automatically extract Referee Name, Contact, Email & Notes
-                </p>
-              </div>
-
-              {pdfUploadSuccess && (
-                <div style={{
-                  background: theme.successSoft, border: `1px solid ${theme.successSoft}`,
-                  borderRadius: "10px", padding: "10px 14px",
-                  color: theme.success, fontSize: "13px", marginBottom: "16px",
-                  display: "flex", alignItems: "center", gap: "8px",
-                }}>
-                  <CheckCircle2 size={16} />
-                  {pdfUploadSuccess}
-                </div>
-              )}
-
-              {pdfUploadError && (
-                <div style={{
-                  background: theme.dangerSoft, border: `1px solid ${theme.dangerSoft}`,
-                  borderRadius: "10px", padding: "10px 14px",
-                  color: theme.danger, fontSize: "13px", marginBottom: "16px",
-                }}>
-                  {pdfUploadError}
-                </div>
-              )}
-
               {/* Referee Details Display */}
               <div style={{
                 background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`,
@@ -1345,11 +1287,73 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
               value={empForm.location_id}
               onChange={(e) => setEmpForm({ ...empForm, location_id: e.target.value })} />
 
-            {/* Referee manual fields edit */}
-            <div style={{ borderTop: `1px solid ${theme.panelBorder}`, paddingTop: "16px", marginTop: "8px" }}>
-              <h4 style={{ margin: "0 0 12px 0", fontSize: "13px", fontWeight: "700", color: theme.textMuted, textTransform: "uppercase" }}>
-                Referee Details (Manual Edit)
-              </h4>
+            {/* Referee PDF Document Upload & Details */}
+            <div style={{ borderTop: `1px solid ${theme.panelBorder}`, paddingTop: "16px", marginTop: "16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <h4 style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: theme.textMuted, textTransform: "uppercase" }}>
+                  Referee Document & Details
+                </h4>
+                {editingEmployee?.referee_pdf_filename && (
+                  <a
+                    href={getRefereePdfUrl(editingEmployee.referee_pdf_filename)}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    style={{
+                      ...s.btnGhost,
+                      padding: "4px 12px", fontSize: "11px",
+                      background: theme.accentSoft, color: theme.primary,
+                      borderColor: theme.accent, textDecoration: "none",
+                      fontWeight: "700",
+                    }}
+                  >
+                    <Download size={13} />
+                    Download Referee PDF
+                  </a>
+                )}
+              </div>
+
+              {/* Drag & Drop PDF Dropzone for Edit Employee */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    handlePdfFileSelectedForEdit(e.dataTransfer.files[0]);
+                  }
+                }}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${theme.panelBorder}`,
+                  borderRadius: "14px",
+                  padding: "20px",
+                  textAlign: "center",
+                  background: uploadingPdf ? theme.accentSoft : theme.panelStrong,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  marginBottom: "16px",
+                }}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".pdf,application/pdf"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handlePdfFileSelectedForEdit(e.target.files[0]);
+                    }
+                  }}
+                  style={{ display: "none" }}
+                />
+                <UploadCloud size={28} style={{ color: theme.primary, marginBottom: "6px", opacity: uploadingPdf ? 0.5 : 1 }} />
+                <p style={{ margin: "0 0 4px 0", fontSize: "13px", fontWeight: "600" }}>
+                  {uploadingPdf ? "Parsing & Uploading Referee PDF..." : "Drop Referee PDF here or click to browse"}
+                </p>
+                <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted }}>
+                  Uploaded PDFs automatically extract Referee Name, Contact, Email & Notes into fields below
+                </p>
+              </div>
+
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
                 <div>
                   <label style={s.label}>Referee Name</label>
