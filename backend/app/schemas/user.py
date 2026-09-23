@@ -16,6 +16,7 @@ class UserCreate(BaseModel):
     phone_number: Optional[str] = None
     address: Optional[str] = None
     designation: Optional[str] = None
+    expected_days_per_week: Optional[int] = 5
     referee_name: Optional[str] = None
     referee_phone: Optional[str] = None
     referee_email: Optional[str] = None
@@ -34,6 +35,7 @@ class UserUpdate(BaseModel):
     phone_number: Optional[str] = None
     address: Optional[str] = None
     designation: Optional[str] = None
+    expected_days_per_week: Optional[int] = None
     referee_name: Optional[str] = None
     referee_phone: Optional[str] = None
     referee_email: Optional[str] = None
@@ -56,6 +58,7 @@ class UserResponse(BaseModel):
     phone_number: Optional[str] = None
     address: Optional[str] = None
     designation: Optional[str] = None
+    expected_days_per_week: Optional[int] = 5
     referee_name: Optional[str] = None
     referee_phone: Optional[str] = None
     referee_email: Optional[str] = None

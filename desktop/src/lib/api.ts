@@ -57,6 +57,7 @@ export interface User {
   phone_number?: string | null;
   address?: string | null;
   designation?: string | null;
+  expected_days_per_week?: number | null;
   referee_name?: string | null;
   referee_phone?: string | null;
   referee_email?: string | null;
@@ -266,6 +267,10 @@ export const createEmployee = async (data: {
   password: string;
   department_id?: string;
   location_id?: string;
+  phone_number?: string;
+  address?: string;
+  designation?: string;
+  expected_days_per_week?: number;
 }): Promise<User> => {
   const res = await api.post("/employees/", data);
   return res.data;
@@ -301,6 +306,7 @@ export const updateEmployee = async (
     phone_number?: string;
     address?: string;
     designation?: string;
+    expected_days_per_week?: number;
     referee_name?: string;
     referee_phone?: string;
     referee_email?: string;

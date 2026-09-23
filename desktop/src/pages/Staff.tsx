@@ -49,6 +49,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     phone_number: "",
     address: "",
     designation: "",
+    expected_days_per_week: "5",
     referee_name: "",
     referee_phone: "",
     referee_email: "",
@@ -133,12 +134,13 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       await createEmployee({
         ...empForm,
         department_id: empForm.department_id || undefined,
+        expected_days_per_week: empForm.expected_days_per_week ? parseInt(empForm.expected_days_per_week, 10) : 5,
       });
       setSuccess("Employee registered successfully.");
       setEmpForm({
         full_name: "", email: "", employee_id: "",
         password: "", department_id: "", location_id: "ratel-hq",
-        phone_number: "", address: "", designation: "",
+        phone_number: "", address: "", designation: "", expected_days_per_week: "5",
         referee_name: "", referee_phone: "", referee_email: "",
         referee_relationship: "", referee_notes: "",
       });
@@ -164,6 +166,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       phone_number: emp.phone_number || "",
       address: emp.address || "",
       designation: emp.designation || "",
+      expected_days_per_week: String(emp.expected_days_per_week ?? 5),
       referee_name: emp.referee_name || "",
       referee_phone: emp.referee_phone || "",
       referee_email: emp.referee_email || "",
@@ -189,6 +192,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         phone_number?: string;
         address?: string;
         designation?: string;
+        expected_days_per_week?: number;
         referee_name?: string;
         referee_phone?: string;
         referee_email?: string;
@@ -203,6 +207,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         phone_number: empForm.phone_number || undefined,
         address: empForm.address || undefined,
         designation: empForm.designation || undefined,
+        expected_days_per_week: empForm.expected_days_per_week ? parseInt(empForm.expected_days_per_week, 10) : 5,
         referee_name: empForm.referee_name || undefined,
         referee_phone: empForm.referee_phone || undefined,
         referee_email: empForm.referee_email || undefined,
@@ -819,9 +824,9 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                   <Calendar size={20} />
                 </div>
                 <div>
-                  <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted, fontWeight: "600", textTransform: "uppercase" }}>Days Present</p>
+                  <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted, fontWeight: "600", textTransform: "uppercase" }}>Days Present / Target</p>
                   <p style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: theme.primary }}>
-                    {selectedEmployee.days_present ?? 0} <span style={{ fontSize: "12px", fontWeight: "500", color: theme.textMuted }}>days</span>
+                    {selectedEmployee.days_present ?? 0} <span style={{ fontSize: "12px", fontWeight: "600", color: theme.textMuted }}>/ {selectedEmployee.expected_days_per_week ?? 5} days/wk</span>
                   </p>
                 </div>
               </div>
@@ -1174,10 +1179,20 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
               </div>
             </div>
 
-            <label style={s.label}>Address</label>
-            <input style={s.input} placeholder="Residential address"
-              value={empForm.address}
-              onChange={(e) => setEmpForm({ ...empForm, address: e.target.value })} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <div>
+                <label style={s.label}>Address</label>
+                <input style={s.input} placeholder="Residential address"
+                  value={empForm.address}
+                  onChange={(e) => setEmpForm({ ...empForm, address: e.target.value })} />
+              </div>
+              <div>
+                <label style={s.label}>Work Days / Week (Target)</label>
+                <input style={s.input} type="number" min="1" max="7" placeholder="5"
+                  value={empForm.expected_days_per_week}
+                  onChange={(e) => setEmpForm({ ...empForm, expected_days_per_week: e.target.value })} />
+              </div>
+            </div>
 
             <label style={s.label}>Password (optional)</label>
             <input style={s.input} type="password" placeholder="Min 8 characters"
@@ -1300,10 +1315,20 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
               </div>
             </div>
 
-            <label style={s.label}>Address</label>
-            <input style={s.input} placeholder="Residential address"
-              value={empForm.address}
-              onChange={(e) => setEmpForm({ ...empForm, address: e.target.value })} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <div>
+                <label style={s.label}>Address</label>
+                <input style={s.input} placeholder="Residential address"
+                  value={empForm.address}
+                  onChange={(e) => setEmpForm({ ...empForm, address: e.target.value })} />
+              </div>
+              <div>
+                <label style={s.label}>Work Days / Week (Target)</label>
+                <input style={s.input} type="number" min="1" max="7" placeholder="5"
+                  value={empForm.expected_days_per_week}
+                  onChange={(e) => setEmpForm({ ...empForm, expected_days_per_week: e.target.value })} />
+              </div>
+            </div>
 
             <label style={s.label}>Update Password (optional)</label>
             <input style={s.input} type="password" placeholder="Leave blank to keep current"

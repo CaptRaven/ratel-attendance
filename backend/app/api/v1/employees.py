@@ -199,6 +199,7 @@ async def create_employee(
             existing_user.phone_number = payload.phone_number
             existing_user.address = payload.address
             existing_user.designation = payload.designation
+            existing_user.expected_days_per_week = payload.expected_days_per_week
             existing_user.referee_name = payload.referee_name
             existing_user.referee_phone = payload.referee_phone
             existing_user.referee_email = payload.referee_email
@@ -227,6 +228,7 @@ async def create_employee(
         phone_number=payload.phone_number,
         address=payload.address,
         designation=payload.designation,
+        expected_days_per_week=payload.expected_days_per_week,
         referee_name=payload.referee_name,
         referee_phone=payload.referee_phone,
         referee_email=payload.referee_email,

@@ -2,7 +2,7 @@ from __future__ import annotations
 import uuid
 from typing import Optional
 from datetime import datetime
-from sqlalchemy import String, Boolean, DateTime, Enum as SAEnum, ForeignKey
+from sqlalchemy import String, Boolean, DateTime, Enum as SAEnum, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
@@ -54,6 +54,7 @@ class User(Base):
     phone_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     designation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    expected_days_per_week: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=5)
 
     # Referee Information
     referee_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
