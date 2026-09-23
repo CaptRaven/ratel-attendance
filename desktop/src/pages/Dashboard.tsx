@@ -99,18 +99,28 @@ export default function Dashboard() {
   const loadSessionAttendance = async (sessionId: string, overrideShowAll?: boolean) => {
     try {
       clearAttendees();
-      const isAll = overrideShowAll !== undefined ? overrideShowAll : showAllRecords;
-      if (isAll) {
+      const isAllHistory = overrideShowAll !== undefined ? overrideShowAll : showAllRecords;
+      if (isAllHistory) {
+        // Show All Historical Records across all dates
         const data = await getAttendanceSummary();
         data.records.forEach(addAttendee);
       } else {
-        const data = await getSessionAttendance(sessionId);
-        data.records.forEach(addAttendee);
+        // Default Today's Live Session: fetch all check-ins for today's date
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const data = await getAttendanceSummary({ date_from: todayStr });
+        if (data.records && data.records.length > 0) {
+          data.records.forEach(addAttendee);
+        } else {
+          // Fallback to active session check-ins if no date-filtered records
+          const sessionData = await getSessionAttendance(sessionId);
+          sessionData.records.forEach(addAttendee);
+        }
       }
     } catch (err) {
       console.error("Failed to load attendance:", err);
     }
   };
+
 
 
   const getBusinessDayName = () => {
@@ -551,7 +561,7 @@ export default function Dashboard() {
                 }}
               >
                 <List size={15} strokeWidth={2.2} />
-                {showAllRecords ? "All Records" : "Current Session"}
+                {showAllRecords ? "All History" : "Today's Live Session"}
               </button>
               <button
                 onClick={() => { setManualId(""); setManualName(null); setManualStatus("none"); setManualModal(true); }}
