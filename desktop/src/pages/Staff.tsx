@@ -37,6 +37,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pictureInputRef = useRef<HTMLInputElement>(null);
   const editPictureInputRef = useRef<HTMLInputElement>(null);
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
 
   // Employee form state
   const [empForm, setEmpForm] = useState({
@@ -693,10 +694,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                       fontWeight: "700", flexShrink: 0, color: "white",
                       overflow: "hidden",
                     }}>
-                      {emp.profile_picture_filename ? (
+                      {emp.profile_picture_filename && !failedImages[emp.profile_picture_filename] ? (
                         <img
                           src={getProfilePictureUrl(emp.profile_picture_filename)}
                           alt={emp.full_name}
+                          onError={() => emp.profile_picture_filename && setFailedImages(prev => ({ ...prev, [emp.profile_picture_filename!]: true }))}
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       ) : (
@@ -897,10 +899,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                   onClick={() => pictureInputRef.current?.click()}
                   title="Click to Upload / Change Employee Picture"
                   >
-                    {selectedEmployee.profile_picture_filename ? (
+                    {selectedEmployee.profile_picture_filename && !failedImages[selectedEmployee.profile_picture_filename] ? (
                       <img
                         src={getProfilePictureUrl(selectedEmployee.profile_picture_filename)}
                         alt={selectedEmployee.full_name}
+                        onError={() => selectedEmployee.profile_picture_filename && setFailedImages(prev => ({ ...prev, [selectedEmployee.profile_picture_filename!]: true }))}
                         style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       />
                     ) : (
@@ -1420,10 +1423,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                 fontSize: "20px", fontWeight: "700", color: "white",
                 overflow: "hidden", flexShrink: 0,
               }}>
-                {editingEmployee?.profile_picture_filename ? (
+                {editingEmployee?.profile_picture_filename && !failedImages[editingEmployee.profile_picture_filename] ? (
                   <img
                     src={getProfilePictureUrl(editingEmployee.profile_picture_filename)}
                     alt={editingEmployee.full_name}
+                    onError={() => editingEmployee.profile_picture_filename && setFailedImages(prev => ({ ...prev, [editingEmployee.profile_picture_filename!]: true }))}
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 ) : (

@@ -297,7 +297,8 @@ export const uploadRefereePDF = async (employee_id: string, file: File): Promise
 };
 
 export const getRefereePdfUrl = (filename: string) => {
-  return `${BASE_URL.replace(/\/api\/v1\/?$/, "")}/static/uploads/referees/${filename}`;
+  if (!filename) return "";
+  return `${BASE_URL}/employees/referee-pdf/${filename}`;
 };
 
 export const deleteRefereePDF = async (employee_id: string): Promise<User> => {
@@ -320,7 +321,8 @@ export const deleteEmployeePicture = async (employee_id: string): Promise<User> 
 };
 
 export const getProfilePictureUrl = (filename: string) => {
-  return `${BASE_URL.replace(/\/api\/v1\/?$/, "")}/static/uploads/avatars/${filename}`;
+  if (!filename) return "";
+  return `${BASE_URL}/employees/picture/${filename}`;
 };
 
 export const updateEmployee = async (

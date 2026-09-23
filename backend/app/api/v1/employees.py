@@ -3,6 +3,7 @@ import re
 import io
 import time
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, distinct
 from app.database import get_db
@@ -358,6 +359,24 @@ async def upload_employee_picture(
 
     dp = await _get_days_present(db, user.id)
     return UserResponse.from_orm_with_dept(user, days_present=dp)
+
+
+@router.get("/picture/{filename}")
+async def get_employee_picture_file(filename: str):
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.join(AVATAR_DIR, safe_filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Picture not found")
+    return FileResponse(file_path)
+
+
+@router.get("/referee-pdf/{filename}")
+async def get_referee_pdf_file(filename: str):
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.join(UPLOAD_DIR, safe_filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="PDF not found")
+    return FileResponse(file_path, media_type="application/pdf")
 
 
 @router.delete("/{employee_id}/picture", response_model=UserResponse)
