@@ -13,6 +13,16 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
     EMPLOYEE = "employee"
 
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            val_lower = value.lower()
+            for member in cls:
+                if member.value.lower() == val_lower or member.name.lower() == val_lower:
+                    return member
+        return None
+
+
 
 class User(Base):
     __tablename__ = "users"

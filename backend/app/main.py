@@ -17,7 +17,15 @@ from app.redis_client import get_redis
 
 settings = get_settings()
 
-limiter = Limiter(key_func=get_remote_address)
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
+
+limiter = Limiter(key_func=get_client_ip)
 
 
 import os

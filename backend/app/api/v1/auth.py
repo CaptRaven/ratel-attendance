@@ -22,82 +22,100 @@ from app.core.security import (
 )
 from app.api.deps import require_admin, get_current_user
 from app.core.logging import logger
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+def get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "127.0.0.1"
+
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=get_client_ip)
 
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("20/minute")
 async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(User)
-        .options(selectinload(User.department))
-        .where((User.email == payload.email) | (User.employee_id == payload.email))
-    )
-    user = result.scalar_one_or_none()
-
-    if not user or not verify_password(payload.password, user.hashed_password):
-        logger.warning("login_failed", email=payload.email)
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-        )
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Account is inactive",
-        )
-
-    token = create_access_token(
-        subject=str(user.id),
-        extra={"role": user.role.value if hasattr(user.role, "value") else str(user.role), "location_id": user.location_id},
-    )
-    logger.info("login_success", user_id=str(user.id), role=str(user.role))
-
     try:
-        user_resp = UserResponse.from_orm_with_dept(user)
-    except Exception as e:
-        logger.error("login_user_response_serialization_failed", error=str(e))
-        dept_name = None
-        try:
-            if user.department:
-                dept_name = user.department.name
-        except Exception:
-            pass
-
-        user_resp = UserResponse(
-            id=user.id,
-            email=user.email,
-            full_name=user.full_name,
-            employee_id=user.employee_id,
-            role=user.role,
-            is_active=user.is_active,
-            is_face_enrolled=bool(getattr(user, "is_face_enrolled", False)),
-            location_id=user.location_id,
-            department_id=user.department_id,
-            department_name=dept_name,
-            phone_number=getattr(user, "phone_number", None),
-            address=getattr(user, "address", None),
-            designation=getattr(user, "designation", None),
-            expected_days_per_week=getattr(user, "expected_days_per_week", 5) or 5,
-            referee_name=getattr(user, "referee_name", None),
-            referee_phone=getattr(user, "referee_phone", None),
-            referee_email=getattr(user, "referee_email", None),
-            referee_relationship=getattr(user, "referee_relationship", None),
-            referee_notes=getattr(user, "referee_notes", None),
-            referee_pdf_filename=getattr(user, "referee_pdf_filename", None),
-            days_present=0,
-            created_at=user.created_at,
+        result = await db.execute(
+            select(User)
+            .options(selectinload(User.department))
+            .where((User.email == payload.email) | (User.employee_id == payload.email))
         )
+        user = result.scalar_one_or_none()
 
-    return TokenResponse(
-        access_token=token,
-        user=user_resp,
-    )
+        if not user or not verify_password(payload.password, user.hashed_password):
+            logger.warning("login_failed", email=payload.email)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials",
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Account is inactive",
+            )
+
+        token = create_access_token(
+            subject=str(user.id),
+            extra={
+                "role": user.role.value if hasattr(user.role, "value") else str(user.role),
+                "location_id": getattr(user, "location_id", "ratel-hq") or "ratel-hq",
+            },
+        )
+        logger.info("login_success", user_id=str(user.id), role=str(user.role))
+
+        try:
+            user_resp = UserResponse.from_orm_with_dept(user)
+        except Exception as e:
+            logger.error("login_user_response_serialization_failed", error=str(e))
+            dept_name = None
+            try:
+                if user.department:
+                    dept_name = user.department.name
+            except Exception:
+                pass
+
+            user_resp = UserResponse(
+                id=user.id,
+                email=user.email,
+                full_name=user.full_name,
+                employee_id=user.employee_id,
+                role=user.role,
+                is_active=user.is_active,
+                is_face_enrolled=bool(getattr(user, "is_face_enrolled", False)),
+                location_id=getattr(user, "location_id", "ratel-hq") or "ratel-hq",
+                department_id=getattr(user, "department_id", None),
+                department_name=dept_name,
+                phone_number=getattr(user, "phone_number", None),
+                address=getattr(user, "address", None),
+                designation=getattr(user, "designation", None),
+                expected_days_per_week=getattr(user, "expected_days_per_week", 5) or 5,
+                referee_name=getattr(user, "referee_name", None),
+                referee_phone=getattr(user, "referee_phone", None),
+                referee_email=getattr(user, "referee_email", None),
+                referee_relationship=getattr(user, "referee_relationship", None),
+                referee_notes=getattr(user, "referee_notes", None),
+                referee_pdf_filename=getattr(user, "referee_pdf_filename", None),
+                days_present=0,
+                created_at=getattr(user, "created_at", None),
+            )
+
+        return TokenResponse(
+            access_token=token,
+            user=user_resp,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("login_unexpected_error", error=str(e), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Login failed: {str(e)}",
+        )
 
 
 @router.get("/me", response_model=UserResponse)

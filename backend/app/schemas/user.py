@@ -53,7 +53,7 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     is_face_enrolled: bool = False
-    location_id: str
+    location_id: Optional[str] = "ratel-hq"
     department_id: Optional[UUID] = None
     department_name: Optional[str] = None
     phone_number: Optional[str] = None
@@ -67,7 +67,7 @@ class UserResponse(BaseModel):
     referee_notes: Optional[str] = None
     referee_pdf_filename: Optional[str] = None
     days_present: int = 0
-    created_at: datetime
+    created_at: Optional[datetime] = None
 
     @classmethod
     def from_orm_with_dept(cls, user, days_present: int = 0) -> "UserResponse":
