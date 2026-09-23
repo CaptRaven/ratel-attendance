@@ -19,15 +19,7 @@ router = APIRouter(prefix="/employees", tags=["Employees"])
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "uploads", "referees")
 
 
-def _clean_ocr_name(text: str) -> str:
-    text = re.sub(r'^(?:None|Name|Guarantor|Referee|1|2|3|4|5|6|7|8|9|0|\.|:|-|\s)+', '', text, flags=re.IGNORECASE)
-    text = re.sub(r'[^a-zA-Z\s]', ' ', text)
-    words = [w for w in text.split() if len(w) >= 2 and w.lower() not in ('gera', 'full', 'name', 'nationality', 'applicant', 'declaration')]
-    return ' '.join(words).title()
-
-
-def parse_referee_pdf(pdf_bytes: bytes) -> dict:
-def _clean_ocr_name(val):
+def _clean_ocr_name(val: str) -> str:
     val = re.sub(r'[\._\-\(\)]+', ' ', val).strip()
     words = [w.capitalize() for w in val.split() if len(w) > 1 and not any(c.isdigit() for c in w)]
     return ' '.join(words)
