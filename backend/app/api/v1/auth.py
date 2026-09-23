@@ -22,6 +22,8 @@ from app.core.security import (
 )
 from app.api.deps import require_admin, get_current_user
 from app.core.logging import logger
+from slowapi import Limiter
+
 def get_client_ip(request: Request) -> str:
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
