@@ -6,11 +6,12 @@ import Staff from "@/pages/Staff";
 import Analytics from "@/pages/Analytics";
 import Reports from "@/pages/Reports";
 import Careers from "@/pages/Careers";
+import Settings from "@/pages/Settings";
 import { theme } from "@/lib/theme";
 import logo from "@/assets/rATEL-LOGO.png";
-import { BarChart3, LayoutGrid, LogOut, Users, FileText, Briefcase, ChevronLeft, ChevronRight } from "lucide-react";
+import { BarChart3, LayoutGrid, LogOut, Users, FileText, Briefcase, Settings as SettingsIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Page = "dashboard" | "analytics" | "staff" | "reports" | "careers";
+type Page = "dashboard" | "analytics" | "staff" | "reports" | "careers" | "settings";
 
 export default function App() {
   const { token, logout } = useAuthStore();
@@ -104,6 +105,7 @@ export default function App() {
             { id: "staff", icon: Users, label: "Staff" },
             { id: "reports", icon: FileText, label: "Reports" },
             { id: "careers", icon: Briefcase, label: "Job Openings" },
+            { id: "settings", icon: SettingsIcon, label: "Settings" },
           ].map((item) => (
             <button
               key={item.id}
@@ -170,7 +172,9 @@ export default function App() {
           />
         )}
         {page === "careers" && <Careers />}
+        {page === "settings" && <Settings />}
       </div>
     </div>
   );
 }
+

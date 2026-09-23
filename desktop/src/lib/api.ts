@@ -94,6 +94,32 @@ export const login = async (email: string, password: string) => {
   return res.data;
 };
 
+export const getMe = async (): Promise<User> => {
+  const res = await api.get("/auth/me");
+  return res.data;
+};
+
+export const updateMe = async (data: { full_name?: string; email?: string }): Promise<User> => {
+  const res = await api.patch("/auth/me", data);
+  return res.data;
+};
+
+export const changePassword = async (current_password: string, new_password: string) => {
+  const res = await api.post("/auth/change-password", { current_password, new_password });
+  return res.data;
+};
+
+export const forgotPassword = async (email: string) => {
+  const res = await api.post("/auth/forgot-password", { email });
+  return res.data as { message: string; reset_token: string | null };
+};
+
+export const resetPassword = async (token: string, new_password: string) => {
+  const res = await api.post("/auth/reset-password", { token, new_password });
+  return res.data as { message: string };
+};
+
+
 // Sessions
 export const createSession = async (name: string, location_id: string) => {
   const res = await api.post("/sessions/", { name, location_id });
