@@ -250,6 +250,42 @@ async def upload_referee_pdf(
     return UserResponse.from_orm_with_dept(user, days_present=dp)
 
 
+@router.delete("/{employee_id}/referee-pdf", response_model=UserResponse)
+async def delete_referee_pdf(
+    employee_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    from sqlalchemy import or_, String
+    result = await db.execute(
+        select(User).where(
+            or_(
+                User.employee_id == employee_id,
+                func.cast(User.id, String) == employee_id,
+            )
+        )
+    )
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    if user.referee_pdf_filename:
+        old_file = os.path.join(UPLOAD_DIR, user.referee_pdf_filename)
+        if os.path.exists(old_file):
+            try:
+                os.remove(old_file)
+            except Exception as e:
+                logger.warning("failed_to_delete_old_pdf", filename=user.referee_pdf_filename, error=str(e))
+        user.referee_pdf_filename = None
+
+    await db.flush()
+    await db.refresh(user)
+    logger.info("referee_pdf_deleted", employee_id=user.employee_id)
+
+    dp = await _get_days_present(db, user.id)
+    return UserResponse.from_orm_with_dept(user, days_present=dp)
+
+
 @router.post("/", response_model=UserResponse, status_code=201)
 async def create_employee(
     payload: UserCreate,

@@ -294,6 +294,11 @@ export const getRefereePdfUrl = (filename: string) => {
   return `${BASE_URL.replace(/\/api\/v1\/?$/, "")}/static/uploads/referees/${filename}`;
 };
 
+export const deleteRefereePDF = async (employee_id: string): Promise<User> => {
+  const res = await api.delete(`/employees/${employee_id}/referee-pdf`);
+  return res.data;
+};
+
 export const updateEmployee = async (
   employee_id: string,
   data: Partial<{

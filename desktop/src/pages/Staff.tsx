@@ -9,7 +9,7 @@ import autoTable from "jspdf-autotable";
 import {
   getDepartments, createDepartment,
   getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee,
-  clearFaceEnrollment, getEmployeeDetail, uploadRefereePDF, getRefereePdfUrl,
+  clearFaceEnrollment, getEmployeeDetail, uploadRefereePDF, getRefereePdfUrl, deleteRefereePDF,
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
@@ -128,6 +128,29 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       }
     } finally {
       setUploadingPdf(false);
+    }
+  };
+
+  const handleDeleteRefereePDF = async (employeeId: string) => {
+    if (!confirm("Are you sure you want to delete this referee PDF document?")) return;
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const updated = await deleteRefereePDF(employeeId);
+      if (editingEmployee && editingEmployee.employee_id === employeeId) {
+        setEditingEmployee(updated);
+      }
+      if (selectedEmployee && selectedEmployee.employee_id === employeeId) {
+        setSelectedEmployee(updated);
+      }
+      setSuccess("Referee PDF deleted successfully.");
+      await fetchEmployees();
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setError(axiosError.response?.data?.detail || "Failed to delete Referee PDF");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -910,22 +933,38 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                   Referee Information & Document
                 </h3>
                 {selectedEmployee.referee_pdf_filename && (
-                  <a
-                    href={getRefereePdfUrl(selectedEmployee.referee_pdf_filename)}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
-                    style={{
-                      ...s.btnGhost,
-                      padding: "6px 14px", fontSize: "12px",
-                      background: theme.accentSoft, color: theme.primary,
-                      borderColor: theme.accent, textDecoration: "none",
-                      fontWeight: "700",
-                    }}
-                  >
-                    <Download size={14} />
-                    Download Referee PDF
-                  </a>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <a
+                      href={getRefereePdfUrl(selectedEmployee.referee_pdf_filename)}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                      style={{
+                        ...s.btnGhost,
+                        padding: "6px 14px", fontSize: "12px",
+                        background: theme.accentSoft, color: theme.primary,
+                        borderColor: theme.accent, textDecoration: "none",
+                        fontWeight: "700",
+                      }}
+                    >
+                      <Download size={14} />
+                      Download Referee PDF
+                    </a>
+                    <button
+                      onClick={() => handleDeleteRefereePDF(selectedEmployee.employee_id)}
+                      title="Delete Referee PDF"
+                      style={{
+                        ...s.btnGhost,
+                        padding: "6px 14px", fontSize: "12px",
+                        background: theme.dangerSoft, color: theme.danger,
+                        borderColor: theme.dangerSoft, fontWeight: "700",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      Delete PDF
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1297,22 +1336,39 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                   Referee Document & Details
                 </h4>
                 {editingEmployee?.referee_pdf_filename && (
-                  <a
-                    href={getRefereePdfUrl(editingEmployee.referee_pdf_filename)}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
-                    style={{
-                      ...s.btnGhost,
-                      padding: "4px 12px", fontSize: "11px",
-                      background: theme.accentSoft, color: theme.primary,
-                      borderColor: theme.accent, textDecoration: "none",
-                      fontWeight: "700",
-                    }}
-                  >
-                    <Download size={13} />
-                    Download Referee PDF
-                  </a>
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <a
+                      href={getRefereePdfUrl(editingEmployee.referee_pdf_filename)}
+                      target="_blank"
+                      rel="noreferrer"
+                      download
+                      style={{
+                        ...s.btnGhost,
+                        padding: "4px 12px", fontSize: "11px",
+                        background: theme.accentSoft, color: theme.primary,
+                        borderColor: theme.accent, textDecoration: "none",
+                        fontWeight: "700",
+                      }}
+                    >
+                      <Download size={13} />
+                      Download Referee PDF
+                    </a>
+                    <button
+                      onClick={() => handleDeleteRefereePDF(editingEmployee.employee_id)}
+                      title="Delete Referee PDF"
+                      type="button"
+                      style={{
+                        ...s.btnGhost,
+                        padding: "4px 10px", fontSize: "11px",
+                        background: theme.dangerSoft, color: theme.danger,
+                        borderColor: theme.dangerSoft, fontWeight: "700",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <Trash2 size={13} />
+                      Delete PDF
+                    </button>
+                  </div>
                 )}
               </div>
 
