@@ -105,8 +105,9 @@ export default function Dashboard() {
         const data = await getAttendanceSummary();
         data.records.forEach(addAttendee);
       } else {
-        // Default Today's Live Session: fetch all check-ins for today's date
-        const todayStr = new Date().toISOString().slice(0, 10);
+        // Default Today's Live Session: fetch all check-ins for today's local date
+        const d = new Date();
+        const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         const data = await getAttendanceSummary({ date_from: todayStr });
         if (data.records && data.records.length > 0) {
           data.records.forEach(addAttendee);
