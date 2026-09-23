@@ -96,10 +96,11 @@ export default function Dashboard() {
     console.log("🔄 Session store updated:", session);
   }, [session]);
 
-  const loadSessionAttendance = async (sessionId: string) => {
+  const loadSessionAttendance = async (sessionId: string, overrideShowAll?: boolean) => {
     try {
       clearAttendees();
-      if (showAllRecords) {
+      const isAll = overrideShowAll !== undefined ? overrideShowAll : showAllRecords;
+      if (isAll) {
         const data = await getAttendanceSummary();
         data.records.forEach(addAttendee);
       } else {
@@ -110,6 +111,7 @@ export default function Dashboard() {
       console.error("Failed to load attendance:", err);
     }
   };
+
 
   const getBusinessDayName = () => {
     const now = new Date();
@@ -528,9 +530,10 @@ export default function Dashboard() {
             <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <button
                 onClick={() => {
-                  setShowAllRecords(!showAllRecords);
+                  const nextState = !showAllRecords;
+                  setShowAllRecords(nextState);
                   if (session) {
-                    void loadSessionAttendance(session.session_id);
+                    void loadSessionAttendance(session.session_id, nextState);
                   }
                 }}
                 style={{
