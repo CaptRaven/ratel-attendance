@@ -49,9 +49,9 @@ async def login(request: Request, payload: LoginRequest, db: AsyncSession = Depe
 
     token = create_access_token(
         subject=str(user.id),
-        extra={"role": user.role, "location_id": user.location_id},
+        extra={"role": user.role.value if hasattr(user.role, "value") else str(user.role), "location_id": user.location_id},
     )
-    logger.info("login_success", user_id=str(user.id), role=user.role)
+    logger.info("login_success", user_id=str(user.id), role=str(user.role))
 
     return TokenResponse(
         access_token=token,

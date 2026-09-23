@@ -52,6 +52,7 @@ class UserResponse(BaseModel):
     employee_id: str
     role: UserRole
     is_active: bool
+    is_face_enrolled: bool = False
     location_id: str
     department_id: Optional[UUID] = None
     department_name: Optional[str] = None

@@ -25,11 +25,15 @@ def create_access_token(subject: str | Any, extra: dict = {}) -> str:
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
     )
+    serializable_extra = {
+        k: (v.value if hasattr(v, "value") else str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v)
+        for k, v in extra.items()
+    }
     payload = {
         "sub": str(subject),
         "exp": expire,
         "iat": datetime.now(timezone.utc),
-        **extra,
+        **serializable_extra,
     }
     return jwt.encode(
         payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
