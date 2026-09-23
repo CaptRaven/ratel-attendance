@@ -54,6 +54,16 @@ export interface User {
   location_id: string;
   department_id?: string | null;
   department_name?: string | null;
+  phone_number?: string | null;
+  address?: string | null;
+  designation?: string | null;
+  referee_name?: string | null;
+  referee_phone?: string | null;
+  referee_email?: string | null;
+  referee_relationship?: string | null;
+  referee_notes?: string | null;
+  referee_pdf_filename?: string | null;
+  days_present?: number;
   created_at: string;
 }
 
@@ -261,6 +271,24 @@ export const createEmployee = async (data: {
   return res.data;
 };
 
+export const getEmployeeDetail = async (employee_id: string): Promise<User> => {
+  const res = await api.get(`/employees/${employee_id}/detail`);
+  return res.data;
+};
+
+export const uploadRefereePDF = async (employee_id: string, file: File): Promise<User> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await api.post(`/employees/${employee_id}/upload-referee-pdf`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return res.data;
+};
+
+export const getRefereePdfUrl = (filename: string) => {
+  return `${BASE_URL.replace(/\/api\/v1\/?$/, "")}/static/uploads/referees/${filename}`;
+};
+
 export const updateEmployee = async (
   employee_id: string,
   data: Partial<{
@@ -270,6 +298,14 @@ export const updateEmployee = async (
     password?: string;
     department_id?: string;
     location_id?: string;
+    phone_number?: string;
+    address?: string;
+    designation?: string;
+    referee_name?: string;
+    referee_phone?: string;
+    referee_email?: string;
+    referee_relationship?: string;
+    referee_notes?: string;
   }>
 ): Promise<User> => {
   const res = await api.patch(`/employees/${employee_id}`, data);

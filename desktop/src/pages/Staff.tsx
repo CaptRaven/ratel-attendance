@@ -1,12 +1,16 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AxiosError } from "axios";
-import { Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus, Download, Camera, CameraOff, FileText } from "lucide-react";
+import {
+  Users, Building2, UserPlus, ArrowLeft, Trash2, RotateCcw, UserCheck, UserX, Edit2, Plus,
+  Download, Camera, CameraOff, FileText, X, UploadCloud, Phone, Mail, MapPin, Briefcase, Calendar,
+  CheckCircle2
+} from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
   getDepartments, createDepartment,
   getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee,
-  clearFaceEnrollment,
+  clearFaceEnrollment, getEmployeeDetail, uploadRefereePDF, getRefereePdfUrl,
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
@@ -27,6 +31,13 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
   const [editingEmployee, setEditingEmployee] = useState<User | null>(null);
   const [downloadDeptId, setDownloadDeptId] = useState("");
 
+  // Detailed Info Modal State
+  const [selectedEmployee, setSelectedEmployee] = useState<User | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [pdfUploadSuccess, setPdfUploadSuccess] = useState("");
+  const [pdfUploadError, setPdfUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Employee form state
   const [empForm, setEmpForm] = useState({
     full_name: "",
@@ -35,6 +46,14 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     password: "",
     department_id: "",
     location_id: "ratel-hq",
+    phone_number: "",
+    address: "",
+    designation: "",
+    referee_name: "",
+    referee_phone: "",
+    referee_email: "",
+    referee_relationship: "",
+    referee_notes: "",
   });
 
   // Department form state
@@ -66,6 +85,48 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     load();
   }, [fetchEmployees, fetchDepartments]);
 
+  const handleOpenDetail = async (emp: User) => {
+    setSelectedEmployee(emp);
+    setPdfUploadSuccess("");
+    setPdfUploadError("");
+    try {
+      const detail = await getEmployeeDetail(emp.employee_id);
+      setSelectedEmployee(detail);
+    } catch (err) {
+      console.error("Failed to load employee details", err);
+    }
+  };
+
+  const handlePdfFileSelected = async (file: File) => {
+    if (!selectedEmployee) return;
+    if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
+      setPdfUploadError("Please upload a valid PDF document.");
+      return;
+    }
+    setPdfUploadError("");
+    setPdfUploadSuccess("");
+    setUploadingPdf(true);
+    try {
+      const updated = await uploadRefereePDF(selectedEmployee.employee_id, file);
+      setSelectedEmployee(updated);
+      setPdfUploadSuccess("Referee PDF uploaded & details extracted successfully!");
+      await fetchEmployees();
+    } catch (err: unknown) {
+      const axiosError = err as AxiosError<{ detail: string }>;
+      setPdfUploadError(axiosError.response?.data?.detail || "Failed to process Referee PDF");
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
+  const handleDropPdf = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handlePdfFileSelected(e.dataTransfer.files[0]);
+    }
+  };
+
   const handleCreateEmployee = async () => {
     setError(""); setSuccess(""); setLoading(true);
     try {
@@ -77,6 +138,9 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       setEmpForm({
         full_name: "", email: "", employee_id: "",
         password: "", department_id: "", location_id: "ratel-hq",
+        phone_number: "", address: "", designation: "",
+        referee_name: "", referee_phone: "", referee_email: "",
+        referee_relationship: "", referee_notes: "",
       });
       await fetchEmployees();
       setTimeout(() => setView("employees"), 1200);
@@ -91,12 +155,20 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
   const handleEditEmployee = (emp: User) => {
     setEditingEmployee(emp);
     setEmpForm({
-      full_name: emp.full_name,
-      email: emp.email,
-      employee_id: emp.employee_id,
+      full_name: emp.full_name || "",
+      email: emp.email || "",
+      employee_id: emp.employee_id || "",
       password: "", // Don't show password
       department_id: emp.department_id || "",
-      location_id: emp.location_id,
+      location_id: emp.location_id || "ratel-hq",
+      phone_number: emp.phone_number || "",
+      address: emp.address || "",
+      designation: emp.designation || "",
+      referee_name: emp.referee_name || "",
+      referee_phone: emp.referee_phone || "",
+      referee_email: emp.referee_email || "",
+      referee_relationship: emp.referee_relationship || "",
+      referee_notes: emp.referee_notes || "",
     });
     setView("edit_employee");
     setError("");
@@ -114,12 +186,28 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         password?: string;
         department_id?: string;
         location_id?: string;
+        phone_number?: string;
+        address?: string;
+        designation?: string;
+        referee_name?: string;
+        referee_phone?: string;
+        referee_email?: string;
+        referee_relationship?: string;
+        referee_notes?: string;
       }> = {
         full_name: empForm.full_name,
         email: empForm.email,
         employee_id: empForm.employee_id,
         department_id: empForm.department_id || undefined,
         location_id: empForm.location_id,
+        phone_number: empForm.phone_number || undefined,
+        address: empForm.address || undefined,
+        designation: empForm.designation || undefined,
+        referee_name: empForm.referee_name || undefined,
+        referee_phone: empForm.referee_phone || undefined,
+        referee_email: empForm.referee_email || undefined,
+        referee_relationship: empForm.referee_relationship || undefined,
+        referee_notes: empForm.referee_notes || undefined,
       };
       if (empForm.password) {
         updateData.password = empForm.password;
@@ -128,6 +216,10 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       await updateEmployee(editingEmployee.employee_id, updateData);
       setSuccess("Employee updated successfully.");
       await fetchEmployees();
+      if (selectedEmployee && selectedEmployee.employee_id === editingEmployee.employee_id) {
+        const detail = await getEmployeeDetail(editingEmployee.employee_id);
+        setSelectedEmployee(detail);
+      }
       setTimeout(() => setView("employees"), 1200);
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
@@ -158,6 +250,9 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     try {
       await deactivateEmployee(employeeId);
       await fetchEmployees();
+      if (selectedEmployee?.employee_id === employeeId) {
+        setSelectedEmployee(prev => prev ? { ...prev, is_active: false } : null);
+      }
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
       alert(axiosError.response?.data?.detail || "Failed to deactivate employee");
@@ -169,6 +264,9 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     try {
       await activateEmployee(employeeId);
       await fetchEmployees();
+      if (selectedEmployee?.employee_id === employeeId) {
+        setSelectedEmployee(prev => prev ? { ...prev, is_active: true } : null);
+      }
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
       alert(axiosError.response?.data?.detail || "Failed to restore employee");
@@ -181,6 +279,9 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     try {
       await purgeEmployee(employeeId);
       await fetchEmployees();
+      if (selectedEmployee?.employee_id === employeeId) {
+        setSelectedEmployee(null);
+      }
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
       alert(axiosError.response?.data?.detail || "Failed to purge employee");
@@ -192,6 +293,9 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     try {
       await clearFaceEnrollment(emp.id);
       await fetchEmployees();
+      if (selectedEmployee?.id === emp.id) {
+        setSelectedEmployee(prev => prev ? { ...prev, is_face_enrolled: false } : null);
+      }
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
       alert(axiosError.response?.data?.detail || "Failed to clear face enrollment");
@@ -200,18 +304,18 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
 
   const handleDownloadPDF = () => {
     const doc = new jsPDF();
-    const filteredEmployees = employees.filter(emp => 
+    const filteredEmployees = employees.filter(emp =>
       emp.is_active && (!downloadDeptId || emp.department_id === downloadDeptId)
     );
 
-    const deptName = downloadDeptId 
+    const deptName = downloadDeptId
       ? departments.find(d => d.id === downloadDeptId)?.name || "Selected Department"
       : "All Departments";
 
     doc.setFontSize(20);
     doc.setTextColor(33, 33, 33);
     doc.text("Staff Directory", 14, 22);
-    
+
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
     doc.text(`Department: ${deptName}`, 14, 30);
@@ -229,7 +333,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       startY: 48,
       head: [["Name", "Email", "Employee ID", "Department"]],
       body: tableData,
-      headStyles: { fillColor: [79, 70, 229], textColor: 255 }, // theme.primary equivalent
+      headStyles: { fillColor: [79, 70, 229], textColor: 255 },
       alternateRowStyles: { fillColor: [249, 250, 251] },
       margin: { top: 48 },
     });
@@ -326,7 +430,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
           Staff Management
         </h1>
         <p style={{ color: theme.textMuted, fontSize: "13px", margin: 0 }}>
-          Register employees and manage departments
+          Register employees, view detailed profiles, and parse referee documents
         </p>
       </div>
 
@@ -424,7 +528,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
             }}>
               <Users size={48} strokeWidth={1} style={{ opacity: 0.3 }} />
               <p style={{ margin: 0 }}>
-                {view === "employees" 
+                {view === "employees"
                   ? "No active employees yet. Add your first employee."
                   : "No removed employees found."}
               </p>
@@ -449,16 +553,28 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
 
               {/* Rows */}
               {(view === "employees" ? activeEmployees : deactivatedEmployees).map((emp) => (
-                <div key={emp.id} style={{
-                  display: "grid",
-                  gridTemplateColumns: "2fr 1.5fr 1fr 1fr 240px",
-                  alignItems: "center",
-                  background: theme.panelStrong,
-                  border: `1px solid ${theme.panelBorder}`,
-                  borderRadius: "12px",
-                  padding: "14px 16px",
-                  opacity: emp.is_active ? 1 : 0.7,
-                }}>
+                <div
+                  key={emp.id}
+                  onClick={() => handleOpenDetail(emp)}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "2fr 1.5fr 1fr 1fr 240px",
+                    alignItems: "center",
+                    background: theme.panelStrong,
+                    border: `1px solid ${theme.panelBorder}`,
+                    borderRadius: "12px",
+                    padding: "14px 16px",
+                    opacity: emp.is_active ? 1 : 0.7,
+                    cursor: "pointer",
+                    transition: "border-color 0.2s, transform 0.1s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = theme.accent;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = theme.panelBorder;
+                  }}
+                >
                   {/* Name + avatar */}
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                     <div style={{
@@ -478,6 +594,9 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                         <p style={{ margin: 0, fontSize: "11px", color: emp.is_active ? theme.success : theme.danger }}>
                           {emp.is_active ? "Active" : "Inactive"}
                         </p>
+                        {emp.designation && (
+                          <span style={{ fontSize: "11px", color: theme.textMuted }}>• {emp.designation}</span>
+                        )}
                         {emp.is_face_enrolled && (
                           <span style={{
                             display: "flex", alignItems: "center", gap: "3px",
@@ -516,7 +635,10 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                     {emp.department_name || "—"}
                   </span>
 
-                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <div
+                    style={{ display: "flex", gap: "6px", alignItems: "center" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <button
                       onClick={() => onViewReports?.(emp.employee_id)}
                       title="View Staff Reports"
@@ -620,6 +742,307 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         </div>
       )}
 
+      {/* ── Detailed Employee Info Modal ── */}
+      {selectedEmployee && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0, 0, 0, 0.75)", backdropFilter: "blur(6px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          zIndex: 1000, padding: "24px",
+        }}
+        onClick={() => setSelectedEmployee(null)}
+        >
+          <div
+            style={{
+              background: theme.panel,
+              border: `1px solid ${theme.panelBorder}`,
+              borderRadius: "24px",
+              width: "100%", maxWidth: "750px",
+              maxHeight: "90vh", overflowY: "auto",
+              boxShadow: theme.shadow,
+              padding: "32px",
+              display: "flex", flexDirection: "column", gap: "24px",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                <div style={{
+                  width: "56px", height: "56px", borderRadius: "18px",
+                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.accent})`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "22px", fontWeight: "700", color: "white",
+                  boxShadow: "0 4px 14px rgba(99, 102, 241, 0.4)",
+                }}>
+                  {selectedEmployee.full_name ? selectedEmployee.full_name.charAt(0).toUpperCase() : "U"}
+                </div>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", display: "flex", alignItems: "center", gap: "10px" }}>
+                    {selectedEmployee.full_name}
+                    <span style={{
+                      fontSize: "11px", fontWeight: "600",
+                      padding: "2px 8px", borderRadius: "6px",
+                      background: selectedEmployee.is_active ? theme.successSoft : theme.dangerSoft,
+                      color: selectedEmployee.is_active ? theme.success : theme.danger,
+                    }}>
+                      {selectedEmployee.is_active ? "Active Staff" : "Deactivated"}
+                    </span>
+                  </h2>
+                  <p style={{ color: theme.textMuted, fontSize: "13px", margin: "4px 0 0 0" }}>
+                    {selectedEmployee.designation || "Staff Member"} • ID: <strong style={{ color: theme.text }}>{selectedEmployee.employee_id}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedEmployee(null)}
+                style={{
+                  background: theme.panelMuted, border: `1px solid ${theme.panelBorder}`,
+                  color: theme.textMuted, borderRadius: "50%", width: "36px", height: "36px",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Quick Stats Banner */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px",
+              background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`,
+              borderRadius: "16px", padding: "16px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ background: theme.accentSoft, padding: "10px", borderRadius: "12px", color: theme.primary }}>
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted, fontWeight: "600", textTransform: "uppercase" }}>Days Present</p>
+                  <p style={{ margin: 0, fontSize: "18px", fontWeight: "700", color: theme.primary }}>
+                    {selectedEmployee.days_present ?? 0} <span style={{ fontSize: "12px", fontWeight: "500", color: theme.textMuted }}>days</span>
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ background: theme.accentSoft, padding: "10px", borderRadius: "12px", color: theme.accent }}>
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted, fontWeight: "600", textTransform: "uppercase" }}>Department</p>
+                  <p style={{ margin: 0, fontSize: "14px", fontWeight: "600" }}>
+                    {selectedEmployee.department_name || "Unassigned"}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ background: theme.accentSoft, padding: "10px", borderRadius: "12px", color: theme.primary }}>
+                  <Camera size={20} />
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: "11px", color: theme.textMuted, fontWeight: "600", textTransform: "uppercase" }}>Face ID Status</p>
+                  <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: selectedEmployee.is_face_enrolled ? theme.success : theme.textMuted }}>
+                    {selectedEmployee.is_face_enrolled ? "Enrolled" : "Not Enrolled"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Profile Information Section */}
+            <div>
+              <h3 style={{ fontSize: "14px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.8px", color: theme.textMuted, marginBottom: "12px" }}>
+                Contact & Profile Information
+              </h3>
+              <div style={{
+                display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px",
+                background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`,
+                borderRadius: "16px", padding: "20px",
+              }}>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <Mail size={16} style={{ color: theme.textMuted, marginTop: "2px" }} />
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Email Address</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.email}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <Phone size={16} style={{ color: theme.textMuted, marginTop: "2px" }} />
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Phone Number</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.phone_number || "Not specified"}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <Briefcase size={16} style={{ color: theme.textMuted, marginTop: "2px" }} />
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Designation / Title</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.designation || "Not specified"}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                  <MapPin size={16} style={{ color: theme.textMuted, marginTop: "2px" }} />
+                  <div>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Residential Address</span>
+                    <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.address || "Not specified"}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Referee Information & PDF Section */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
+                <h3 style={{ fontSize: "14px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.8px", color: theme.textMuted, margin: 0 }}>
+                  Referee Information & Document
+                </h3>
+                {selectedEmployee.referee_pdf_filename && (
+                  <a
+                    href={getRefereePdfUrl(selectedEmployee.referee_pdf_filename)}
+                    target="_blank"
+                    rel="noreferrer"
+                    download
+                    style={{
+                      ...s.btnGhost,
+                      padding: "6px 14px", fontSize: "12px",
+                      background: theme.accentSoft, color: theme.primary,
+                      borderColor: theme.accent, textDecoration: "none",
+                      fontWeight: "700",
+                    }}
+                  >
+                    <Download size={14} />
+                    Download Referee PDF
+                  </a>
+                )}
+              </div>
+
+              {/* Drag & Drop PDF Dropzone */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={handleDropPdf}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: `2px dashed ${pdfUploadSuccess ? theme.success : theme.panelBorder}`,
+                  borderRadius: "16px",
+                  padding: "24px",
+                  textAlign: "center",
+                  background: uploadingPdf ? theme.accentSoft : theme.panelStrong,
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  marginBottom: "16px",
+                }}
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".pdf,application/pdf"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handlePdfFileSelected(e.target.files[0]);
+                    }
+                  }}
+                  style={{ display: "none" }}
+                />
+                <UploadCloud size={32} style={{ color: theme.primary, marginBottom: "8px", opacity: uploadingPdf ? 0.5 : 1 }} />
+                <p style={{ margin: "0 0 4px 0", fontSize: "14px", fontWeight: "600" }}>
+                  {uploadingPdf ? "Parsing & Uploading Referee PDF..." : "Drop Referee PDF here or click to browse"}
+                </p>
+                <p style={{ margin: 0, fontSize: "12px", color: theme.textMuted }}>
+                  Uploaded PDFs will automatically extract Referee Name, Contact, Email & Notes
+                </p>
+              </div>
+
+              {pdfUploadSuccess && (
+                <div style={{
+                  background: theme.successSoft, border: `1px solid ${theme.successSoft}`,
+                  borderRadius: "10px", padding: "10px 14px",
+                  color: theme.success, fontSize: "13px", marginBottom: "16px",
+                  display: "flex", alignItems: "center", gap: "8px",
+                }}>
+                  <CheckCircle2 size={16} />
+                  {pdfUploadSuccess}
+                </div>
+              )}
+
+              {pdfUploadError && (
+                <div style={{
+                  background: theme.dangerSoft, border: `1px solid ${theme.dangerSoft}`,
+                  borderRadius: "10px", padding: "10px 14px",
+                  color: theme.danger, fontSize: "13px", marginBottom: "16px",
+                }}>
+                  {pdfUploadError}
+                </div>
+              )}
+
+              {/* Referee Details Display */}
+              <div style={{
+                background: theme.panelStrong, border: `1px solid ${theme.panelBorder}`,
+                borderRadius: "16px", padding: "20px",
+                display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px",
+              }}>
+                <div>
+                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Name</span>
+                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_name || "—"}</span>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Relationship</span>
+                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_relationship || "—"}</span>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Phone</span>
+                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_phone || "—"}</span>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Email</span>
+                  <span style={{ fontSize: "14px", fontWeight: "600" }}>{selectedEmployee.referee_email || "—"}</span>
+                </div>
+
+                {selectedEmployee.referee_notes && (
+                  <div style={{ gridColumn: "1 / -1" }}>
+                    <span style={{ fontSize: "11px", color: theme.textMuted, display: "block" }}>Referee Notes / Excerpt</span>
+                    <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: theme.text, background: theme.panelMuted, padding: "10px 12px", borderRadius: "8px", whiteSpace: "pre-wrap" }}>
+                      {selectedEmployee.referee_notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", borderTop: `1px solid ${theme.panelBorder}`, paddingTop: "16px" }}>
+              <button
+                onClick={() => {
+                  const emp = selectedEmployee;
+                  setSelectedEmployee(null);
+                  handleEditEmployee(emp);
+                }}
+                style={{
+                  ...s.btnGhost,
+                  background: theme.accentSoft, color: theme.primary, borderColor: theme.accent,
+                }}
+              >
+                <Edit2 size={15} />
+                Edit Full Profile
+              </button>
+              <button
+                onClick={() => setSelectedEmployee(null)}
+                style={s.btnGhost}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Departments List ── */}
       {view === "departments" && (
         <div style={s.card}>
@@ -681,7 +1104,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
 
       {/* ── Add Employee Form ── */}
       {view === "add_employee" && (
-        <div style={{ maxWidth: "560px" }}>
+        <div style={{ maxWidth: "600px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
             <button onClick={() => { setView("employees"); setError(""); setSuccess(""); }}
               style={s.btnGhost}>
@@ -709,10 +1132,52 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
               </div>
             </div>
 
-            <label style={s.label}>Email</label>
-            <input style={s.input} type="email" placeholder="john@ratel.com"
-              value={empForm.email}
-              onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <div>
+                <label style={s.label}>Email</label>
+                <input style={s.input} type="email" placeholder="john@ratel.com"
+                  value={empForm.email}
+                  onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} />
+              </div>
+              <div>
+                <label style={s.label}>Phone Number</label>
+                <input style={s.input} placeholder="+234..."
+                  value={empForm.phone_number}
+                  onChange={(e) => setEmpForm({ ...empForm, phone_number: e.target.value })} />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <div>
+                <label style={s.label}>Designation</label>
+                <input style={s.input} placeholder="Software Engineer"
+                  value={empForm.designation}
+                  onChange={(e) => setEmpForm({ ...empForm, designation: e.target.value })} />
+              </div>
+              <div>
+                <label style={s.label}>Department</label>
+                <select
+                  value={empForm.department_id}
+                  onChange={(e) => setEmpForm({ ...empForm, department_id: e.target.value })}
+                  title="Select Department"
+                  style={{
+                    ...s.input,
+                    appearance: "none" as const,
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">— Select Department —</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <label style={s.label}>Address</label>
+            <input style={s.input} placeholder="Residential address"
+              value={empForm.address}
+              onChange={(e) => setEmpForm({ ...empForm, address: e.target.value })} />
 
             <label style={s.label}>Password (optional)</label>
             <input style={s.input} type="password" placeholder="Min 8 characters"
@@ -723,23 +1188,6 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                 Password must be at least 8 characters if provided.
               </p>
             )}
-
-            <label style={s.label}>Department</label>
-            <select
-              value={empForm.department_id}
-              onChange={(e) => setEmpForm({ ...empForm, department_id: e.target.value })}
-              title="Select Department"
-              style={{
-                ...s.input,
-                appearance: "none" as const,
-                cursor: "pointer",
-              }}
-            >
-              <option value="">— Select Department —</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
 
             <label style={s.label}>Location ID</label>
             <input style={s.input} placeholder="ratel-hq"
@@ -782,7 +1230,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
 
       {/* ── Edit Employee Form ── */}
       {view === "edit_employee" && (
-        <div style={{ maxWidth: "560px" }}>
+        <div style={{ maxWidth: "600px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
             <button onClick={() => { setView("employees"); setError(""); setSuccess(""); }}
               style={s.btnGhost}>
@@ -810,10 +1258,52 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
               </div>
             </div>
 
-            <label style={s.label}>Email</label>
-            <input style={s.input} type="email" placeholder="john@ratel.com"
-              value={empForm.email}
-              onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <div>
+                <label style={s.label}>Email</label>
+                <input style={s.input} type="email" placeholder="john@ratel.com"
+                  value={empForm.email}
+                  onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })} />
+              </div>
+              <div>
+                <label style={s.label}>Phone Number</label>
+                <input style={s.input} placeholder="+234..."
+                  value={empForm.phone_number}
+                  onChange={(e) => setEmpForm({ ...empForm, phone_number: e.target.value })} />
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+              <div>
+                <label style={s.label}>Designation</label>
+                <input style={s.input} placeholder="Software Engineer"
+                  value={empForm.designation}
+                  onChange={(e) => setEmpForm({ ...empForm, designation: e.target.value })} />
+              </div>
+              <div>
+                <label style={s.label}>Department</label>
+                <select
+                  value={empForm.department_id}
+                  onChange={(e) => setEmpForm({ ...empForm, department_id: e.target.value })}
+                  title="Select Department"
+                  style={{
+                    ...s.input,
+                    appearance: "none" as const,
+                    cursor: "pointer",
+                  }}
+                >
+                  <option value="">— Select Department —</option>
+                  {departments.map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <label style={s.label}>Address</label>
+            <input style={s.input} placeholder="Residential address"
+              value={empForm.address}
+              onChange={(e) => setEmpForm({ ...empForm, address: e.target.value })} />
 
             <label style={s.label}>Update Password (optional)</label>
             <input style={s.input} type="password" placeholder="Leave blank to keep current"
@@ -825,27 +1315,52 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
               </p>
             )}
 
-            <label style={s.label}>Department</label>
-            <select
-              value={empForm.department_id}
-              onChange={(e) => setEmpForm({ ...empForm, department_id: e.target.value })}
-              title="Select Department"
-              style={{
-                ...s.input,
-                appearance: "none" as const,
-                cursor: "pointer",
-              }}
-            >
-              <option value="">— Select Department —</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-
             <label style={s.label}>Location ID</label>
             <input style={s.input} placeholder="ratel-hq"
               value={empForm.location_id}
               onChange={(e) => setEmpForm({ ...empForm, location_id: e.target.value })} />
+
+            {/* Referee manual fields edit */}
+            <div style={{ borderTop: `1px solid ${theme.panelBorder}`, paddingTop: "16px", marginTop: "8px" }}>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: "13px", fontWeight: "700", color: theme.textMuted, textTransform: "uppercase" }}>
+                Referee Details (Manual Edit)
+              </h4>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                <div>
+                  <label style={s.label}>Referee Name</label>
+                  <input style={s.input} placeholder="Dr. Jane Smith"
+                    value={empForm.referee_name}
+                    onChange={(e) => setEmpForm({ ...empForm, referee_name: e.target.value })} />
+                </div>
+                <div>
+                  <label style={s.label}>Referee Relationship</label>
+                  <input style={s.input} placeholder="Former Supervisor"
+                    value={empForm.referee_relationship}
+                    onChange={(e) => setEmpForm({ ...empForm, referee_relationship: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+                <div>
+                  <label style={s.label}>Referee Phone</label>
+                  <input style={s.input} placeholder="+234..."
+                    value={empForm.referee_phone}
+                    onChange={(e) => setEmpForm({ ...empForm, referee_phone: e.target.value })} />
+                </div>
+                <div>
+                  <label style={s.label}>Referee Email</label>
+                  <input style={s.input} placeholder="referee@example.com"
+                    value={empForm.referee_email}
+                    onChange={(e) => setEmpForm({ ...empForm, referee_email: e.target.value })} />
+                </div>
+              </div>
+              <label style={s.label}>Referee Notes</label>
+              <textarea
+                style={{ ...s.input, minHeight: "80px", resize: "none" }}
+                placeholder="Additional notes about referee..."
+                value={empForm.referee_notes}
+                onChange={(e) => setEmpForm({ ...empForm, referee_notes: e.target.value })}
+              />
+            </div>
 
             {error && (
               <div style={{

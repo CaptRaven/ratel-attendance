@@ -50,6 +50,19 @@ class User(Base):
         nullable=False,
     )
 
+    # Personal & Job Details
+    phone_number: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    address: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    designation: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    # Referee Information
+    referee_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    referee_phone: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    referee_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    referee_relationship: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    referee_notes: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    referee_pdf_filename: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
     # Face Recognition
     face_encoding: Mapped[Optional[str]] = mapped_column(String, nullable=True)  # Store as JSON string of list
     is_face_enrolled: Mapped[bool] = mapped_column(
@@ -61,3 +74,4 @@ class User(Base):
         back_populates="employees",
         lazy="selectin",
     )
+

@@ -13,6 +13,14 @@ class UserCreate(BaseModel):
     role: UserRole = UserRole.EMPLOYEE
     location_id: str = Field(default="ratel-hq", max_length=100)
     department_id: Optional[UUID] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    designation: Optional[str] = None
+    referee_name: Optional[str] = None
+    referee_phone: Optional[str] = None
+    referee_email: Optional[str] = None
+    referee_relationship: Optional[str] = None
+    referee_notes: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -23,6 +31,14 @@ class UserUpdate(BaseModel):
     role: Optional[UserRole] = None
     location_id: Optional[str] = Field(None, max_length=100)
     department_id: Optional[UUID] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    designation: Optional[str] = None
+    referee_name: Optional[str] = None
+    referee_phone: Optional[str] = None
+    referee_email: Optional[str] = None
+    referee_relationship: Optional[str] = None
+    referee_notes: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -37,14 +53,26 @@ class UserResponse(BaseModel):
     location_id: str
     department_id: Optional[UUID] = None
     department_name: Optional[str] = None
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    designation: Optional[str] = None
+    referee_name: Optional[str] = None
+    referee_phone: Optional[str] = None
+    referee_email: Optional[str] = None
+    referee_relationship: Optional[str] = None
+    referee_notes: Optional[str] = None
+    referee_pdf_filename: Optional[str] = None
+    days_present: int = 0
     created_at: datetime
 
     @classmethod
-    def from_orm_with_dept(cls, user) -> "UserResponse":
+    def from_orm_with_dept(cls, user, days_present: int = 0) -> "UserResponse":
         obj = cls.model_validate(user)
-        if user.department:
+        if hasattr(user, "department") and user.department:
             obj.department_name = user.department.name
+        obj.days_present = days_present
         return obj
+
 
 
 class TokenResponse(BaseModel):

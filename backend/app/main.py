@@ -27,6 +27,7 @@ from app.seed_jobs import seed_jobs
 async def lifespan(app: FastAPI):
     setup_logging()
     os.makedirs("app/static/uploads/resumes", exist_ok=True)
+    os.makedirs("app/static/uploads/referees", exist_ok=True)
     try:
         await seed_jobs()
     except Exception as e:
