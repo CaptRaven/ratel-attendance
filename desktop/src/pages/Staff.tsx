@@ -99,6 +99,10 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       setError("Please upload a valid PDF document.");
       return;
     }
+    if (file.size > 20 * 1024 * 1024) {
+      setError("PDF file size must be less than 20MB.");
+      return;
+    }
     setError("");
     setSuccess("");
     setUploadingPdf(true);
@@ -117,7 +121,11 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       await fetchEmployees();
     } catch (err: unknown) {
       const axiosError = err as AxiosError<{ detail: string }>;
-      setError(axiosError.response?.data?.detail || "Failed to process Referee PDF");
+      if (axiosError.response?.status === 413) {
+        setError("File is too large for the server limit. Please upload a PDF under 10MB or update Nginx client_max_body_size.");
+      } else {
+        setError(axiosError.response?.data?.detail || "Failed to process Referee PDF");
+      }
     } finally {
       setUploadingPdf(false);
     }
