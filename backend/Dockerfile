@@ -1,21 +1,24 @@
 FROM python:3.11-slim
 
-# Build dependencies for dlib (used by face_recognition)
+# Runtime deps: libgomp for ONNX Runtime, libglib for OpenCV headless, tesseract for OCR
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    libopenblas-dev \
-    liblapack-dev \
-    python3-dev \
+    libgomp1 \
+    libglib2.0-0 \
     tesseract-ocr \
     libtesseract-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt .
-
-# face_recognition / dlib compile time is long; keep as its own layer for caching
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download InsightFace buffalo_l model so it's baked into the image
+# and the first request doesn't stall waiting for a 500 MB download.
+RUN python -c "\
+from insightface.app import FaceAnalysis; \
+app = FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider']); \
+app.prepare(ctx_id=-1); \
+print('InsightFace buffalo_l model ready')"
 
 COPY . .
 

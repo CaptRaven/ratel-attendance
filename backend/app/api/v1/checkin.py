@@ -11,17 +11,15 @@ import base64
 import io
 import json
 
-try:
-    import face_recognition
-    import numpy as np
-    from PIL import Image
-    FACE_RECOGNITION_AVAILABLE = True
-except (ImportError, SystemExit):
-    # face_recognition calls quit() (raises SystemExit, not ImportError) when
-    # its data models package isn't installed — catch that too so a broken
-    # face_recognition install degrades this feature instead of killing the
-    # whole app at import time.
-    FACE_RECOGNITION_AVAILABLE = False
+import numpy as np
+from PIL import Image
+from app.core.face_engine import (
+    INSIGHTFACE_AVAILABLE,
+    encode_face,
+    embedding_to_json,
+    json_to_embedding,
+    find_best_match,
+)
 
 from app.database import get_db
 from app.redis_client import get_redis
@@ -75,8 +73,8 @@ async def enroll_face(
     _admin: User = Depends(require_admin),
 ):
     """Capture and store a face encoding for an employee."""
-    if not FACE_RECOGNITION_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Face recognition library not installed on this server")
+    if not INSIGHTFACE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face recognition not available on this server")
 
     result = await db.execute(select(User).where(User.id == payload.user_id))
     user = result.scalar_one_or_none()
@@ -90,14 +88,16 @@ async def enroll_face(
         image_bytes = base64.b64decode(image_data)
         pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         img_array = np.array(pil_image)
-        encodings = face_recognition.face_encodings(img_array)
+        embedding, face_count = encode_face(img_array)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process image: {e}")
 
-    if not encodings:
-        raise HTTPException(status_code=400, detail="No face detected in the image. Please try again.")
+    if face_count == 0:
+        raise HTTPException(status_code=400, detail="No face detected. Please look directly at the camera.")
+    if face_count > 1:
+        raise HTTPException(status_code=400, detail="Multiple faces detected. Please ensure only your face is visible.")
 
-    user.face_encoding = json.dumps(encodings[0].tolist())
+    user.face_encoding = embedding_to_json(embedding)
     user.is_face_enrolled = True
     await db.flush()
 
@@ -144,8 +144,8 @@ async def enroll_face_kiosk(
     The active QR session token acts as proof the request originates from
     a live, on-premise kiosk, not an arbitrary internet caller.
     """
-    if not FACE_RECOGNITION_AVAILABLE:
-        raise HTTPException(status_code=503, detail="Face recognition library not installed on this server")
+    if not INSIGHTFACE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face recognition not available on this server")
 
     # Validate the session token as the kiosk's credential
     token_data = decode_qr_token(payload.qr_token)
@@ -169,14 +169,16 @@ async def enroll_face_kiosk(
         image_bytes = base64.b64decode(image_data)
         pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         img_array = np.array(pil_image)
-        encodings = face_recognition.face_encodings(img_array)
+        embedding, face_count = encode_face(img_array)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to process image: {e}")
 
-    if not encodings:
+    if face_count == 0:
         raise HTTPException(status_code=400, detail="No face detected. Please look directly at the camera.")
+    if face_count > 1:
+        raise HTTPException(status_code=400, detail="Multiple faces detected. Please ensure only your face is visible.")
 
-    user.face_encoding = json.dumps(encodings[0].tolist())
+    user.face_encoding = embedding_to_json(embedding)
     user.is_face_enrolled = True
     await db.flush()
 
@@ -203,7 +205,7 @@ async def face_check_in(
     and run the same check-in/out logic as a QR scan.
     Returns {matched: false} when no face is recognised (not an error).
     """
-    if not FACE_RECOGNITION_AVAILABLE:
+    if not INSIGHTFACE_AVAILABLE:
         raise HTTPException(status_code=503, detail="Face recognition not available")
 
     # ── 1. Validate QR token (proves request comes from a live kiosk session) ──
@@ -223,7 +225,7 @@ async def face_check_in(
     if not session or not session.get("is_active"):
         raise HTTPException(status_code=400, detail="Attendance session is closed")
 
-    # ── 2. Decode incoming face image ─────────────────────────────────────────
+    # ── 2. Decode and encode incoming face ────────────────────────────────────
     try:
         image_data = payload.face_image
         if "," in image_data:
@@ -231,16 +233,13 @@ async def face_check_in(
         image_bytes = base64.b64decode(image_data)
         pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         incoming_array = np.array(pil_image)
-        incoming_encodings = face_recognition.face_encodings(incoming_array)
+        incoming_emb, face_count = encode_face(incoming_array)
     except Exception as e:
         logger.warning("face_scan_decode_failed", error=str(e))
         return {"matched": False}
 
-    if len(incoming_encodings) != 1:
-        # 0 = no face detected; 2+ = multiple people in frame, can't tell who to match
+    if incoming_emb is None:
         return {"matched": False}
-
-    incoming_encoding = incoming_encodings[0]
 
     # ── 3. Load all enrolled active employees ─────────────────────────────────
     enrolled_result = await db.execute(
@@ -255,36 +254,18 @@ async def face_check_in(
     if not enrolled_users:
         return {"matched": False}
 
-    # ── 4. Find closest match across ALL enrolled faces ──────────────────────
-    # Comparing against every encoding and picking the smallest distance (instead
-    # of stopping at the first one under the threshold) avoids misidentifying
-    # someone as a different enrolled employee when more than one face is
-    # within tolerance.
-    FACE_MATCH_TOLERANCE = 0.4
-    # Best match must be this much closer than the second-best to avoid
-    # near-tie false positives where two employees look similar enough to confuse.
-    FACE_MARGIN = 0.1
-    candidates: list[tuple[User, float]] = []
+    # ── 4. Match against all enrolled embeddings ──────────────────────────────
+    candidates = []
     for emp in enrolled_users:
-        try:
-            stored = np.array(json.loads(emp.face_encoding))
-            distance = face_recognition.face_distance([stored], incoming_encoding)[0]
-            candidates.append((emp, distance))
-        except Exception:
-            continue
+        emb = json_to_embedding(emp.face_encoding)
+        if emb is not None:
+            candidates.append((emp, emb))
 
-    if not candidates:
+    matched_user, score = find_best_match(incoming_emb, candidates)
+    if matched_user is None:
         return {"matched": False}
 
-    sorted_candidates = sorted(candidates, key=lambda c: c[1])
-    matched_user, best_distance = sorted_candidates[0]
-
-    if best_distance > FACE_MATCH_TOLERANCE:
-        return {"matched": False}
-
-    # Reject near-ties — if second-best is within FACE_MARGIN, not confident enough
-    if len(sorted_candidates) >= 2 and (sorted_candidates[1][1] - best_distance) < FACE_MARGIN:
-        return {"matched": False}
+    logger.info("face_match_found", employee_id=matched_user.employee_id, score=round(score, 3))
 
     # ── 5. Check-in / Check-out logic (mirrors normal scan) ──────────────────
     employee = matched_user
