@@ -236,7 +236,8 @@ async def face_check_in(
         logger.warning("face_scan_decode_failed", error=str(e))
         return {"matched": False}
 
-    if not incoming_encodings:
+    if len(incoming_encodings) != 1:
+        # 0 = no face detected; 2+ = multiple people in frame, can't tell who to match
         return {"matched": False}
 
     incoming_encoding = incoming_encodings[0]
@@ -260,6 +261,9 @@ async def face_check_in(
     # someone as a different enrolled employee when more than one face is
     # within tolerance.
     FACE_MATCH_TOLERANCE = 0.4
+    # Best match must be this much closer than the second-best to avoid
+    # near-tie false positives where two employees look similar enough to confuse.
+    FACE_MARGIN = 0.1
     candidates: list[tuple[User, float]] = []
     for emp in enrolled_users:
         try:
@@ -272,8 +276,14 @@ async def face_check_in(
     if not candidates:
         return {"matched": False}
 
-    matched_user, best_distance = min(candidates, key=lambda c: c[1])
+    sorted_candidates = sorted(candidates, key=lambda c: c[1])
+    matched_user, best_distance = sorted_candidates[0]
+
     if best_distance > FACE_MATCH_TOLERANCE:
+        return {"matched": False}
+
+    # Reject near-ties — if second-best is within FACE_MARGIN, not confident enough
+    if len(sorted_candidates) >= 2 and (sorted_candidates[1][1] - best_distance) < FACE_MARGIN:
         return {"matched": False}
 
     # ── 5. Check-in / Check-out logic (mirrors normal scan) ──────────────────
