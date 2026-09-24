@@ -16,8 +16,11 @@ from PIL import Image
 from app.core.face_engine import (
     INSIGHTFACE_AVAILABLE,
     encode_face,
+    encode_face_multi,
+    detect_face_only,
     embedding_to_json,
-    json_to_embedding,
+    embeddings_to_json,
+    json_to_embeddings,
     find_best_match,
 )
 
@@ -186,6 +189,116 @@ async def enroll_face_kiosk(
     return {"message": f"Face enrolled for {user.full_name}"}
 
 
+class DetectFaceRequest(BaseModel):
+    qr_token: str = Field(..., min_length=10)
+    face_image: str  # base64 JPEG (send small, e.g. 320×320 for speed)
+
+
+@router.post("/detect-face", status_code=200)
+@limiter.limit("120/minute")
+async def detect_face_endpoint(
+    request: Request,
+    payload: DetectFaceRequest,
+    redis: Redis = Depends(get_redis),
+):
+    """
+    Fast face-presence check for enrollment guidance polling.
+    Returns {detected, face_count} without running recognition.
+    """
+    if not INSIGHTFACE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face recognition not available")
+
+    token_data = decode_qr_token(payload.qr_token)
+    if not token_data or token_data.get("type") != QR_TYPE:
+        raise HTTPException(status_code=400, detail="Invalid session token")
+    if not await is_token_active(redis, payload.qr_token):
+        raise HTTPException(status_code=400, detail="Session token expired")
+
+    try:
+        image_data = payload.face_image
+        if "," in image_data:
+            image_data = image_data.split(",")[1]
+        image_bytes = base64.b64decode(image_data)
+        pil_image = Image.open(io.BytesIO(image_bytes)).convert("RGB").resize((320, 320))
+        img_array = np.array(pil_image)
+        detected, face_count = detect_face_only(img_array)
+    except Exception:
+        return {"detected": False, "face_count": 0}
+
+    return {"detected": detected, "face_count": face_count}
+
+
+class GuidedKioskEnrollRequest(BaseModel):
+    user_id: uuid.UUID
+    face_images: list[str] = Field(..., min_length=1, max_length=5)
+    qr_token: str
+
+
+@router.post("/enroll-kiosk-guided", status_code=200)
+@limiter.limit("10/minute")
+async def enroll_face_kiosk_guided(
+    request: Request,
+    payload: GuidedKioskEnrollRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """
+    Guided multi-angle kiosk enrollment — stores multiple embeddings per employee
+    for better recognition across head positions.
+    Requires 1–5 images; at least one must contain a detectable face.
+    """
+    if not INSIGHTFACE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Face recognition not available")
+
+    token_data = decode_qr_token(payload.qr_token)
+    if not token_data or token_data.get("type") != QR_TYPE:
+        raise HTTPException(status_code=400, detail="Invalid session token")
+    if not await is_token_active(redis, payload.qr_token):
+        raise HTTPException(status_code=400, detail="Session token expired")
+    session = await get_session(redis, token_data["session_id"])
+    if not session or not session.get("is_active"):
+        raise HTTPException(status_code=400, detail="No active attendance session")
+
+    result = await db.execute(select(User).where(User.id == payload.user_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    images = []
+    for b64 in payload.face_images:
+        try:
+            raw = b64.split(",")[1] if "," in b64 else b64
+            pil = Image.open(io.BytesIO(base64.b64decode(raw))).convert("RGB")
+            images.append(np.array(pil))
+        except Exception:
+            pass
+
+    if not images:
+        raise HTTPException(status_code=400, detail="Could not decode any image")
+
+    embeddings = encode_face_multi(images)
+    if not embeddings:
+        raise HTTPException(
+            status_code=400,
+            detail="No face detected in any of the captured images. Please try again.",
+        )
+
+    user.face_encoding = embeddings_to_json(embeddings)
+    user.is_face_enrolled = True
+    await db.flush()
+
+    logger.info(
+        "face_enrolled_kiosk_guided",
+        user_id=str(user.id),
+        employee_id=user.employee_id,
+        angles=len(embeddings),
+    )
+    return {
+        "message": f"Face ID set up for {user.full_name} ({len(embeddings)} angle(s) captured)",
+        "angles": len(embeddings),
+    }
+
+
 class FaceCheckinRequest(BaseModel):
     qr_token: str = Field(..., min_length=10)
     face_image: str  # base64 JPEG
@@ -257,9 +370,9 @@ async def face_check_in(
     # ── 4. Match against all enrolled embeddings ──────────────────────────────
     candidates = []
     for emp in enrolled_users:
-        emb = json_to_embedding(emp.face_encoding)
-        if emb is not None:
-            candidates.append((emp, emb))
+        embs = json_to_embeddings(emp.face_encoding)
+        if embs:
+            candidates.append((emp, embs))
 
     matched_user, score = find_best_match(incoming_emb, candidates)
     if matched_user is None:

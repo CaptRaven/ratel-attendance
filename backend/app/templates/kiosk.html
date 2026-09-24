@@ -447,6 +447,166 @@
       background: #f1f5f9;
     }
 
+    /* ── Guided Face ID Enrollment Overlay ───────────────────────────── */
+    .enroll-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 12, 36, 0.97);
+      backdrop-filter: blur(24px);
+      z-index: 1000;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .enroll-header-text {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .enroll-sub-text {
+      font-size: 14px;
+      color: rgba(255,255,255,0.55);
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .enroll-camera-wrap {
+      position: relative;
+      width: 280px;
+      height: 348px;
+      border-radius: 20px;
+      overflow: hidden;
+      margin-bottom: 22px;
+      background: #0a0f1e;
+    }
+
+    #enroll-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .enroll-guide-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .enroll-flash {
+      position: absolute;
+      inset: 0;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s ease;
+    }
+
+    .enroll-flash.active { opacity: 0.65; }
+
+    @keyframes enrollArcSpin {
+      from { stroke-dashoffset: 0; }
+      to   { stroke-dashoffset: -740; }
+    }
+
+    .enroll-arc-spin {
+      animation: enrollArcSpin 2s linear infinite;
+    }
+
+    .enroll-dots {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .enroll-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .enroll-dot.completed {
+      background: #22c55e;
+      box-shadow: 0 0 8px rgba(34,197,94,0.6);
+    }
+
+    .enroll-dot.active {
+      background: #38bdf8;
+      box-shadow: 0 0 10px rgba(56,189,248,0.7);
+      transform: scale(1.3);
+    }
+
+    .enroll-instruction-wrap {
+      min-height: 52px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 14px;
+    }
+
+    .enroll-step-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .enroll-instruction-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      text-align: center;
+    }
+
+    .enroll-hold-track {
+      width: 220px;
+      height: 4px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 28px;
+    }
+
+    .enroll-hold-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #22c55e, #38bdf8);
+      border-radius: 999px;
+      transition: width 0.1s linear;
+    }
+
+    .enroll-cancel-btn {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.6);
+      border-radius: 14px;
+      padding: 12px 36px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+
+    .enroll-cancel-btn:hover {
+      background: rgba(255,255,255,0.13);
+      color: rgba(255,255,255,0.85);
+    }
+
     /* Live Attendance Feed */
     .attendee-section {
       width: 100%;
@@ -597,38 +757,6 @@
       box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
     }
 
-    .enroll-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(14, 44, 82, 0.95);
-      backdrop-filter: blur(20px);
-      z-index: 1000;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      padding: 24px;
-      text-align: center;
-    }
-
-    .enroll-video-wrapper {
-      position: relative;
-      width: 280px;
-      height: 280px;
-      border-radius: 50%;
-      overflow: hidden;
-      border: 4px solid var(--primary);
-      margin-bottom: 24px;
-      box-shadow: 0 0 40px rgba(79, 70, 229, 0.4);
-    }
-
-    #enroll-video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transform: scaleX(-1);
-    }
   </style>
 </head>
 <body>
@@ -788,7 +916,7 @@
     <div class="enroll-prompt-box" style="text-align:center;">
       <div style="font-size:18px; font-weight:800; margin-bottom:8px; color:var(--text-main);">Set Up Face ID</div>
       <div style="font-size:13px; color:var(--text-muted); margin-bottom:20px; line-height:1.5;">
-        Type your Employee ID, then look directly at the camera.
+        Enter your Employee ID. We'll guide you through 3 quick steps to capture your face from multiple angles.
       </div>
       <input type="text" id="enroll-prompt-id" placeholder="e.g. EMP-001"
         autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
@@ -801,14 +929,56 @@
     </div>
   </div>
 
-  <!-- Fullscreen Face Enrollment Overlay -->
+  <!-- Guided Face ID Enrollment Overlay -->
   <div id="enroll-overlay" class="enroll-overlay">
-    <div class="enroll-status" id="enroll-status" style="font-size:20px; font-weight:800; margin-bottom:16px;">Hi John! Let's set up your Face ID</div>
-    <div class="enroll-video-wrapper">
+    <div class="enroll-header-text">Hi <span id="enroll-name-display">there</span>!</div>
+    <div class="enroll-sub-text">Setting up your Face ID — follow the steps below</div>
+
+    <!-- Camera with SVG face guide -->
+    <div class="enroll-camera-wrap">
       <video id="enroll-video" autoplay playsinline muted></video>
+
+      <!-- SVG overlay: dim + oval guide + spinning arc -->
+      <svg class="enroll-guide-svg" viewBox="0 0 280 348" xmlns="http://www.w3.org/2000/svg">
+        <!-- Dimmed area outside the oval (evenodd punches the hole) -->
+        <path id="enroll-dim-path"
+          d="M 0,0 H 280 V 348 H 0 Z M 32,172 a 108,136 0 1,0 216,0 a 108,136 0 1,0 -216,0 Z"
+          fill="rgba(5,12,36,0.58)" fill-rule="evenodd"/>
+        <!-- Oval border — color driven by JS -->
+        <ellipse id="enroll-oval"
+          cx="140" cy="172" rx="110" ry="138"
+          fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="2.5"/>
+        <!-- Spinning detection arc (hidden when face detected) -->
+        <ellipse id="enroll-scan-arc" class="enroll-arc-spin"
+          cx="140" cy="172" rx="115" ry="143"
+          fill="none"
+          stroke="rgba(255,255,255,0.55)" stroke-width="3" stroke-linecap="round"
+          stroke-dasharray="100 640"/>
+      </svg>
+
+      <!-- White flash on capture -->
+      <div id="enroll-flash" class="enroll-flash"></div>
     </div>
-    <div style="font-size:14px; color:rgba(255,255,255,0.7); max-width:320px; line-height:1.5;">Look directly into the camera while we register your Face ID.</div>
-    <div id="enroll-countdown" style="font-size:36px; font-weight:800; margin-top:20px; color:#38bdf8;"></div>
+
+    <!-- Step progress dots -->
+    <div class="enroll-dots">
+      <div class="enroll-dot active" id="enroll-dot-1"></div>
+      <div class="enroll-dot" id="enroll-dot-2"></div>
+      <div class="enroll-dot" id="enroll-dot-3"></div>
+    </div>
+
+    <!-- Instruction area -->
+    <div class="enroll-instruction-wrap">
+      <div class="enroll-step-label" id="enroll-step-label">STEP 1 OF 3</div>
+      <div class="enroll-instruction-text" id="enroll-instruction">Position your face in the oval</div>
+    </div>
+
+    <!-- Hold-still progress bar (fills as face stays in frame) -->
+    <div class="enroll-hold-track">
+      <div class="enroll-hold-fill" id="enroll-hold-fill"></div>
+    </div>
+
+    <button class="enroll-cancel-btn" onclick="stopEnrollment(null)">Cancel</button>
   </div>
 
   <script>
@@ -1258,87 +1428,214 @@
         if (e.key === "Enter") confirmEnrollPrompt();
       });
 
-    // ── Face Enrollment ───────────────────────────────────────────────────
+    // ── Guided Face ID Enrollment ─────────────────────────────────────────
+    const ENROLL_TOTAL_STEPS = 3;
+    const ENROLL_HOLD_MS = 1600;   // how long face must be held still before auto-capture
+    const ENROLL_POLL_MS = 900;    // how often to poll the detect-face endpoint
+
+    const ENROLL_STEP_INSTRUCTIONS = [
+      "",                                       // unused (index 0)
+      "Look straight ahead",                    // step 1
+      "Slowly turn your head to the left",      // step 2
+      "Slowly turn your head to the right",     // step 3
+    ];
+
+    let enrollUserId = null;
+    let enrollStep = 0;
+    let enrollFrames = [];
+    let enrollDetectInterval = null;
+    let enrollHoldStart = null;
+
     async function startEnrollment(userId, name) {
       if (enrollmentActive) return;
+      enrollUserId = userId;
+      enrollStep = 0;
+      enrollFrames = [];
       enrollmentActive = true;
 
-      const overlay = document.getElementById("enroll-overlay");
-      const statusText = document.getElementById("enroll-status");
-      const video = document.getElementById("enroll-video");
-      const countdownEl = document.getElementById("enroll-countdown");
-
-      statusText.textContent = `Hi ${name.split(" ")[0]}! Let's set up your Face ID`;
-      overlay.style.display = "flex";
+      document.getElementById("enroll-name-display").textContent = name.split(" ")[0];
+      document.getElementById("enroll-overlay").style.display = "flex";
 
       try {
         enrollmentStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 640, facingMode: "user" }
         });
-        video.srcObject = enrollmentStream;
-
-        let count = 3;
-        countdownEl.textContent = count;
-        const timer = setInterval(async () => {
-          count--;
-          if (count > 0) {
-            countdownEl.textContent = count;
-          } else {
-            clearInterval(timer);
-            countdownEl.textContent = "Capturing...";
-            await captureFace(userId);
-          }
-        }, 1000);
-
+        document.getElementById("enroll-video").srcObject = enrollmentStream;
+        await new Promise(r => setTimeout(r, 600)); // let camera warm up
+        _enrollNextStep();
       } catch (err) {
-        console.error("Camera access failed", err);
-        stopEnrollment();
+        console.error("Camera access failed:", err);
+        stopEnrollment("Camera access denied");
       }
     }
 
-    async function captureFace(userId) {
+    function _enrollNextStep() {
+      enrollStep++;
+      if (enrollStep > ENROLL_TOTAL_STEPS) {
+        _submitEnrollment();
+        return;
+      }
+      _setEnrollStepUI();
+      _setOvalState("searching");
+      enrollHoldStart = null;
+      document.getElementById("enroll-hold-fill").style.width = "0%";
+
+      if (enrollDetectInterval) clearInterval(enrollDetectInterval);
+      enrollDetectInterval = setInterval(_pollFaceDetection, ENROLL_POLL_MS);
+    }
+
+    function _setEnrollStepUI() {
+      document.getElementById("enroll-step-label").textContent =
+        `STEP ${enrollStep} OF ${ENROLL_TOTAL_STEPS}`;
+      document.getElementById("enroll-instruction").textContent =
+        ENROLL_STEP_INSTRUCTIONS[enrollStep] || "Position your face in the oval";
+
+      for (let i = 1; i <= ENROLL_TOTAL_STEPS; i++) {
+        const dot = document.getElementById(`enroll-dot-${i}`);
+        if (!dot) continue;
+        dot.classList.remove("active", "completed");
+        if (i < enrollStep) dot.classList.add("completed");
+        else if (i === enrollStep) dot.classList.add("active");
+      }
+    }
+
+    function _setOvalState(state) {
+      const oval = document.getElementById("enroll-oval");
+      const arc  = document.getElementById("enroll-scan-arc");
+      if (!oval || !arc) return;
+
+      if (state === "detected") {
+        oval.setAttribute("stroke", "#22c55e");
+        arc.setAttribute("stroke", "rgba(34,197,94,0.0)"); // hide arc when face found
+      } else if (state === "capturing") {
+        oval.setAttribute("stroke", "#38bdf8");
+        arc.setAttribute("stroke", "rgba(56,189,248,0.0)");
+      } else { // searching
+        oval.setAttribute("stroke", "rgba(255,255,255,0.3)");
+        arc.setAttribute("stroke", "rgba(255,255,255,0.55)");
+      }
+    }
+
+    function _captureFrame() {
       const video = document.getElementById("enroll-video");
       const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 640;
       const ctx = canvas.getContext("2d");
       ctx.translate(canvas.width, 0);
       ctx.scale(-1, 1);
       ctx.drawImage(video, 0, 0);
+      return canvas.toDataURL("image/jpeg", 0.88);
+    }
 
-      const imageData = canvas.toDataURL("image/jpeg", 0.9);
+    async function _pollFaceDetection() {
+      if (!enrollmentActive || !enrollmentStream || !qrToken) return;
+      const video = document.getElementById("enroll-video");
+      if (!video || video.readyState < 2) return;
+
+      // Send a small (320×320) frame for speed
+      const canvas = document.createElement("canvas");
+      canvas.width = 320; canvas.height = 320;
+      const ctx = canvas.getContext("2d");
+      ctx.translate(320, 0); ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, 320, 320);
+      const smallFrame = canvas.toDataURL("image/jpeg", 0.75);
 
       try {
-        const res = await fetch(`${API_BASE}/checkin/enroll-kiosk`, {
+        const res = await fetch(`${API_BASE}/checkin/detect-face`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, face_image: imageData, qr_token: qrToken }),
+          body: JSON.stringify({ qr_token: qrToken, face_image: smallFrame }),
         });
+        const data = await res.json().catch(() => ({ detected: false }));
 
-        const data = await res.json().catch(() => ({}));
+        if (!enrollmentActive) return; // cancelled while waiting
 
-        if (res.ok) {
-          document.getElementById("enroll-status").textContent = "Face ID saved!";
-          document.getElementById("enroll-countdown").innerHTML = "✓";
-          setTimeout(stopEnrollment, 2000);
+        if (data.detected) {
+          _setOvalState("detected");
+          if (!enrollHoldStart) enrollHoldStart = Date.now();
+          const elapsed = Date.now() - enrollHoldStart;
+          const pct = Math.min((elapsed / ENROLL_HOLD_MS) * 100, 100);
+          document.getElementById("enroll-hold-fill").style.width = pct + "%";
+          document.getElementById("enroll-instruction").textContent = "Hold still…";
+
+          if (elapsed >= ENROLL_HOLD_MS) {
+            // Auto-capture this step
+            if (enrollDetectInterval) { clearInterval(enrollDetectInterval); enrollDetectInterval = null; }
+            enrollHoldStart = null;
+            _setOvalState("capturing");
+            enrollFrames.push(_captureFrame());
+
+            // Flash
+            const flash = document.getElementById("enroll-flash");
+            flash.classList.add("active");
+            setTimeout(() => { flash.classList.remove("active"); }, 300);
+
+            setTimeout(() => _enrollNextStep(), 700);
+          }
         } else {
-          const msg = data.detail || "No face detected";
-          document.getElementById("enroll-status").textContent = msg;
-          document.getElementById("enroll-countdown").textContent = "✕";
-          setTimeout(stopEnrollment, 2500);
+          // No face — reset hold timer
+          _setOvalState("searching");
+          enrollHoldStart = null;
+          document.getElementById("enroll-hold-fill").style.width = "0%";
+          document.getElementById("enroll-instruction").textContent =
+            ENROLL_STEP_INSTRUCTIONS[enrollStep] || "Position your face in the oval";
         }
-      } catch (err) {
-        document.getElementById("enroll-status").textContent = "Camera error — try again later";
-        setTimeout(stopEnrollment, 2000);
+      } catch (e) {
+        // Network blip — keep trying
       }
     }
 
-    function stopEnrollment() {
+    async function _submitEnrollment() {
+      if (enrollDetectInterval) { clearInterval(enrollDetectInterval); enrollDetectInterval = null; }
+      _setOvalState("capturing");
+      document.getElementById("enroll-step-label").textContent = "SAVING";
+      document.getElementById("enroll-instruction").textContent = "Saving your Face ID…";
+      document.getElementById("enroll-hold-fill").style.width = "100%";
+
+      try {
+        const res = await fetch(`${API_BASE}/checkin/enroll-kiosk-guided`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: enrollUserId,
+            face_images: enrollFrames,
+            qr_token: qrToken,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok) {
+          document.getElementById("enroll-step-label").textContent = "";
+          document.getElementById("enroll-instruction").textContent = "Face ID set up!";
+          document.getElementById("enroll-oval").setAttribute("stroke", "#22c55e");
+          // Mark all dots complete
+          for (let i = 1; i <= ENROLL_TOTAL_STEPS; i++) {
+            const d = document.getElementById(`enroll-dot-${i}`);
+            if (d) { d.classList.remove("active"); d.classList.add("completed"); }
+          }
+          setTimeout(() => stopEnrollment(null), 2200);
+        } else {
+          document.getElementById("enroll-instruction").textContent =
+            data.detail || "Setup failed — please try again";
+          setTimeout(() => stopEnrollment(null), 2800);
+        }
+      } catch (err) {
+        document.getElementById("enroll-instruction").textContent = "Network error — try again";
+        setTimeout(() => stopEnrollment(null), 2500);
+      }
+    }
+
+    function stopEnrollment(_msg) {
+      if (enrollDetectInterval) { clearInterval(enrollDetectInterval); enrollDetectInterval = null; }
       enrollmentActive = false;
+      enrollUserId = null;
+      enrollStep = 0;
+      enrollFrames = [];
+      enrollHoldStart = null;
       document.getElementById("enroll-overlay").style.display = "none";
-      document.getElementById("enroll-countdown").textContent = "";
       if (enrollmentStream) {
-        enrollmentStream.getTracks().forEach(track => track.stop());
+        enrollmentStream.getTracks().forEach(t => t.stop());
         enrollmentStream = null;
       }
     }
