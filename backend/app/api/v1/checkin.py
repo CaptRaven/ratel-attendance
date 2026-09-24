@@ -259,7 +259,7 @@ async def face_check_in(
     # of stopping at the first one under the threshold) avoids misidentifying
     # someone as a different enrolled employee when more than one face is
     # within tolerance.
-    FACE_MATCH_TOLERANCE = 0.5
+    FACE_MATCH_TOLERANCE = 0.4
     candidates: list[tuple[User, float]] = []
     for emp in enrolled_users:
         try:
