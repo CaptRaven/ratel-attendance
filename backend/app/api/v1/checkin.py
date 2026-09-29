@@ -495,6 +495,158 @@ async def face_check_in(
     }
 
 
+class IDCardCheckinRequest(BaseModel):
+    id_card_token: str = Field(..., min_length=10)  # full QR content: "ratel:{token}"
+    qr_token: str = Field(..., min_length=10)        # kiosk session token
+
+
+@router.post("/id-card", status_code=200)
+@limiter.limit("60/minute")
+async def id_card_check_in(
+    request: Request,
+    payload: IDCardCheckinRequest,
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    """
+    Kiosk ID-card check-in: scan the QR code printed on an employee's ID card.
+    Uses the current session qr_token as proof the request comes from a live kiosk.
+    No work report required (same as face check-in).
+    """
+    token_data = decode_qr_token(payload.qr_token)
+    if not token_data or token_data.get("type") != QR_TYPE:
+        raise HTTPException(status_code=400, detail="Invalid session token")
+    if not await is_token_active(redis, payload.qr_token):
+        raise HTTPException(status_code=400, detail="Session token expired")
+
+    session_id = token_data["session_id"]
+    location_id = token_data["location_id"]
+    shift = token_data.get("shift")
+
+    session = await get_session(redis, session_id)
+    if not session or not session.get("is_active"):
+        raise HTTPException(status_code=400, detail="Attendance session is closed")
+
+    # Strip "ratel:" prefix if present
+    raw_token = payload.id_card_token
+    if raw_token.startswith("ratel:"):
+        raw_token = raw_token[len("ratel:"):]
+
+    result = await db.execute(
+        select(User).where(
+            User.id_card_token == raw_token,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    employee = result.scalar_one_or_none()
+    if not employee:
+        return {"matched": False, "reason": "id_card_not_recognized"}
+
+    now = datetime.now(timezone.utc)
+
+    existing = await db.execute(
+        select(Attendance)
+        .where(
+            Attendance.employee_id == employee.id,
+            Attendance.session_id == session_id,
+        )
+        .limit(1)
+    )
+    attendance = existing.scalar_one_or_none()
+
+    if not attendance:
+        cutoff = get_business_day_start(now)
+        night_cutoff = get_night_shift_lookback_start(now)
+        recent_result = await db.execute(
+            select(Attendance)
+            .where(
+                Attendance.employee_id == employee.id,
+                Attendance.check_status == CheckStatus.CHECKED_IN,
+                or_(
+                    Attendance.checked_in_at >= cutoff,
+                    and_(Attendance.shift == "night", Attendance.checked_in_at >= night_cutoff),
+                ),
+            )
+            .order_by(Attendance.checked_in_at.desc())
+            .limit(1)
+        )
+        attendance = recent_result.scalar_one_or_none()
+
+    if not attendance:
+        attendance = Attendance(
+            employee_id=employee.id,
+            session_id=session_id,
+            location_id=location_id,
+            status=AttendanceStatus.PRESENT,
+            check_status=CheckStatus.CHECKED_IN,
+            shift=shift,
+            token_used="id-card",
+        )
+        db.add(attendance)
+        try:
+            await db.flush()
+            await db.refresh(attendance)
+            action = "checked_in"
+        except IntegrityError:
+            await db.rollback()
+            retry = await db.execute(
+                select(Attendance)
+                .where(Attendance.employee_id == employee.id, Attendance.session_id == session_id)
+                .limit(1)
+            )
+            attendance = retry.scalar_one_or_none()
+            if attendance is None:
+                raise
+            action = "checked_in"
+
+    elif attendance.check_status == CheckStatus.CHECKED_IN:
+        hours = round((now - attendance.checked_in_at).total_seconds() / 3600, 2)
+        attendance.checked_out_at = now
+        attendance.hours_clocked = hours
+        attendance.check_status = CheckStatus.CHECKED_OUT
+        await db.flush()
+        action = "checked_out"
+
+    else:
+        return {
+            "matched": True,
+            "already_done": True,
+            "employee": employee.full_name,
+            "action": "already_checked_out",
+        }
+
+    await publish_checkin_event(
+        redis=redis,
+        session_id=session_id,
+        event={
+            "employee": employee.full_name,
+            "employee_id": employee.employee_id,
+            "user_id": str(employee.id),
+            "session_id": session_id,
+            "status": attendance.status,
+            "action": action,
+            "checked_in_at": attendance.checked_in_at.isoformat(),
+            "checked_out_at": attendance.checked_out_at.isoformat() if attendance.checked_out_at else None,
+            "needs_enrollment": False,
+        },
+    )
+
+    logger.info("id_card_checkin", employee_id=employee.employee_id, action=action)
+
+    return {
+        "matched": True,
+        "action": action,
+        "employee": employee.full_name,
+        "employee_id": employee.employee_id,
+        "user_id": str(employee.id),
+        "session": session["name"],
+        "status": attendance.status,
+        "checked_in_at": attendance.checked_in_at.isoformat(),
+        "checked_out_at": attendance.checked_out_at.isoformat() if attendance.checked_out_at else None,
+        "hours_clocked": attendance.hours_clocked,
+    }
+
+
 @router.get("/resolve-fingerprint")
 @limiter.limit("100/minute")
 async def resolve_fingerprint(

@@ -19,6 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -447,6 +448,45 @@
       background: #f1f5f9;
     }
 
+    /* ID Card Scan Hint */
+    .id-card-hint {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-top: 10px;
+      padding: 8px 14px;
+      background: rgba(79, 70, 229, 0.04);
+      border: 1px solid rgba(79, 70, 229, 0.1);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .id-card-scan-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-soft);
+      flex-shrink: 0;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+
+    .id-card-scan-dot.scanning {
+      background: #22c55e;
+      box-shadow: 0 0 7px rgba(34, 197, 94, 0.55);
+      animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .id-card-scan-dot.detected {
+      background: #38bdf8;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.75);
+      animation: none;
+    }
+
     /* ── Guided Face ID Enrollment Overlay ───────────────────────────── */
     .enroll-overlay {
       position: fixed;
@@ -868,6 +908,11 @@
             Set Up Face ID
           </button>
         </div>
+
+        <div class="id-card-hint">
+          <div class="id-card-scan-dot" id="id-card-scan-dot"></div>
+          <span>Hold ID card to camera to check in</span>
+        </div>
       </div>
 
       <!-- Live Attendance Feed -->
@@ -1006,6 +1051,11 @@
     let faceStream = null;
     let faceCapturing = false;
 
+    // ID card scan state
+    let idCardScanInterval = null;
+    let idCardCooldownUntil = 0;
+    let idCardLastToken = null;
+
     const SHIFTS = {
       morning: { start: 6, end: 15, label: "Morning" },
       evening: { start: 15, end: 22, label: "Evening" },
@@ -1125,16 +1175,18 @@
       if (faceStream) return;
       try {
         faceStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 320, height: 320, facingMode: "user" }
+          video: { width: 640, height: 480, facingMode: "user" }
         });
         document.getElementById("face-video").srcObject = faceStream;
         document.getElementById("face-panel").style.display = "flex";
+        startIdCardScanning();
       } catch (err) {
         console.warn("Face scan camera unavailable:", err);
       }
     }
 
     function stopFaceScan() {
+      stopIdCardScanning();
       if (faceStream) {
         faceStream.getTracks().forEach(t => t.stop());
         faceStream = null;
@@ -1142,6 +1194,74 @@
       document.getElementById("face-panel").style.display = "none";
       const toast = document.getElementById("face-result-toast");
       if (toast) toast.classList.remove("visible");
+    }
+
+    // ── ID Card QR Scanning ────────────────────────────────────────────────
+    function startIdCardScanning() {
+      if (idCardScanInterval || typeof jsQR === "undefined") return;
+      const dot = document.getElementById("id-card-scan-dot");
+      if (dot) dot.classList.add("scanning");
+      idCardScanInterval = setInterval(_processIdCardFrame, 500);
+    }
+
+    function stopIdCardScanning() {
+      if (idCardScanInterval) { clearInterval(idCardScanInterval); idCardScanInterval = null; }
+      const dot = document.getElementById("id-card-scan-dot");
+      if (dot) dot.classList.remove("scanning", "detected");
+    }
+
+    async function _processIdCardFrame() {
+      if (!faceStream || !qrToken || Date.now() < idCardCooldownUntil || enrollmentActive) return;
+      const video = document.getElementById("face-video");
+      if (!video || video.readyState < 2) return;
+
+      // Draw raw (un-mirrored) frame so QR code is in its natural orientation
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0);
+
+      let code;
+      try {
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        });
+      } catch (e) { return; }
+
+      if (!code || !code.data.startsWith("ratel:")) return;
+
+      // Deduplicate — same token for 4 s
+      if (code.data === idCardLastToken) return;
+      idCardLastToken = code.data;
+      idCardCooldownUntil = Date.now() + 4000;
+
+      // Flash the indicator
+      const dot = document.getElementById("id-card-scan-dot");
+      if (dot) { dot.classList.remove("scanning"); dot.classList.add("detected"); }
+
+      try {
+        const res = await fetch(`${API_BASE}/checkin/id-card`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id_card_token: code.data, qr_token: qrToken }),
+        });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.matched && !data.already_done) {
+          showFaceResult(data);
+        } else if (res.ok && data.matched && data.already_done) {
+          // silently acknowledged
+        }
+        // 404 / unrecognised — ignore silently, keep scanning
+      } catch (e) { /* network blip */ }
+
+      setTimeout(() => {
+        const d = document.getElementById("id-card-scan-dot");
+        if (d) { d.classList.remove("detected"); d.classList.add("scanning"); }
+        idCardLastToken = null; // allow re-scan after cooldown
+      }, 4000);
     }
 
     async function handleFaceButtonClick() {
