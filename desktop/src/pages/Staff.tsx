@@ -11,6 +11,7 @@ import {
   getEmployees, createEmployee, updateEmployee, deactivateEmployee, activateEmployee, purgeEmployee,
   clearFaceEnrollment, getEmployeeDetail, uploadRefereePDF, getRefereePdfUrl, deleteRefereePDF,
   uploadEmployeePicture, deleteEmployeePicture, getProfilePictureUrl,
+  downloadIdCardQr, downloadAllIdCardQrs,
 } from "@/lib/api";
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
@@ -600,6 +601,29 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                     <Download size={16} />
                     PDF
                   </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await downloadAllIdCardQrs();
+                      } catch {
+                        alert("Failed to download QR codes. Please try again.");
+                      }
+                    }}
+                    title="Download ID Card QR codes (ZIP)"
+                    style={{
+                      ...s.btnGhost,
+                      padding: "8px 12px",
+                      background: "rgba(5,150,105,0.1)",
+                      color: "#059669",
+                      borderColor: "rgba(5,150,105,0.3)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <Download size={16} />
+                    ID Card QRs
+                  </button>
                 </div>
               )}
               <button
@@ -789,6 +813,27 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                           }}
                         >
                           <Edit2 size={14} />
+                        </button>
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await downloadIdCardQr(emp.employee_id, emp.full_name);
+                            } catch {
+                              alert("Failed to download QR code.");
+                            }
+                          }}
+                          title="Download ID Card QR"
+                          style={{
+                            background: "rgba(5,150,105,0.1)",
+                            border: "1px solid rgba(5,150,105,0.3)",
+                            color: "#059669", borderRadius: "8px",
+                            padding: "6px", fontSize: "11px",
+                            cursor: "pointer", fontWeight: "600",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}
+                        >
+                          <Download size={14} />
                         </button>
                         {emp.is_face_enrolled && (
                           <button

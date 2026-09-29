@@ -88,6 +88,11 @@ class User(Base):
         Boolean, default=False, nullable=False
     )
 
+    # ID Card QR
+    id_card_token: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, unique=True, index=True
+    )
+
     department: Mapped[Optional["Department"]] = relationship(  # noqa: F821
         "Department",
         back_populates="employees",

@@ -2,8 +2,10 @@ import os
 import re
 import io
 import time
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from fastapi.responses import FileResponse
+import secrets
+import zipfile
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Request
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, distinct
 from app.database import get_db
@@ -14,11 +16,156 @@ from app.schemas.user import UserResponse, UserCreate, UserUpdate
 from app.api.deps import require_admin
 from app.core.security import hash_password
 from app.core.logging import logger
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter(prefix="/employees", tags=["Employees"])
+limiter = Limiter(key_func=get_remote_address)
 
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "uploads", "referees")
 AVATAR_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "static", "uploads", "avatars")
+
+# ── ID Card QR helpers ────────────────────────────────────────────────────────
+
+def _generate_id_card_token() -> str:
+    return secrets.token_hex(24)  # 48-char hex, 192-bit entropy
+
+
+def _build_qr_png(employee: User) -> bytes:
+    """
+    Render a clean PNG suitable for an ID card designer.
+    Layout: company label → QR code → employee name → employee ID
+    """
+    import qrcode
+    from PIL import Image, ImageDraw, ImageFont
+
+    qr_content = f"ratel:{employee.id_card_token}"
+
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=12,
+        border=3,
+    )
+    qr.add_data(qr_content)
+    qr.make(fit=True)
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
+
+    qr_w, qr_h = qr_img.size
+    padding = 28
+    header_h = 52
+    footer_h = 72
+    canvas_w = qr_w + padding * 2
+    canvas_h = qr_h + padding * 2 + header_h + footer_h
+
+    canvas = Image.new("RGBA", (canvas_w, canvas_h), (255, 255, 255, 255))
+    draw = ImageDraw.Draw(canvas)
+
+    # Header background
+    draw.rectangle([0, 0, canvas_w, header_h], fill=(15, 23, 42, 255))
+    try:
+        font_header = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+        font_name   = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 20)
+        font_id     = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+    except Exception:
+        font_header = font_name = font_id = ImageFont.load_default()
+
+    header_text = "RATEL PLUS ATTENDANCE"
+    bbox = draw.textbbox((0, 0), header_text, font=font_header)
+    tx = (canvas_w - (bbox[2] - bbox[0])) // 2
+    ty = (header_h - (bbox[3] - bbox[1])) // 2
+    draw.text((tx, ty), header_text, fill=(255, 255, 255, 255), font=font_header)
+
+    # QR code
+    canvas.paste(qr_img, (padding, header_h + padding), qr_img)
+
+    # Footer: name + employee ID
+    footer_y = header_h + padding + qr_h + padding // 2
+    name_bbox = draw.textbbox((0, 0), employee.full_name, font=font_name)
+    nx = (canvas_w - (name_bbox[2] - name_bbox[0])) // 2
+    draw.text((nx, footer_y), employee.full_name, fill=(15, 23, 42, 255), font=font_name)
+
+    id_text = employee.employee_id
+    id_bbox = draw.textbbox((0, 0), id_text, font=font_id)
+    ix = (canvas_w - (id_bbox[2] - id_bbox[0])) // 2
+    draw.text((ix, footer_y + 28), id_text, fill=(100, 116, 139, 255), font=font_id)
+
+    buf = io.BytesIO()
+    canvas.convert("RGB").save(buf, format="PNG", dpi=(300, 300))
+    buf.seek(0)
+    return buf.read()
+
+
+async def _ensure_token(employee: User, db: AsyncSession) -> None:
+    """Assign an id_card_token if the employee doesn't have one yet."""
+    if not employee.id_card_token:
+        employee.id_card_token = _generate_id_card_token()
+        await db.flush()
+
+
+# ── ID Card QR endpoints ──────────────────────────────────────────────────────
+
+@router.get("/{employee_id}/id-card-qr")
+@limiter.limit("60/minute")
+async def get_id_card_qr(
+    request: Request,
+    employee_id: str,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Download a print-ready QR code PNG for one employee's ID card.
+    Generates and stores an id_card_token on first call.
+    """
+    result = await db.execute(
+        select(User).where(User.employee_id == employee_id, User.is_active == True)  # noqa: E712
+    )
+    employee = result.scalar_one_or_none()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    await _ensure_token(employee, db)
+    png_bytes = _build_qr_png(employee)
+    safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", employee.full_name)
+    filename = f"{employee.employee_id}_{safe_name}.png"
+
+    return StreamingResponse(
+        io.BytesIO(png_bytes),
+        media_type="image/png",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/id-card-qrs/all")
+@limiter.limit("10/minute")
+async def get_all_id_card_qrs(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """
+    Download a ZIP containing one PNG per active employee.
+    Each file is named {employee_id}_{full_name}.png
+    """
+    result = await db.execute(
+        select(User).where(User.is_active == True).order_by(User.employee_id)  # noqa: E712
+    )
+    employees = result.scalars().all()
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for emp in employees:
+            await _ensure_token(emp, db)
+            png_bytes = _build_qr_png(emp)
+            safe_name = re.sub(r"[^a-zA-Z0-9_\-]", "_", emp.full_name)
+            zf.writestr(f"{emp.employee_id}_{safe_name}.png", png_bytes)
+
+    zip_buf.seek(0)
+    return StreamingResponse(
+        zip_buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="ratel_id_card_qrcodes.zip"'},
+    )
 
 
 def _clean_ocr_name(val: str) -> str:

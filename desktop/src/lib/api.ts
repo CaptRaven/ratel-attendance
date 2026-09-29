@@ -369,6 +369,27 @@ export const clearFaceEnrollment = async (user_id: string): Promise<{ message: s
   return res.data;
 };
 
+export const downloadIdCardQr = async (employee_id: string, full_name: string): Promise<void> => {
+  const res = await api.get(`/employees/${employee_id}/id-card-qr`, { responseType: "blob" });
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement("a");
+  a.href = url;
+  const safeName = full_name.replace(/[^a-zA-Z0-9_\-]/g, "_");
+  a.download = `${employee_id}_${safeName}.png`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const downloadAllIdCardQrs = async (): Promise<void> => {
+  const res = await api.get("/employees/id-card-qrs/all", { responseType: "blob" });
+  const url = URL.createObjectURL(res.data);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ratel_id_card_qrcodes.zip";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export const clearAllAttendance = async (): Promise<{ message: string }> => {
   const res = await api.delete("/reports/clear");
   return res.data;

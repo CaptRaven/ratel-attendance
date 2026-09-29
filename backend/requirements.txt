@@ -23,6 +23,7 @@ onnxruntime>=1.16.0
 opencv-python-headless>=4.8.0
 numpy>=1.24.0
 Pillow>=10.0.0
+qrcode[pil]>=7.4.2
 pypdf>=5.0.0
 pytesseract>=0.3.10
 
