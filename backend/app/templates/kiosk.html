@@ -19,7 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -1197,8 +1197,24 @@
     }
 
     // ── ID Card QR Scanning ────────────────────────────────────────────────
+    let _barcodeDetector = null;
+
+    function _getScanner() {
+      if (_barcodeDetector) return _barcodeDetector;
+      if (typeof BarcodeDetector !== "undefined") {
+        try { _barcodeDetector = new BarcodeDetector({ formats: ["qr_code"] }); return _barcodeDetector; } catch (e) {}
+      }
+      return null; // will fall back to jsQR
+    }
+
     function startIdCardScanning() {
-      if (idCardScanInterval || typeof jsQR === "undefined") return;
+      if (idCardScanInterval) return;
+      const hasNative = typeof BarcodeDetector !== "undefined";
+      const hasJsQR   = typeof jsQR !== "undefined";
+      if (!hasNative && !hasJsQR) {
+        console.warn("No QR scanner available (BarcodeDetector and jsQR both missing)");
+        return;
+      }
       const dot = document.getElementById("id-card-scan-dot");
       if (dot) dot.classList.add("scanning");
       idCardScanInterval = setInterval(_processIdCardFrame, 500);
@@ -1215,26 +1231,36 @@
       const video = document.getElementById("face-video");
       if (!video || video.readyState < 2) return;
 
-      // Draw raw (un-mirrored) frame so QR code is in its natural orientation
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0);
+      let qrData = null;
 
-      let code;
-      try {
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
-        });
-      } catch (e) { return; }
+      const detector = _getScanner();
+      if (detector) {
+        // Native BarcodeDetector — reads raw video frames directly (CSS mirror is visual only)
+        try {
+          const codes = await detector.detect(video);
+          if (codes.length > 0) qrData = codes[0].rawValue;
+        } catch (e) {}
+      } else if (typeof jsQR !== "undefined") {
+        // jsQR fallback — draw raw (un-mirrored) frame to canvas
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0);
+        try {
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth",
+          });
+          if (code) qrData = code.data;
+        } catch (e) {}
+      }
 
-      if (!code || !code.data.startsWith("ratel:")) return;
+      if (!qrData || !qrData.startsWith("ratel:")) return;
 
       // Deduplicate — same token for 4 s
-      if (code.data === idCardLastToken) return;
-      idCardLastToken = code.data;
+      if (qrData === idCardLastToken) return;
+      idCardLastToken = qrData;
       idCardCooldownUntil = Date.now() + 4000;
 
       // Flash the indicator
@@ -1245,16 +1271,14 @@
         const res = await fetch(`${API_BASE}/checkin/id-card`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id_card_token: code.data, qr_token: qrToken }),
+          body: JSON.stringify({ id_card_token: qrData, qr_token: qrToken }),
         });
         const data = await res.json().catch(() => ({}));
 
         if (res.ok && data.matched && !data.already_done) {
           showFaceResult(data);
-        } else if (res.ok && data.matched && data.already_done) {
-          // silently acknowledged
         }
-        // 404 / unrecognised — ignore silently, keep scanning
+        // already_done or unrecognised — ignored silently, keep scanning
       } catch (e) { /* network blip */ }
 
       setTimeout(() => {
