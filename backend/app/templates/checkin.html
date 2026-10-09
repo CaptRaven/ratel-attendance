@@ -234,16 +234,6 @@
       />
     </div>
 
-    <!-- Daily Work Report section (Required when clocking out) -->
-    <div id="work-report-section">
-      <label>Daily Work Report <span style="color: var(--danger);">*</span></label>
-      <textarea
-        id="work-report"
-        placeholder="Briefly summarize what you accomplished today..."
-        rows="4"
-      ></textarea>
-    </div>
-
     <div class="error" id="error-msg"></div>
 
     <button class="primary" id="action-btn" onclick="submitScan()">
@@ -332,20 +322,17 @@
 
     function applyCheckStatus(status, name) {
       const btn = document.getElementById("action-btn");
-      const reportSection = document.getElementById("work-report-section");
       if (status === "checked_in") {
         document.getElementById("page-title").textContent = "Check Out";
-        document.getElementById("page-subtitle").textContent = "Ready to clock out? Provide your daily report below:";
+        document.getElementById("page-subtitle").textContent = "Ready to clock out? Tap below to confirm.";
         btn.textContent = "Clock Out";
         btn.classList.add("checkout");
-        if (reportSection) reportSection.style.display = "block";
         CHECK_STATUS = "checked_in";
       } else {
         document.getElementById("page-title").textContent = "Check In";
         document.getElementById("page-subtitle").textContent = "Scan detected — confirm your identity";
         btn.textContent = "Clock In";
         btn.classList.remove("checkout");
-        if (reportSection) reportSection.style.display = "none";
         CHECK_STATUS = status;
       }
     }
@@ -434,15 +421,6 @@
         employeeId = KNOWN_ID;
       }
 
-      let workReport = null;
-      if (CHECK_STATUS === "checked_in") {
-        workReport = document.getElementById("work-report").value.trim();
-        if (!workReport) {
-          showError("Please write a report of what you did today before clocking out.");
-          return;
-        }
-      }
-
       btn.disabled = true;
       btn.textContent = "Processing...";
       errorMsg.style.display = "none";
@@ -453,7 +431,6 @@
           scan_ticket: SCAN_TICKET,
           employee_id: employeeId,
           fingerprint: getFingerprint(),
-          work_report: workReport,
         };
 
         // Use absolute path for robustness

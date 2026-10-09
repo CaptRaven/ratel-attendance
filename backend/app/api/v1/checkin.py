@@ -879,16 +879,10 @@ async def check_in_or_out(
 
         elif attendance.check_status == CheckStatus.CHECKED_IN:
             # ── 7b. Already checked in → CHECK OUT ───────────────────────────
-            if not payload.work_report or not payload.work_report.strip():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Work report is required when clocking out. Please summarize what you did today.",
-                )
             checkout_time = scanned_at_override or now
             hours = max(round((checkout_time - attendance.checked_in_at).total_seconds() / 3600, 2), 0.0)
             attendance.checked_out_at = checkout_time
             attendance.hours_clocked = hours
-            attendance.work_report = payload.work_report.strip()
             attendance.check_status = CheckStatus.CHECKED_OUT
             await db.flush()
 
