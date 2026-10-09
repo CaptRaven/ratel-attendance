@@ -62,7 +62,10 @@ class Attendance(Base):
     )
     shift: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     work_report: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    report_status: Mapped[Optional[ReportStatus]] = mapped_column(SAEnum(ReportStatus, name="reportstatus"), nullable=True)
+    report_status: Mapped[Optional[ReportStatus]] = mapped_column(
+        SAEnum(ReportStatus, name="reportstatus", values_callable=lambda e: [m.value for m in e]),
+        nullable=True,
+    )
     report_reviewed_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     report_reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     report_rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
