@@ -911,7 +911,7 @@
 
         <div class="id-card-hint">
           <div class="id-card-scan-dot" id="id-card-scan-dot"></div>
-          <span>Hold ID card to camera to check in</span>
+          <span>Hold ID card QR close to camera to check in</span>
         </div>
       </div>
 
@@ -1175,7 +1175,7 @@
       if (faceStream) return;
       try {
         faceStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: "user" }
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
         });
         document.getElementById("face-video").srcObject = faceStream;
         document.getElementById("face-panel").style.display = "flex";
@@ -1217,7 +1217,7 @@
       }
       const dot = document.getElementById("id-card-scan-dot");
       if (dot) dot.classList.add("scanning");
-      idCardScanInterval = setInterval(_processIdCardFrame, 500);
+      idCardScanInterval = setInterval(_processIdCardFrame, 250);
     }
 
     function stopIdCardScanning() {
@@ -1241,22 +1241,32 @@
           if (codes.length > 0) qrData = codes[0].rawValue;
         } catch (e) {}
       } else if (typeof jsQR !== "undefined") {
-        // jsQR fallback — draw raw (un-mirrored) frame to canvas
+        // jsQR fallback — try full frame, then a 2× centre crop for small QR codes
+        const vw = video.videoWidth || 1280;
+        const vh = video.videoHeight || 720;
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0);
         try {
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: "attemptBoth",
-          });
-          if (code) qrData = code.data;
+          // Full frame pass
+          canvas.width = vw; canvas.height = vh;
+          ctx.drawImage(video, 0, 0);
+          const full = ctx.getImageData(0, 0, vw, vh);
+          let code = jsQR(full.data, vw, vh, { inversionAttempts: "attemptBoth" });
+          if (code) { qrData = code.data; }
+          else {
+            // Centre crop (middle 50% of frame), scaled up to full size
+            const cx = Math.floor(vw * 0.25), cy = Math.floor(vh * 0.25);
+            const cw = Math.floor(vw * 0.5),  ch = Math.floor(vh * 0.5);
+            canvas.width = vw; canvas.height = vh;
+            ctx.drawImage(video, cx, cy, cw, ch, 0, 0, vw, vh);
+            const crop = ctx.getImageData(0, 0, vw, vh);
+            code = jsQR(crop.data, vw, vh, { inversionAttempts: "attemptBoth" });
+            if (code) qrData = code.data;
+          }
         } catch (e) {}
       }
 
-      if (!qrData || !qrData.startsWith("ratel:")) return;
+      if (!qrData || !qrData.toUpperCase().startsWith("RATEL:")) return;
 
       // Deduplicate — same token for 4 s
       if (qrData === idCardLastToken) return;

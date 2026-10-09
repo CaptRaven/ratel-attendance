@@ -527,10 +527,10 @@ async def id_card_check_in(
     if not session or not session.get("is_active"):
         raise HTTPException(status_code=400, detail="Attendance session is closed")
 
-    # Strip "ratel:" prefix if present
+    # Strip "ratel:" or "RATEL:" prefix and normalise to lowercase for DB lookup
     raw_token = payload.id_card_token
-    if raw_token.startswith("ratel:"):
-        raw_token = raw_token[len("ratel:"):]
+    if raw_token.upper().startswith("RATEL:"):
+        raw_token = raw_token[6:].lower()
 
     result = await db.execute(
         select(User).where(
@@ -739,10 +739,24 @@ async def check_in_or_out(
         # ── 2. Verify token is active in Redis ───────────────────────────────
         # Skip redis active check if validated via signed scan ticket issued during scan
         if not scanned_at_override and not await is_token_active(redis, qr_token):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="QR code has expired. Please scan the latest code.",
-            )
+            # Redis key missing or expired — scan_ticket can still save the request
+            # (covers Redis restarts, TTL race conditions, and tokens that expired
+            # between the JWT max_age and the Redis TTL)
+            if payload.scan_ticket:
+                ticket_data = decode_scan_ticket(payload.scan_ticket)
+                if ticket_data:
+                    token_data = ticket_data
+                    if ticket_data.get("scanned_at"):
+                        try:
+                            scanned_at_override = datetime.fromisoformat(ticket_data["scanned_at"])
+                        except Exception:
+                            pass
+
+            if not scanned_at_override:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="QR code has expired. Please scan the latest code.",
+                )
 
         # ── 3. Verify session is open ────────────────────────────────────────
         session = await get_session(redis, session_id)
@@ -1131,6 +1145,7 @@ async def get_employee_status(
     Called client-side when an employee types their ID, so the button label can
     show the correct action (Clock In vs Clock Out) before they submit.
     """
+    employee_id = employee_id.strip().upper().replace(" ", "-")
     result = await db.execute(
         select(User).where(
             User.employee_id == employee_id,
@@ -1201,6 +1216,8 @@ async def _resolve_employee(
     """
     # First prioritize employee_id if provided (override device)
     if employee_id:
+        # Normalize: "EMP 009" → "EMP-009"
+        employee_id = employee_id.strip().upper().replace(" ", "-")
         result = await db.execute(
             select(User).where(
                 User.employee_id == employee_id,

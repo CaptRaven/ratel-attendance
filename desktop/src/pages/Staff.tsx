@@ -52,6 +52,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     address: "",
     designation: "",
     expected_days_per_week: "5",
+    is_department_head: false,
     referee_name: "",
     referee_phone: "",
     referee_email: "",
@@ -229,6 +230,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         full_name: "", email: "", employee_id: "",
         password: "", department_id: "", location_id: "ratel-hq",
         phone_number: "", address: "", designation: "", expected_days_per_week: "5",
+        is_department_head: false,
         referee_name: "", referee_phone: "", referee_email: "",
         referee_relationship: "", referee_notes: "",
         referee2_name: "", referee2_phone: "", referee2_email: "",
@@ -257,6 +259,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       address: emp.address || "",
       designation: emp.designation || "",
       expected_days_per_week: String(emp.expected_days_per_week ?? 5),
+      is_department_head: emp.is_department_head ?? false,
       referee_name: emp.referee_name || "",
       referee_phone: emp.referee_phone || "",
       referee_email: emp.referee_email || "",
@@ -288,6 +291,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         address?: string;
         designation?: string;
         expected_days_per_week?: number;
+        is_department_head?: boolean;
         referee_name?: string;
         referee_phone?: string;
         referee_email?: string;
@@ -308,6 +312,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
         address: empForm.address || undefined,
         designation: empForm.designation || undefined,
         expected_days_per_week: empForm.expected_days_per_week ? parseInt(empForm.expected_days_per_week, 10) : 5,
+        is_department_head: empForm.is_department_head,
         referee_name: empForm.referee_name || undefined,
         referee_phone: empForm.referee_phone || undefined,
         referee_email: empForm.referee_email || undefined,
@@ -740,6 +745,17 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                         {emp.designation && (
                           <span style={{ fontSize: "11px", color: theme.textMuted }}>• {emp.designation}</span>
                         )}
+                        {emp.is_department_head && (
+                          <span style={{
+                            display: "flex", alignItems: "center", gap: "3px",
+                            fontSize: "10px", fontWeight: "700",
+                            color: "#7c3aed",
+                            background: "rgba(124,58,237,0.1)",
+                            padding: "1px 6px", borderRadius: "999px",
+                          }}>
+                            HOD
+                          </span>
+                        )}
                         {emp.is_face_enrolled && (
                           <span style={{
                             display: "flex", alignItems: "center", gap: "3px",
@@ -993,6 +1009,15 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                     }}>
                       {selectedEmployee.is_active ? "Active Staff" : "Deactivated"}
                     </span>
+                    {selectedEmployee.is_department_head && (
+                      <span style={{
+                        fontSize: "11px", fontWeight: "700",
+                        padding: "2px 8px", borderRadius: "6px",
+                        background: "rgba(124,58,237,0.1)", color: "#7c3aed",
+                      }}>
+                        Head of Department
+                      </span>
+                    )}
                   </h2>
                   <p style={{ color: theme.textMuted, fontSize: "13px", margin: "4px 0 0 0" }}>
                     {selectedEmployee.designation || "Staff Member"} • ID: <strong style={{ color: theme.text }}>{selectedEmployee.employee_id}</strong>
@@ -1575,6 +1600,37 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
                   value={empForm.expected_days_per_week}
                   onChange={(e) => setEmpForm({ ...empForm, expected_days_per_week: e.target.value })} />
               </div>
+            </div>
+
+            {/* Head of Department toggle */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: theme.panelMuted, border: `1px solid ${theme.panelBorder}`,
+              borderRadius: "12px", padding: "14px 16px", marginBottom: "14px",
+            }}>
+              <div>
+                <div style={{ fontSize: "13px", fontWeight: "600", color: theme.text }}>Head of Department</div>
+                <div style={{ fontSize: "11px", color: theme.textMuted, marginTop: "2px" }}>
+                  Grants this employee HOD privileges to review team reports
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEmpForm({ ...empForm, is_department_head: !empForm.is_department_head })}
+                style={{
+                  width: "44px", height: "24px", borderRadius: "12px", border: "none",
+                  background: empForm.is_department_head ? "#7c3aed" : theme.panelBorder,
+                  cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: "absolute", top: "3px",
+                  left: empForm.is_department_head ? "23px" : "3px",
+                  width: "18px", height: "18px", borderRadius: "50%",
+                  background: "white", transition: "left 0.2s",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+                }} />
+              </button>
             </div>
 
             <label style={s.label}>Update Password (optional)</label>

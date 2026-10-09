@@ -93,6 +93,16 @@ class User(Base):
         String(64), nullable=True, unique=True, index=True
     )
 
+    # Head of Department flag
+    is_department_head: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Staff self-service PIN (bcrypt hash; None means default 1234 not yet set)
+    staff_pin_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Staff portal session token (rotated on each login, cleared on logout)
+    staff_session_token: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True)
+    # Hard expiry stored server-side so stolen tokens cannot be used past 8 h
+    staff_session_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     department: Mapped[Optional["Department"]] = relationship(  # noqa: F821
         "Department",
         back_populates="employees",

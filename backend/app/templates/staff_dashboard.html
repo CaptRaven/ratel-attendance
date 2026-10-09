@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Dashboard — Ratel Staff</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0f4ff; --card: #fff; --primary: #1e3a8a; --primary-hover: #1e40af;
+      --text: #0f172a; --text-soft: #475569; --border: #e2e8f0;
+      --green: #16a34a; --green-bg: #f0fdf4; --amber: #d97706; --amber-bg: #fffbeb;
+      --red: #dc2626; --red-bg: #fef2f2; --radius: 14px;
+    }
+    body { background: var(--bg); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { background: var(--primary); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .logo img { height: 30px; object-fit: contain; background: #fff; border-radius: 5px; padding: 2px 8px; }
+    .header-name { font-size: 14px; opacity: .85; }
+    nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; gap: 0; overflow-x: auto; }
+    nav a { padding: 13px 18px; font-size: 13px; font-weight: 600; color: var(--text-soft); text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; }
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .page { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+    .greeting { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .sub { font-size: 13px; color: var(--text-soft); margin-bottom: 24px; }
+    .card { background: var(--card); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); }
+    .card-title { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--text-soft); margin-bottom: 12px; }
+    .status-row { display: flex; align-items: center; gap: 10px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: var(--green); box-shadow: 0 0 6px rgba(22,163,74,.4); }
+    .dot-amber { background: var(--amber); }
+    .dot-grey  { background: #94a3b8; }
+    .status-label { font-size: 15px; font-weight: 600; color: var(--text); }
+    .status-time  { font-size: 13px; color: var(--text-soft); margin-top: 2px; }
+    .banner { border-radius: 10px; padding: 14px 16px; font-size: 13px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px; }
+    .banner-amber { background: var(--amber-bg); color: #92400e; border: 1px solid #fcd34d; }
+    .banner-green  { background: var(--green-bg); color: #14532d; border: 1px solid #86efac; }
+    .banner-icon { flex-shrink: 0; margin-top: 2px; display: flex; }
+    .banner-icon svg { display: block; }
+    .banner strong { display: block; margin-bottom: 2px; }
+    .btn { display: inline-block; padding: 11px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; border: none; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: transparent; color: var(--primary); border: 1.5px solid var(--primary); }
+    .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .stat-box { background: var(--bg); border-radius: 10px; padding: 14px; }
+    .stat-val { font-size: 22px; font-weight: 800; color: var(--text); }
+    .stat-lbl { font-size: 12px; color: var(--text-soft); margin-top: 2px; }
+    /* Report form */
+    textarea { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 110px; outline: none; color: var(--text); }
+    textarea:focus { border-color: var(--primary); }
+    .form-row { margin-top: 12px; display: flex; justify-content: flex-end; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; }
+    .logout-link { font-size: 13px; color: rgba(255,255,255,.7); text-decoration: none; cursor: pointer; background: none; border: none; }
+    .logout-link:hover { color: #fff; }
+    .pin-alert { font-size: 12px; background: var(--amber-bg); color: #92400e; border: 1px solid #fcd34d; border-radius: 8px; padding: 8px 12px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="logo"><img src="/ratel-logo.png" alt="Ratel" /></span>
+    <span class="header-name">{{ employee.full_name }}</span>
+    <button class="logout-link" onclick="doLogout()">Sign out</button>
+  </header>
+  <nav>
+    <a href="/staff" class="active">Dashboard</a>
+    <a href="/staff/attendance">Attendance</a>
+    <a href="/staff/profile">Profile</a>
+  </nav>
+
+  <div class="page">
+    <div class="greeting">Hi, {{ employee.full_name.split()[0] }}</div>
+    <div class="sub">{{ employee.employee_id }} · {{ employee.designation or "Staff" }}</div>
+
+    <!-- Monthly stats -->
+    <div class="stat-grid" style="margin-bottom:16px;">
+      <div class="stat-box">
+        <div class="stat-val">{{ month_days }}</div>
+        <div class="stat-lbl">Days present in {{ month_name }}</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-val">{{ month_hours }}h</div>
+        <div class="stat-lbl">Hours clocked in {{ month_name }}</div>
+      </div>
+    </div>
+
+    {% if using_default_pin %}
+    <div class="banner banner-amber">
+      <span class="banner-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+      <div>
+        <strong>Change your default PIN</strong>
+        You're still using the default PIN (1234). Please update it from your profile.
+        <div style="margin-top:8px"><a href="/staff/profile" class="btn btn-outline" style="font-size:12px;padding:7px 14px;">Go to Profile</a></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Today's status -->
+    <div class="card">
+      <div class="card-title">Today's Attendance</div>
+      {% if today_att %}
+        <div class="status-row">
+          {% if today_att.check_status.value == "checked_in" %}
+            <div class="dot dot-green"></div>
+            <div>
+              <div class="status-label">Clocked In</div>
+              <div class="status-time">Since {{ today_att.checked_in_at | wat }} WAT</div>
+            </div>
+          {% else %}
+            <div class="dot dot-grey"></div>
+            <div>
+              <div class="status-label">Clocked Out</div>
+              <div class="status-time">
+                {{ today_att.checked_in_at | wat }} → {{ today_att.checked_out_at | wat }} WAT
+                {% if today_att.hours_clocked %}&nbsp;·&nbsp;{{ today_att.hours_clocked }}h{% endif %}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+
+        <!-- Work report section -->
+        <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--border);">
+          <div class="card-title">Work Report</div>
+          {% if today_att.work_report %}
+            <div class="banner banner-green" style="margin-bottom:0;">
+              <span class="banner-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
+              <div>
+                <strong>Report submitted</strong>
+                {{ today_att.work_report }}
+              </div>
+            </div>
+            <div style="margin-top:10px;">
+              <button class="btn btn-outline" style="font-size:12px;padding:7px 14px;" onclick="showEditReport('{{ today_att.id }}', {{ today_att.work_report | tojson }})">Edit Report</button>
+            </div>
+          {% else %}
+            <div class="banner banner-amber" style="margin-bottom:10px;">
+              <span class="banner-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+              <div><strong>No report yet</strong> Write a brief summary of what you worked on today.</div>
+            </div>
+            <textarea id="report-text" maxlength="2000" oninput="updateCount('report-text','report-count')" placeholder="Describe what you did today…"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+              <span id="report-count" style="font-size:11px;color:var(--text-soft);">2000 characters remaining</span>
+              <button class="btn btn-primary" style="margin-top:0;" onclick="submitReport('{{ today_att.id }}')">Submit Report</button>
+            </div>
+          {% endif %}
+
+          <div id="edit-report-section" style="display:none; margin-top:10px;">
+            <textarea id="edit-report-text" maxlength="2000" oninput="updateCount('edit-report-text','edit-count')" placeholder="Describe what you did today…"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;">
+              <span id="edit-count" style="font-size:11px;color:var(--text-soft);">2000 characters remaining</span>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-outline" onclick="cancelEdit()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEditReport()">Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% else %}
+        <div class="status-row">
+          <div class="dot dot-grey"></div>
+          <div>
+            <div class="status-label">No attendance today</div>
+            <div class="status-time">You haven't clocked in yet</div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let _editAttId = null;
+
+    function showEditReport(attId, currentText) {
+      _editAttId = attId;
+      document.getElementById("edit-report-text").value = currentText;
+      document.getElementById("edit-report-section").style.display = "block";
+      document.getElementById("edit-report-section").scrollIntoView({ behavior: "smooth" });
+    }
+    function cancelEdit() {
+      document.getElementById("edit-report-section").style.display = "none";
+      _editAttId = null;
+    }
+    async function saveEditReport() {
+      const text = document.getElementById("edit-report-text").value.trim();
+      if (!text) { toast("Please write something."); return; }
+      await _postReport(_editAttId, text);
+      cancelEdit();
+    }
+    async function submitReport(attId) {
+      const text = document.getElementById("report-text").value.trim();
+      if (!text) { toast("Please write something first."); return; }
+      await _postReport(attId, text);
+    }
+    async function _postReport(attId, text) {
+      try {
+        const res = await fetch("/api/v1/staff/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ attendance_id: attId, work_report: text }),
+        });
+        if (!res.ok) { const d = await res.json(); toast(d.detail || "Error."); return; }
+        toast("Report saved ✓");
+        setTimeout(() => location.reload(), 1200);
+      } catch (e) { toast("Network error."); }
+    }
+    async function doLogout() {
+      await fetch("/api/v1/staff/logout", { method: "POST" });
+      window.location.href = "/staff/login";
+    }
+    function toast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg; el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 2800);
+    }
+    function updateCount(taId, countId) {
+      const rem = 2000 - document.getElementById(taId).value.length;
+      const el = document.getElementById(countId);
+      el.textContent = rem + " characters remaining";
+      el.style.color = rem < 100 ? "var(--error, #dc2626)" : "var(--text-soft)";
+    }
+  </script>
+</body>
+</html>

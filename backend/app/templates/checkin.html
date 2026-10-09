@@ -382,8 +382,12 @@
     }
 
     let _statusDebounce = null;
+    function normalizeEmployeeId(raw) {
+      return raw.trim().toUpperCase().replace(/\s+/g, "-");
+    }
+
     async function onEmployeeIdInput() {
-      const val = document.getElementById("employee-id").value.trim();
+      const val = normalizeEmployeeId(document.getElementById("employee-id").value);
       clearTimeout(_statusDebounce);
       if (val.length < 2) {
         // Reset to neutral if input cleared
@@ -421,7 +425,7 @@
       let employeeId = null;
       if (!IS_KNOWN ||
           document.getElementById("id-section").style.display !== "none") {
-        employeeId = document.getElementById("employee-id").value.trim();
+        employeeId = normalizeEmployeeId(document.getElementById("employee-id").value);
         if (!employeeId) {
           showError("Please enter your Employee ID");
           return;

@@ -51,6 +51,7 @@ class UserUpdate(BaseModel):
     referee2_email: Optional[str] = None
     referee2_relationship: Optional[str] = None
     referee2_notes: Optional[str] = None
+    is_department_head: Optional[bool] = None
 
 
 class UserResponse(BaseModel):
@@ -82,6 +83,7 @@ class UserResponse(BaseModel):
     referee2_relationship: Optional[str] = None
     referee2_notes: Optional[str] = None
     referee_pdf_filename: Optional[str] = None
+    is_department_head: bool = False
     days_present: int = 0
     created_at: Optional[datetime] = None
 

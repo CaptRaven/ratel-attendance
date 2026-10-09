@@ -39,11 +39,12 @@ def _build_qr_png(employee: User) -> bytes:
     import qrcode
     from PIL import Image, ImageDraw, ImageFont
 
-    qr_content = f"ratel:{employee.id_card_token}"
+    # Uppercase → alphanumeric QR mode (fewer modules, easier to scan when small)
+    qr_content = f"RATEL:{employee.id_card_token.upper()}"
 
     qr = qrcode.QRCode(
         version=None,
-        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
         box_size=12,
         border=3,
     )

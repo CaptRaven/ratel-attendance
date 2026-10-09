@@ -173,8 +173,8 @@ def generate_scan_ticket(
     return serializer.dumps(payload)
 
 
-def decode_scan_ticket(ticket: str, max_age: int = 600) -> dict | None:
-    """Decode and verify a scan ticket (valid for max_age seconds, default 10 minutes)."""
+def decode_scan_ticket(ticket: str, max_age: int = 1800) -> dict | None:
+    """Decode and verify a scan ticket (valid for max_age seconds, default 30 minutes)."""
     if not ticket:
         return None
     try:

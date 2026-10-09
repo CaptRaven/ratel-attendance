@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import get_settings
 from app.core.logging import setup_logging, logger
 from fastapi.templating import Jinja2Templates  
-from app.api.v1 import auth, employees, sessions, checkin, websocket, mobile, reports, department, analytics, jobs
+from app.api.v1 import auth, employees, sessions, checkin, websocket, mobile, reports, department, analytics, jobs, staff
 from app.database import get_db
 from app.redis_client import get_redis
 
@@ -115,6 +115,7 @@ app.include_router(reports.router, prefix="/api/v1")
 app.include_router(department.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
+app.include_router(staff.router)
 
 async def check_database_health(db: AsyncSession) -> bool:
     try:

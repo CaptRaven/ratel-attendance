@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Attendance — Ratel Staff</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0f4ff; --card: #fff; --primary: #1e3a8a; --primary-hover: #1e40af;
+      --text: #0f172a; --text-soft: #475569; --border: #e2e8f0;
+      --green: #16a34a; --green-bg: #f0fdf4; --amber: #d97706; --amber-bg: #fffbeb;
+      --error: #dc2626; --radius: 14px;
+    }
+    body { background: var(--bg); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { background: var(--primary); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .logo img { height: 30px; object-fit: contain; background: #fff; border-radius: 5px; padding: 2px 8px; }
+    nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; }
+    nav a { padding: 13px 18px; font-size: 13px; font-weight: 600; color: var(--text-soft); text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; }
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .page { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    h2 { font-size: 18px; font-weight: 700; color: var(--text); }
+    select { padding: 8px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); background: var(--card); cursor: pointer; outline: none; }
+    select:focus { border-color: var(--primary); }
+    .month-group { margin-bottom: 28px; }
+    .month-label { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--text-soft); margin-bottom: 10px; padding-left: 2px; }
+    .record { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+    .record-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .record-date { font-size: 14px; font-weight: 700; color: var(--text); }
+    .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 50px; }
+    .badge-in  { background: #dcfce7; color: #15803d; }
+    .badge-out { background: #f1f5f9; color: #475569; }
+    .record-times { font-size: 13px; color: var(--text-soft); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+    .record-report { font-size: 13px; color: var(--text); background: var(--bg); border-radius: 8px; padding: 10px 12px; line-height: 1.5; }
+    .record-no-report { font-size: 12px; color: var(--amber); background: var(--amber-bg); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+    .shift-tag { font-size: 11px; font-weight: 600; color: var(--text-soft); background: var(--bg); border-radius: 20px; padding: 2px 10px; }
+    .btn-sm { font-size: 12px; padding: 5px 12px; border-radius: 7px; border: none; cursor: pointer; background: var(--primary); color: #fff; font-weight: 600; }
+    .report-form { margin-top: 10px; }
+    .report-form textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 80px; outline: none; color: var(--text); }
+    .report-form textarea:focus { border-color: var(--primary); }
+    .char-count { font-size: 11px; color: var(--text-soft); margin-top: 4px; text-align: right; }
+    .form-btns { display: flex; justify-content: flex-end; margin-top: 8px; gap: 8px; }
+    .btn-cancel { background: transparent; color: var(--text-soft); border: 1.5px solid var(--border); font-size: 12px; padding: 5px 12px; border-radius: 7px; cursor: pointer; font-weight: 600; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; }
+    .logout-link { font-size: 13px; color: rgba(255,255,255,.7); cursor: pointer; background: none; border: none; }
+    .empty { text-align: center; color: var(--text-soft); padding: 40px 0; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="logo"><img src="/ratel-logo.png" alt="Ratel" /></span>
+    <span style="font-size:14px;opacity:.85;">{{ employee.full_name }}</span>
+    <button class="logout-link" onclick="doLogout()">Sign out</button>
+  </header>
+  <nav>
+    <a href="/staff">Dashboard</a>
+    <a href="/staff/attendance" class="active">Attendance</a>
+    <a href="/staff/profile">Profile</a>
+  </nav>
+
+  <div class="page">
+    <div class="page-header">
+      <h2>Attendance History</h2>
+      {% if available_months %}
+      <select onchange="filterMonth(this.value)">
+        <option value="">All months</option>
+        {% for m in available_months %}
+        <option value="{{ m.value }}" {% if m.value == selected_month %}selected{% endif %}>{{ m.label }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+    </div>
+
+    {% if grouped_records %}
+      {% for month_label, records in grouped_records.items() %}
+      <div class="month-group">
+        <div class="month-label">{{ month_label }}</div>
+        {% for r in records %}
+        <div class="record" id="rec-{{ r.id }}">
+          <div class="record-header">
+            <div class="record-date">{{ r.checked_in_at | wat_date }}</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              {% if r.shift %}<span class="shift-tag">{{ r.shift | title }}</span>{% endif %}
+              {% if r.check_status.value == "checked_in" %}
+                <span class="badge badge-in">In</span>
+              {% else %}
+                <span class="badge badge-out">Out</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="record-times">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {{ r.checked_in_at | wat }}{% if r.checked_out_at %} → {{ r.checked_out_at | wat }}{% endif %} WAT
+            {% if r.hours_clocked %}&nbsp;·&nbsp;<strong>{{ r.hours_clocked }}h</strong>{% endif %}
+          </div>
+          {% if r.work_report %}
+            <div class="record-report">{{ r.work_report }}</div>
+            <div style="margin-top:8px;">
+              <button class="btn-sm" style="background:transparent;color:var(--primary);border:1.5px solid var(--primary);" onclick="openEdit('{{ r.id }}', {{ r.work_report | tojson }})">Edit</button>
+            </div>
+          {% else %}
+            <div class="record-no-report">
+              <span style="display:flex;align-items:center;gap:6px;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                No work report written
+              </span>
+              <button class="btn-sm" onclick="openEdit('{{ r.id }}', '')">Add Report</button>
+            </div>
+          {% endif %}
+          <div class="report-form" id="form-{{ r.id }}" style="display:none;">
+            <textarea id="ta-{{ r.id }}" maxlength="2000" oninput="updateCount('{{ r.id }}')" placeholder="Describe what you worked on…"></textarea>
+            <div class="char-count" id="cc-{{ r.id }}">2000 characters remaining</div>
+            <div class="form-btns">
+              <button class="btn-cancel" onclick="closeEdit('{{ r.id }}')">Cancel</button>
+              <button class="btn-sm" onclick="saveReport('{{ r.id }}')">Save</button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No attendance records found.</div>
+    {% endif %}
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    function filterMonth(val) {
+      window.location.href = val ? "/staff/attendance?month=" + val : "/staff/attendance";
+    }
+    function openEdit(id, current) {
+      document.getElementById("ta-" + id).value = current;
+      updateCount(id);
+      document.getElementById("form-" + id).style.display = "block";
+    }
+    function closeEdit(id) { document.getElementById("form-" + id).style.display = "none"; }
+    function updateCount(id) {
+      const rem = 2000 - document.getElementById("ta-" + id).value.length;
+      const el = document.getElementById("cc-" + id);
+      el.textContent = rem + " characters remaining";
+      el.style.color = rem < 100 ? "var(--error)" : "var(--text-soft)";
+    }
+    async function saveReport(id) {
+      const text = document.getElementById("ta-" + id).value.trim();
+      if (!text) { toast("Please write something."); return; }
+      try {
+        const res = await fetch("/api/v1/staff/report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ attendance_id: id, work_report: text }),
+        });
+        if (!res.ok) { const d = await res.json(); toast(d.detail || "Error."); return; }
+        toast("Saved"); closeEdit(id);
+        setTimeout(() => location.reload(), 1000);
+      } catch { toast("Network error."); }
+    }
+    async function doLogout() {
+      await fetch("/api/v1/staff/logout", { method: "POST" });
+      window.location.href = "/staff/login";
+    }
+    function toast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg; el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 2500);
+    }
+  </script>
+</body>
+</html>

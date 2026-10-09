@@ -70,6 +70,7 @@ export interface User {
   referee2_notes?: string | null;
   referee_pdf_filename?: string | null;
   profile_picture_filename?: string | null;
+  is_department_head?: boolean;
   days_present?: number;
   created_at: string;
 }
@@ -343,6 +344,7 @@ export const updateEmployee = async (
     referee_email?: string;
     referee_relationship?: string;
     referee_notes?: string;
+    is_department_head?: boolean;
   }>
 ): Promise<User> => {
   const res = await api.patch(`/employees/${employee_id}`, data);
