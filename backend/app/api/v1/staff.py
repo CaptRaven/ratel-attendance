@@ -19,7 +19,7 @@ import bcrypt
 
 from app.database import get_db
 from app.models.user import User
-from app.models.attendance import Attendance
+from app.models.attendance import Attendance, ReportStatus
 from app.core.logging import logger
 from app.api.deps import require_admin
 from slowapi import Limiter
@@ -323,6 +323,11 @@ async def submit_report(
     if not att:
         raise HTTPException(status_code=404, detail="Attendance record not found.")
     att.work_report = payload.work_report.strip()
+    # Mark pending for HOD review (reset review fields on resubmit)
+    att.report_status = ReportStatus.PENDING
+    att.report_reviewed_by_id = None
+    att.report_reviewed_at = None
+    att.report_rejection_reason = None
     await db.flush()
     logger.info("staff_report_submitted", employee_id=employee.employee_id, attendance_id=str(att.id))
     return {"ok": True}
@@ -356,6 +361,130 @@ async def get_me(employee: User = Depends(_require_employee)):
         "designation": employee.designation,
         "using_default_pin": employee.staff_pin_hash is None,
     }
+
+
+# ── HOD endpoints ────────────────────────────────────────────────────────────
+
+async def _require_hod(
+    employee: User = Depends(_require_employee),
+) -> User:
+    if not employee.is_department_head:
+        raise HTTPException(status_code=403, detail="HOD access only.")
+    if not employee.department_id:
+        raise HTTPException(status_code=400, detail="You are not assigned to a department.")
+    return employee
+
+
+@router.get("/staff/hod", response_class=HTMLResponse)
+async def staff_hod_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    hod: User = Depends(_require_hod),
+):
+    # All active employees in the same department
+    emp_result = await db.execute(
+        select(User).where(
+            User.department_id == hod.department_id,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    dept_employees = emp_result.scalars().all()
+    emp_ids = [e.id for e in dept_employees]
+
+    # Pending reports
+    pending_result = await db.execute(
+        select(Attendance).where(
+            Attendance.employee_id.in_(emp_ids),
+            Attendance.work_report.isnot(None),
+            Attendance.report_status == ReportStatus.PENDING,
+        ).order_by(desc(Attendance.checked_in_at))
+    )
+    pending = pending_result.scalars().all()
+
+    # Recent reviewed (last 60 days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=60)
+    reviewed_result = await db.execute(
+        select(Attendance).where(
+            Attendance.employee_id.in_(emp_ids),
+            Attendance.work_report.isnot(None),
+            Attendance.report_status.in_([ReportStatus.APPROVED, ReportStatus.REJECTED]),
+            Attendance.report_reviewed_at >= cutoff,
+        ).order_by(desc(Attendance.report_reviewed_at)).limit(50)
+    )
+    reviewed = reviewed_result.scalars().all()
+
+    # Map employee id → employee for name lookup
+    emp_map = {e.id: e for e in dept_employees}
+
+    return templates.TemplateResponse(
+        request=request,
+        name="staff_hod.html",
+        context={
+            "hod": hod,
+            "pending": pending,
+            "reviewed": reviewed,
+            "emp_map": emp_map,
+        },
+    )
+
+
+class HodRejectRequest(BaseModel):
+    reason: str = Field(..., min_length=3, max_length=500)
+
+
+@router.post("/api/v1/staff/hod/approve/{attendance_id}")
+async def hod_approve_report(
+    attendance_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    hod: User = Depends(_require_hod),
+):
+    att = await _get_dept_attendance(db, attendance_id, hod)
+    att.report_status = ReportStatus.APPROVED
+    att.report_reviewed_by_id = hod.id
+    att.report_reviewed_at = datetime.now(timezone.utc)
+    att.report_rejection_reason = None
+    await db.flush()
+    logger.info("hod_approved_report", hod=hod.employee_id, attendance_id=str(attendance_id))
+    return {"ok": True}
+
+
+@router.post("/api/v1/staff/hod/reject/{attendance_id}")
+async def hod_reject_report(
+    attendance_id: uuid.UUID,
+    payload: HodRejectRequest,
+    db: AsyncSession = Depends(get_db),
+    hod: User = Depends(_require_hod),
+):
+    att = await _get_dept_attendance(db, attendance_id, hod)
+    att.report_status = ReportStatus.REJECTED
+    att.report_reviewed_by_id = hod.id
+    att.report_reviewed_at = datetime.now(timezone.utc)
+    att.report_rejection_reason = payload.reason.strip()
+    await db.flush()
+    logger.info("hod_rejected_report", hod=hod.employee_id, attendance_id=str(attendance_id))
+    return {"ok": True}
+
+
+async def _get_dept_attendance(db: AsyncSession, attendance_id: uuid.UUID, hod: User) -> Attendance:
+    """Fetch attendance record and verify it belongs to HOD's department."""
+    emp_result = await db.execute(
+        select(User).where(
+            User.department_id == hod.department_id,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    emp_ids = [e.id for e in emp_result.scalars().all()]
+
+    att_result = await db.execute(
+        select(Attendance).where(
+            Attendance.id == attendance_id,
+            Attendance.employee_id.in_(emp_ids),
+        )
+    )
+    att = att_result.scalar_one_or_none()
+    if not att:
+        raise HTTPException(status_code=404, detail="Report not found or not in your department.")
+    return att
 
 
 # ── Admin endpoints ───────────────────────────────────────────────────────────

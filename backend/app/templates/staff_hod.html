@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Team Reports — Ratel Staff</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0f4ff; --card: #fff; --primary: #1e3a8a; --primary-hover: #1e40af;
+      --text: #0f172a; --text-soft: #475569; --border: #e2e8f0;
+      --green: #16a34a; --green-bg: #f0fdf4; --amber: #d97706; --amber-bg: #fffbeb;
+      --red: #dc2626; --red-bg: #fef2f2; --radius: 14px;
+    }
+    body { background: var(--bg); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { background: var(--primary); color: #fff; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; }
+    .logo img { height: 30px; object-fit: contain; background: #fff; border-radius: 5px; padding: 2px 8px; }
+    nav { background: var(--card); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; }
+    nav a { padding: 13px 18px; font-size: 13px; font-weight: 600; color: var(--text-soft); text-decoration: none; white-space: nowrap; border-bottom: 2px solid transparent; }
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .page { max-width: 700px; margin: 0 auto; padding: 24px 16px; }
+    .page-title { font-size: 18px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .page-sub { font-size: 13px; color: var(--text-soft); margin-bottom: 24px; }
+    .section-label { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--text-soft); margin: 24px 0 10px; padding-left: 2px; display: flex; align-items: center; gap: 8px; }
+    .count-badge { background: var(--primary); color: #fff; font-size: 10px; padding: 1px 7px; border-radius: 50px; }
+    .report-card { background: var(--card); border-radius: var(--radius); padding: 18px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.05); border-left: 3px solid transparent; }
+    .report-card.pending { border-left-color: var(--amber); }
+    .report-card.approved { border-left-color: var(--green); }
+    .report-card.rejected { border-left-color: var(--red); }
+    .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; gap: 12px; flex-wrap: wrap; }
+    .emp-name { font-size: 15px; font-weight: 700; color: var(--text); }
+    .emp-meta { font-size: 12px; color: var(--text-soft); margin-top: 2px; }
+    .report-body { font-size: 13px; color: var(--text); background: var(--bg); border-radius: 8px; padding: 10px 12px; line-height: 1.6; margin-bottom: 12px; }
+    .action-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .btn-approve { padding: 7px 16px; border-radius: 8px; border: none; cursor: pointer; background: var(--green); color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+    .btn-approve:hover { background: #15803d; }
+    .btn-reject  { padding: 7px 16px; border-radius: 8px; border: 1.5px solid var(--red); cursor: pointer; background: transparent; color: var(--red); font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 5px; }
+    .btn-reject:hover  { background: var(--red-bg); }
+    .status-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 50px; }
+    .rs-pending  { background: var(--amber-bg); color: var(--amber); border: 1px solid #fcd34d; }
+    .rs-approved { background: var(--green-bg); color: var(--green); border: 1px solid #86efac; }
+    .rs-rejected { background: var(--red-bg);   color: var(--red);   border: 1px solid #fca5a5; }
+    .reject-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; padding: 24px; }
+    .reject-modal.open { display: flex; }
+    .modal-box { background: var(--card); border-radius: 18px; padding: 28px; max-width: 460px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.2); }
+    .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .modal-sub { font-size: 13px; color: var(--text-soft); margin-bottom: 16px; }
+    textarea { width: 100%; padding: 11px 13px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 90px; outline: none; color: var(--text); }
+    textarea:focus { border-color: var(--primary); }
+    .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .btn-cancel { padding: 9px 18px; border-radius: 8px; border: 1.5px solid var(--border); background: transparent; color: var(--text-soft); font-size: 13px; font-weight: 600; cursor: pointer; }
+    .btn-send { padding: 9px 18px; border-radius: 8px; border: none; background: var(--red); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .empty { text-align: center; color: var(--text-soft); padding: 30px 0; font-size: 13px; }
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #0f172a; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 999; }
+    .toast.show { opacity: 1; }
+    .logout-link { font-size: 13px; color: rgba(255,255,255,.7); cursor: pointer; background: none; border: none; }
+    .reviewed-by { font-size: 11px; color: var(--text-soft); margin-top: 6px; }
+    .rejection-note { font-size: 12px; color: #7f1d1d; background: var(--red-bg); border: 1px solid #fca5a5; border-radius: 7px; padding: 8px 10px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="logo"><img src="/ratel-logo.png" alt="Ratel" /></span>
+    <span style="font-size:14px;opacity:.85;">{{ hod.full_name }}</span>
+    <button class="logout-link" onclick="doLogout()">Sign out</button>
+  </header>
+  <nav>
+    <a href="/staff">Dashboard</a>
+    <a href="/staff/attendance">Attendance</a>
+    <a href="/staff/profile">Profile</a>
+    <a href="/staff/hod" class="active">Team Reports</a>
+  </nav>
+
+  <div class="page">
+    <div class="page-title">Team Reports</div>
+    <div class="page-sub">Review and approve work reports from your department.</div>
+
+    <!-- Pending -->
+    <div class="section-label">
+      Pending Review
+      <span class="count-badge">{{ pending | length }}</span>
+    </div>
+
+    {% if pending %}
+      {% for att in pending %}
+      {% set emp = emp_map.get(att.employee_id) %}
+      <div class="report-card pending" id="card-{{ att.id }}">
+        <div class="card-header">
+          <div>
+            <div class="emp-name">{{ emp.full_name if emp else "Unknown" }}</div>
+            <div class="emp-meta">
+              {{ emp.employee_id if emp else "" }}{% if emp and emp.designation %} · {{ emp.designation }}{% endif %}
+              &nbsp;·&nbsp;{{ att.checked_in_at | wat_date }}
+            </div>
+          </div>
+          <span class="status-badge rs-pending">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Pending
+          </span>
+        </div>
+        <div class="report-body">{{ att.work_report }}</div>
+        <div class="action-row">
+          <button class="btn-approve" onclick="approveReport('{{ att.id }}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Approve
+          </button>
+          <button class="btn-reject" onclick="openRejectModal('{{ att.id }}')">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Reject
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty">No pending reports — all caught up.</div>
+    {% endif %}
+
+    <!-- Review History -->
+    {% if reviewed %}
+    <div class="section-label">Recent Reviews</div>
+    {% for att in reviewed %}
+    {% set emp = emp_map.get(att.employee_id) %}
+    <div class="report-card {{ att.report_status.value }}">
+      <div class="card-header">
+        <div>
+          <div class="emp-name">{{ emp.full_name if emp else "Unknown" }}</div>
+          <div class="emp-meta">
+            {{ emp.employee_id if emp else "" }}{% if emp and emp.designation %} · {{ emp.designation }}{% endif %}
+            &nbsp;·&nbsp;{{ att.checked_in_at | wat_date }}
+          </div>
+        </div>
+        {% if att.report_status.value == "approved" %}
+          <span class="status-badge rs-approved">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            Approved
+          </span>
+        {% else %}
+          <span class="status-badge rs-rejected">
+            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            Rejected
+          </span>
+        {% endif %}
+      </div>
+      <div class="report-body">{{ att.work_report }}</div>
+      {% if att.report_status.value == "rejected" and att.report_rejection_reason %}
+        <div class="rejection-note"><strong>Reason:</strong> {{ att.report_rejection_reason }}</div>
+      {% endif %}
+      {% if att.report_reviewed_at %}
+        <div class="reviewed-by">Reviewed {{ att.report_reviewed_at | wat_date }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- Reject Modal -->
+  <div class="reject-modal" id="rejectModal">
+    <div class="modal-box">
+      <div class="modal-title">Reject Report</div>
+      <div class="modal-sub">Tell the employee what needs to be corrected. They will be able to revise and resubmit.</div>
+      <textarea id="rejectReason" maxlength="500" placeholder="Reason for rejection…"></textarea>
+      <div class="modal-btns">
+        <button class="btn-cancel" onclick="closeRejectModal()">Cancel</button>
+        <button class="btn-send" onclick="submitReject()">Send Rejection</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let _rejectAttId = null;
+
+    async function approveReport(attId) {
+      try {
+        const res = await fetch("/api/v1/staff/hod/approve/" + attId, { method: "POST" });
+        if (!res.ok) { const d = await res.json(); toast(d.detail || "Error."); return; }
+        toast("Report approved");
+        setTimeout(() => location.reload(), 1000);
+      } catch { toast("Network error."); }
+    }
+
+    function openRejectModal(attId) {
+      _rejectAttId = attId;
+      document.getElementById("rejectReason").value = "";
+      document.getElementById("rejectModal").classList.add("open");
+    }
+
+    function closeRejectModal() {
+      document.getElementById("rejectModal").classList.remove("open");
+      _rejectAttId = null;
+    }
+
+    async function submitReject() {
+      const reason = document.getElementById("rejectReason").value.trim();
+      if (!reason) { toast("Please provide a reason."); return; }
+      try {
+        const res = await fetch("/api/v1/staff/hod/reject/" + _rejectAttId, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        });
+        if (!res.ok) { const d = await res.json(); toast(d.detail || "Error."); return; }
+        closeRejectModal();
+        toast("Report rejected");
+        setTimeout(() => location.reload(), 1000);
+      } catch { toast("Network error."); }
+    }
+
+    async function doLogout() {
+      await fetch("/api/v1/staff/logout", { method: "POST" });
+      window.location.href = "/staff/login";
+    }
+
+    function toast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg; el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 2500);
+    }
+
+    // Close modal on backdrop click
+    document.getElementById("rejectModal").addEventListener("click", function(e) {
+      if (e.target === this) closeRejectModal();
+    });
+  </script>
+</body>
+</html>

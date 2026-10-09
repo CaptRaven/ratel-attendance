@@ -31,6 +31,11 @@
     .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 50px; }
     .badge-in  { background: #dcfce7; color: #15803d; }
     .badge-out { background: #f1f5f9; color: #475569; }
+    .report-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 50px; margin-top: 6px; }
+    .rs-pending  { background: #fffbeb; color: #d97706; border: 1px solid #fcd34d; }
+    .rs-approved { background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; }
+    .rs-rejected { background: #fef2f2; color: #dc2626; border: 1px solid #fca5a5; }
+    .rejection-note { font-size: 12px; color: #7f1d1d; background: #fef2f2; border: 1px solid #fca5a5; border-radius: 7px; padding: 8px 10px; margin-top: 6px; }
     .record-times { font-size: 13px; color: var(--text-soft); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
     .record-report { font-size: 13px; color: var(--text); background: var(--bg); border-radius: 8px; padding: 10px 12px; line-height: 1.5; }
     .record-no-report { font-size: 12px; color: var(--amber); background: var(--amber-bg); border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; gap: 6px; justify-content: space-between; }
@@ -58,6 +63,7 @@
     <a href="/staff">Dashboard</a>
     <a href="/staff/attendance" class="active">Attendance</a>
     <a href="/staff/profile">Profile</a>
+    {% if employee.is_department_head %}<a href="/staff/hod">Team Reports</a>{% endif %}
   </nav>
 
   <div class="page">
@@ -97,9 +103,34 @@
           </div>
           {% if r.work_report %}
             <div class="record-report">{{ r.work_report }}</div>
+            {% if r.report_status %}
+              {% if r.report_status.value == "approved" %}
+                <span class="report-status rs-approved">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Approved
+                </span>
+              {% elif r.report_status.value == "rejected" %}
+                <span class="report-status rs-rejected">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  Rejected
+                </span>
+                {% if r.report_rejection_reason %}
+                  <div class="rejection-note"><strong>Reason:</strong> {{ r.report_rejection_reason }}</div>
+                {% endif %}
+              {% else %}
+                <span class="report-status rs-pending">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Pending Review
+                </span>
+              {% endif %}
+            {% endif %}
+            {% if not r.report_status or r.report_status.value != "approved" %}
             <div style="margin-top:8px;">
-              <button class="btn-sm" style="background:transparent;color:var(--primary);border:1.5px solid var(--primary);" onclick="openEdit('{{ r.id }}', {{ r.work_report | tojson }})">Edit</button>
+              <button class="btn-sm" style="background:transparent;color:var(--primary);border:1.5px solid var(--primary);" onclick="openEdit('{{ r.id }}', {{ r.work_report | tojson }})">
+                {% if r.report_status and r.report_status.value == "rejected" %}Revise &amp; Resubmit{% else %}Edit{% endif %}
+              </button>
             </div>
+            {% endif %}
           {% else %}
             <div class="record-no-report">
               <span style="display:flex;align-items:center;gap:6px;">

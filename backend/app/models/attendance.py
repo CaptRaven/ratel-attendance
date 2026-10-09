@@ -19,6 +19,12 @@ class CheckStatus(str, enum.Enum):
     CHECKED_OUT = "checked_out"
 
 
+class ReportStatus(str, enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class Attendance(Base):
     __tablename__ = "attendance"
 
@@ -56,9 +62,14 @@ class Attendance(Base):
     )
     shift: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     work_report: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    report_status: Mapped[Optional[ReportStatus]] = mapped_column(SAEnum(ReportStatus, name="reportstatus"), nullable=True)
+    report_reviewed_by_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    report_reviewed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    report_rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     token_used: Mapped[str] = mapped_column(String(512), nullable=False)
 
-    employee: Mapped["User"] = relationship("User", lazy="selectin")  # noqa: F821
+    employee: Mapped["User"] = relationship("User", foreign_keys=[employee_id], lazy="selectin")  # noqa: F821
+    reviewed_by: Mapped[Optional["User"]] = relationship("User", foreign_keys=[report_reviewed_by_id], lazy="selectin")  # noqa: F821
 
     __table_args__ = (
         Index("idx_attendance_employee_session", "employee_id", "session_id"),

@@ -53,6 +53,7 @@
     <a href="/staff">Dashboard</a>
     <a href="/staff/attendance">Attendance</a>
     <a href="/staff/profile" class="active">Profile</a>
+    {% if employee.is_department_head %}<a href="/staff/hod">Team Reports</a>{% endif %}
   </nav>
 
   <div class="page">

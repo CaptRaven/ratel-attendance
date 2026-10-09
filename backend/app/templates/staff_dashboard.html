@@ -54,6 +54,11 @@
     .logout-link { font-size: 13px; color: rgba(255,255,255,.7); text-decoration: none; cursor: pointer; background: none; border: none; }
     .logout-link:hover { color: #fff; }
     .pin-alert { font-size: 12px; background: var(--amber-bg); color: #92400e; border: 1px solid #fcd34d; border-radius: 8px; padding: 8px 12px; margin-top: 8px; }
+    .status-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 50px; }
+    .badge-pending  { background: var(--amber-bg); color: var(--amber); border: 1px solid #fcd34d; }
+    .badge-approved { background: var(--green-bg); color: var(--green); border: 1px solid #86efac; }
+    .badge-rejected { background: var(--red-bg);   color: var(--red);   border: 1px solid #fca5a5; }
+    .rejection-box { background: var(--red-bg); border: 1px solid #fca5a5; border-radius: 8px; padding: 10px 12px; margin-top: 8px; font-size: 13px; color: #7f1d1d; }
   </style>
 </head>
 <body>
@@ -66,6 +71,7 @@
     <a href="/staff" class="active">Dashboard</a>
     <a href="/staff/attendance">Attendance</a>
     <a href="/staff/profile">Profile</a>
+    {% if employee.is_department_head %}<a href="/staff/hod">Team Reports</a>{% endif %}
   </nav>
 
   <div class="page">
@@ -122,16 +128,39 @@
         <div style="margin-top:18px; padding-top:16px; border-top:1px solid var(--border);">
           <div class="card-title">Work Report</div>
           {% if today_att.work_report %}
-            <div class="banner banner-green" style="margin-bottom:0;">
-              <span class="banner-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-              <div>
-                <strong>Report submitted</strong>
-                {{ today_att.work_report }}
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
+              <strong style="font-size:13px;">Report submitted</strong>
+              {% if today_att.report_status and today_att.report_status.value == "approved" %}
+                <span class="status-badge badge-approved">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                  Approved
+                </span>
+              {% elif today_att.report_status and today_att.report_status.value == "rejected" %}
+                <span class="status-badge badge-rejected">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                  Rejected
+                </span>
+              {% elif today_att.report_status and today_att.report_status.value == "pending" %}
+                <span class="status-badge badge-pending">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  Pending Review
+                </span>
+              {% endif %}
+            </div>
+            <div style="background:var(--bg);border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.5;">{{ today_att.work_report }}</div>
+            {% if today_att.report_status and today_att.report_status.value == "rejected" and today_att.report_rejection_reason %}
+              <div class="rejection-box">
+                <strong>Rejected:</strong> {{ today_att.report_rejection_reason }}
+                <div style="margin-top:6px;"><small>Please revise and resubmit your report.</small></div>
               </div>
-            </div>
+            {% endif %}
+            {% if not today_att.report_status or today_att.report_status.value != "approved" %}
             <div style="margin-top:10px;">
-              <button class="btn btn-outline" style="font-size:12px;padding:7px 14px;" onclick="showEditReport('{{ today_att.id }}', {{ today_att.work_report | tojson }})">Edit Report</button>
+              <button class="btn btn-outline" style="font-size:12px;padding:7px 14px;" onclick="showEditReport('{{ today_att.id }}', {{ today_att.work_report | tojson }})">
+                {% if today_att.report_status and today_att.report_status.value == "rejected" %}Revise &amp; Resubmit{% else %}Edit Report{% endif %}
+              </button>
             </div>
+            {% endif %}
           {% else %}
             <div class="banner banner-amber" style="margin-bottom:10px;">
               <span class="banner-icon"><svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
