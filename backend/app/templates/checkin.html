@@ -168,6 +168,25 @@
       background: #fff;
     }
     #work-report-section { display: none; }
+    .report-required-box {
+      display: none;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+      border-radius: 14px;
+      padding: 18px 16px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .report-required-box .rr-icon { font-size: 28px; margin-bottom: 8px; }
+    .report-required-box .rr-title { font-size: 15px; font-weight: 700; color: #9a3412; margin-bottom: 6px; }
+    .report-required-box .rr-body { font-size: 13px; color: #c2410c; line-height: 1.5; margin-bottom: 14px; }
+    .rr-portal-btn {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      color: #fff; text-decoration: none;
+      border-radius: 10px; padding: 11px 22px;
+      font-size: 14px; font-weight: 700;
+    }
     button.primary {
       width: 100%;
       background: linear-gradient(135deg, var(--primary), var(--accent));
@@ -235,6 +254,14 @@
     </div>
 
     <div class="error" id="error-msg"></div>
+
+    <!-- Shown when employee tries to check out without a report -->
+    <div class="report-required-box" id="report-required-box">
+      <div class="rr-icon">📋</div>
+      <div class="rr-title">Work Report Required</div>
+      <div class="rr-body">You need to submit your daily work report before checking out. Log in to the staff portal to write it, then come back here to clock out.</div>
+      <a href="/staff" class="rr-portal-btn" target="_blank">Go to Staff Portal →</a>
+    </div>
 
     <button class="primary" id="action-btn" onclick="submitScan()">
       Mark Attendance
@@ -458,6 +485,11 @@
             hours: data.hours_clocked || "",
           });
           window.location.href = `/checkin/success?${params}`;
+        } else if (res.status === 422 && data.detail === "REPORT_REQUIRED") {
+          document.getElementById("report-required-box").style.display = "block";
+          document.getElementById("error-msg").style.display = "none";
+          btn.disabled = false;
+          btn.textContent = "Clock Out";
         } else {
           const errorDetail = data.detail || "Server error (" + res.status + ")";
           showError(errorDetail);
@@ -475,6 +507,7 @@
       const el = document.getElementById("error-msg");
       el.textContent = msg;
       el.style.display = "block";
+      document.getElementById("report-required-box").style.display = "none";
     }
 
     document.getElementById("employee-id")
