@@ -28,8 +28,10 @@ def get_client_ip(request: Request) -> str:
 limiter = Limiter(key_func=get_client_ip)
 
 
+import asyncio
 import os
 from app.seed_jobs import seed_jobs
+from app.core.auto_session import auto_session_loop
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,6 +43,7 @@ async def lifespan(app: FastAPI):
         await seed_jobs()
     except Exception as e:
         logger.warning("auto_seed_jobs_failed", error=str(e))
+    asyncio.create_task(auto_session_loop())
     logger.info("startup", app=settings.APP_NAME, env=settings.ENVIRONMENT)
     yield
     logger.info("shutdown", app=settings.APP_NAME)
