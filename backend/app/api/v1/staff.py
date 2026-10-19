@@ -585,6 +585,11 @@ async def food_review_status(
     return {"submitted": bool(already)}
 
 
+@router.get("/admin/food-reviews", response_class=HTMLResponse)
+async def admin_food_reviews_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin_food_reviews.html", context={})
+
+
 @router.get("/api/v1/admin/food-reviews")
 async def get_food_reviews(
     db: AsyncSession = Depends(get_db),

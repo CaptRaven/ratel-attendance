@@ -535,7 +535,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     { id: "employees", label: `Active (${activeEmployees.length})` },
     { id: "removed_employees", label: `Removed (${deactivatedEmployees.length})` },
     { id: "departments", label: `Departments (${departments.length})` },
-    { id: "food_reviews", label: "🍽️ Food Reviews" },
+    { id: "food_reviews", label: "Food Reviews" },
   ] as const;
 
   return (

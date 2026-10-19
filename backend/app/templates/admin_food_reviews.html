@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Food Reviews — Ratel Admin</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0f4ff; --card: #fff; --primary: #1e3a8a; --primary-hover: #1e40af;
+      --text: #0f172a; --text-soft: #475569; --border: #e2e8f0;
+      --amber: #d97706; --amber-bg: #fffbeb; --amber-border: #fde68a;
+      --green: #16a34a; --green-bg: #f0fdf4; --blue-bg: #f0f9ff; --blue: #0369a1;
+      --radius: 14px;
+    }
+    body { background: var(--bg); min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--text); }
+    header { background: var(--primary); color: #fff; padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+    header svg { flex-shrink: 0; }
+    .header-title { font-size: 16px; font-weight: 700; }
+    .header-sub { font-size: 12px; opacity: .7; }
+    .page { max-width: 720px; margin: 0 auto; padding: 28px 16px; }
+    .stats-row { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+    .stat-box { border-radius: 12px; padding: 16px 24px; text-align: center; min-width: 110px; }
+    .stat-val { font-size: 28px; font-weight: 800; }
+    .stat-lbl { font-size: 12px; margin-top: 2px; }
+    .stat-amber { background: var(--amber-bg); border: 1px solid var(--amber-border); }
+    .stat-amber .stat-val { color: var(--amber); }
+    .stat-amber .stat-lbl { color: #92400e; }
+    .stat-blue { background: var(--blue-bg); border: 1px solid #bae6fd; }
+    .stat-blue .stat-val { color: var(--blue); }
+    .stat-blue .stat-lbl { color: #0c4a6e; }
+    .reviews-list { display: flex; flex-direction: column; gap: 10px; }
+    .review-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .review-top { display: flex; align-items: center; gap: 10px; }
+    .stars { color: #f59e0b; font-size: 18px; letter-spacing: 1px; }
+    .stars .empty { color: #d1d5db; }
+    .review-date { font-size: 12px; color: #9ca3af; margin-left: auto; }
+    .review-comment { margin-top: 8px; font-size: 13px; color: var(--text-soft); font-style: italic; }
+    .empty-state { text-align: center; padding: 56px 0; color: #9ca3af; font-size: 14px; }
+    .empty-state svg { margin-bottom: 12px; opacity: .4; }
+    #auth-error { display: none; text-align: center; padding: 60px 16px; }
+    #auth-error p { color: var(--text-soft); font-size: 14px; margin-top: 8px; }
+    .section-title { font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--text-soft); margin-bottom: 14px; }
+    .rating-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .rating-bar-label { font-size: 12px; width: 40px; color: var(--text-soft); flex-shrink: 0; }
+    .bar-track { flex: 1; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; background: #f59e0b; border-radius: 4px; transition: width .4s; }
+    .bar-count { font-size: 12px; color: var(--text-soft); width: 24px; text-align: right; flex-shrink: 0; }
+    .breakdown { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>
+  </svg>
+  <div>
+    <div class="header-title">Food Reviews</div>
+    <div class="header-sub">Anonymous staff feedback on head office meals</div>
+  </div>
+</header>
+
+<div class="page">
+  <div id="auth-error">
+    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    <p>Admin access required. Please log in via the desktop app first.</p>
+  </div>
+
+  <div id="main" style="display:none;">
+    <div class="stats-row" id="stats-row"></div>
+    <div class="breakdown" id="breakdown"></div>
+    <div class="section-title">All Reviews</div>
+    <div id="reviews-list"></div>
+  </div>
+</div>
+
+<script>
+  const API = "https://attendance.ratelplus.net.ng/api/v1";
+
+  function starHtml(n) {
+    let s = '';
+    for (let i = 1; i <= 5; i++) {
+      s += i <= n ? '★' : '<span class="empty">★</span>';
+    }
+    return s;
+  }
+
+  function fmtDate(iso) {
+    return new Date(iso).toLocaleString('en-NG', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  async function load() {
+    const token = localStorage.getItem('ratel_token');
+    if (!token) { showAuthError(); return; }
+
+    let data;
+    try {
+      const res = await fetch(`${API}/admin/food-reviews`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.status === 401 || res.status === 403) { showAuthError(); return; }
+      data = await res.json();
+    } catch { showAuthError(); return; }
+
+    document.getElementById('main').style.display = 'block';
+    renderStats(data);
+    renderBreakdown(data);
+    renderList(data);
+  }
+
+  function showAuthError() {
+    document.getElementById('auth-error').style.display = 'block';
+  }
+
+  function renderStats(data) {
+    const avg = data.length
+      ? (data.reduce((s, r) => s + r.rating, 0) / data.length).toFixed(1)
+      : '—';
+    document.getElementById('stats-row').innerHTML = `
+      <div class="stat-box stat-amber">
+        <div class="stat-val">${avg}</div>
+        <div class="stat-lbl">avg rating</div>
+      </div>
+      <div class="stat-box stat-blue">
+        <div class="stat-val">${data.length}</div>
+        <div class="stat-lbl">total reviews</div>
+      </div>`;
+  }
+
+  function renderBreakdown(data) {
+    const counts = [0,0,0,0,0];
+    data.forEach(r => counts[r.rating - 1]++);
+    const max = Math.max(...counts, 1);
+    let html = '<div class="section-title" style="margin-bottom:10px;">Rating Breakdown</div>';
+    for (let i = 5; i >= 1; i--) {
+      const pct = Math.round((counts[i-1] / max) * 100);
+      html += `<div class="rating-bar-row">
+        <span class="rating-bar-label">${i} star</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <span class="bar-count">${counts[i-1]}</span>
+      </div>`;
+    }
+    document.getElementById('breakdown').innerHTML = html;
+  }
+
+  function renderList(data) {
+    const el = document.getElementById('reviews-list');
+    if (!data.length) {
+      el.innerHTML = `<div class="empty-state">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 15h8M9 9h.01M15 9h.01"/></svg>
+        <div>No reviews yet — staff will see the prompt on their next login.</div>
+      </div>`;
+      return;
+    }
+    el.innerHTML = data.map(r => `
+      <div class="review-card">
+        <div class="review-top">
+          <span class="stars">${starHtml(r.rating)}</span>
+          <span class="review-date">${fmtDate(r.submitted_at)}</span>
+        </div>
+        ${r.comment ? `<div class="review-comment">"${r.comment}"</div>` : ''}
+      </div>`).join('');
+  }
+
+  load();
+</script>
+</body>
+</html>
