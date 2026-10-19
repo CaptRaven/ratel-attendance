@@ -16,7 +16,7 @@ import {
 import type { Department, User } from "@/lib/api";
 import { theme } from "@/lib/theme";
 
-type View = "employees" | "add_employee" | "edit_employee" | "departments" | "add_department" | "removed_employees";
+type View = "employees" | "add_employee" | "edit_employee" | "departments" | "add_department" | "removed_employees" | "food_reviews";
 
 interface StaffProps {
   onViewReports?: (employeeId: string) => void;
@@ -535,6 +535,7 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
     { id: "employees", label: `Active (${activeEmployees.length})` },
     { id: "removed_employees", label: `Removed (${deactivatedEmployees.length})` },
     { id: "departments", label: `Departments (${departments.length})` },
+    { id: "food_reviews", label: "🍽️ Food Reviews" },
   ] as const;
 
   return (
@@ -550,8 +551,8 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
       </div>
 
       {/* Nav tabs */}
-      {(view === "employees" || view === "departments" || view === "removed_employees") && (
-        <div style={{ display: "flex", gap: "8px", marginBottom: "24px" }}>
+      {(view === "employees" || view === "departments" || view === "removed_employees" || view === "food_reviews") && (
+        <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
           {navTabs.map((tab) => (
             <button
               key={tab.id}
@@ -1891,6 +1892,79 @@ export default function Staff({ onViewReports }: StaffProps = {}) {
             </button>
           </div>
         </div>
+      )}
+
+      {view === "food_reviews" && (
+        <FoodReviewsPanel />
+      )}
+    </div>
+  );
+}
+
+function FoodReviewsPanel() {
+  const [reviews, setReviews] = useState<{ id: string; rating: number; comment: string | null; submitted_at: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    import("@/lib/api").then(async ({ api }) => {
+      try {
+        const res = await api.get("/admin/food-reviews");
+        setReviews(res.data);
+      } catch {}
+      setLoading(false);
+    });
+  }, []);
+
+  const avg = reviews.length
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : null;
+
+  const stars = (n: number) => "★".repeat(n) + "☆".repeat(5 - n);
+
+  return (
+    <div style={{ maxWidth: "640px" }}>
+      <div style={{ marginBottom: "20px" }}>
+        <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 4px 0" }}>Anonymous Food Reviews</h2>
+        <p style={{ fontSize: "13px", color: "#6b7280", margin: 0 }}>
+          Staff feedback on head office meals — identities are never stored.
+        </p>
+      </div>
+
+      {loading ? (
+        <p style={{ color: "#6b7280", fontSize: "14px" }}>Loading…</p>
+      ) : reviews.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "48px 0", color: "#9ca3af", fontSize: "14px" }}>
+          No reviews yet. Staff will see the prompt on their next login.
+        </div>
+      ) : (
+        <>
+          <div style={{ display: "flex", gap: "16px", marginBottom: "20px" }}>
+            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "12px", padding: "16px 24px", textAlign: "center", minWidth: "100px" }}>
+              <div style={{ fontSize: "28px", fontWeight: "800", color: "#d97706" }}>{avg}</div>
+              <div style={{ fontSize: "12px", color: "#92400e" }}>avg rating</div>
+            </div>
+            <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "12px", padding: "16px 24px", textAlign: "center", minWidth: "100px" }}>
+              <div style={{ fontSize: "28px", fontWeight: "800", color: "#0369a1" }}>{reviews.length}</div>
+              <div style={{ fontSize: "12px", color: "#0c4a6e" }}>total reviews</div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {reviews.map((r) => (
+              <div key={r.id} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "10px", padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: r.comment ? "8px" : 0 }}>
+                  <span style={{ color: "#f59e0b", fontSize: "18px", letterSpacing: "1px" }}>{stars(r.rating)}</span>
+                  <span style={{ fontSize: "12px", color: "#9ca3af", marginLeft: "auto" }}>
+                    {new Date(r.submitted_at).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}
+                  </span>
+                </div>
+                {r.comment && (
+                  <p style={{ margin: 0, fontSize: "13px", color: "#374151", fontStyle: "italic" }}>"{r.comment}"</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

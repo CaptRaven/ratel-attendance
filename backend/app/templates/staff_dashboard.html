@@ -101,6 +101,93 @@
     </div>
     {% endif %}
 
+    <!-- Food review card (temporary) -->
+    <div class="card" id="food-review-card" style="border:1.5px solid #fde68a;background:#fffdf5;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <span style="font-size:22px;">🍽️</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#92400e;">How's the food today?</div>
+          <div style="font-size:12px;color:#a16207;">Your review is completely anonymous</div>
+        </div>
+      </div>
+
+      <div id="fr-form">
+        <!-- Star rating -->
+        <div style="display:flex;gap:6px;margin-bottom:12px;" id="star-row">
+          <button class="star-btn" data-v="1" onclick="setStar(1)" title="1 star">★</button>
+          <button class="star-btn" data-v="2" onclick="setStar(2)" title="2 stars">★</button>
+          <button class="star-btn" data-v="3" onclick="setStar(3)" title="3 stars">★</button>
+          <button class="star-btn" data-v="4" onclick="setStar(4)" title="4 stars">★</button>
+          <button class="star-btn" data-v="5" onclick="setStar(5)" title="5 stars">★</button>
+        </div>
+        <textarea id="fr-comment" placeholder="Any comments? (optional)" style="min-height:70px;margin-bottom:10px;"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+          <button onclick="dismissReview()" style="background:none;border:none;font-size:12px;color:#a16207;cursor:pointer;text-decoration:underline;">Skip for today</button>
+          <button class="btn btn-primary" id="fr-submit-btn" onclick="submitFoodReview()" style="background:#d97706;padding:9px 18px;" disabled>Submit Review</button>
+        </div>
+      </div>
+
+      <div id="fr-done" style="display:none;text-align:center;padding:8px 0;">
+        <div style="font-size:22px;margin-bottom:4px;">✅</div>
+        <div style="font-size:13px;font-weight:600;color:#15803d;">Thanks for your feedback!</div>
+      </div>
+      <div id="fr-already" style="display:none;text-align:center;padding:8px 0;font-size:13px;color:#6b7280;">
+        You've already shared your review today. See you tomorrow! 👍
+      </div>
+    </div>
+
+    <style>
+      .star-btn { font-size:26px;background:none;border:none;cursor:pointer;color:#d1d5db;padding:0;line-height:1;transition:color .1s; }
+      .star-btn.active { color:#f59e0b; }
+    </style>
+    <script>
+      let _starVal = 0;
+      function setStar(v) {
+        _starVal = v;
+        document.querySelectorAll('.star-btn').forEach(b => {
+          b.classList.toggle('active', parseInt(b.dataset.v) <= v);
+        });
+        document.getElementById('fr-submit-btn').disabled = false;
+      }
+      function dismissReview() {
+        document.getElementById('food-review-card').style.display = 'none';
+        sessionStorage.setItem('fr_dismissed', '1');
+      }
+      async function submitFoodReview() {
+        if (!_starVal) return;
+        const btn = document.getElementById('fr-submit-btn');
+        btn.disabled = true; btn.textContent = 'Sending…';
+        try {
+          const res = await fetch('/api/v1/staff/food-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rating: _starVal, comment: document.getElementById('fr-comment').value.trim() || null }),
+          });
+          if (res.ok || res.status === 409) {
+            document.getElementById('fr-form').style.display = 'none';
+            document.getElementById(res.status === 409 ? 'fr-already' : 'fr-done').style.display = 'block';
+          } else {
+            btn.disabled = false; btn.textContent = 'Submit Review';
+          }
+        } catch { btn.disabled = false; btn.textContent = 'Submit Review'; }
+      }
+      // Check if already submitted today
+      (async () => {
+        if (sessionStorage.getItem('fr_dismissed')) {
+          document.getElementById('food-review-card').style.display = 'none';
+          return;
+        }
+        try {
+          const r = await fetch('/api/v1/staff/food-review/status');
+          const d = await r.json();
+          if (d.submitted) {
+            document.getElementById('fr-form').style.display = 'none';
+            document.getElementById('fr-already').style.display = 'block';
+          }
+        } catch {}
+      })();
+    </script>
+
     <!-- Today's status -->
     <div class="card">
       <div class="card-title">Today's Attendance</div>

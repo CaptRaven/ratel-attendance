@@ -20,6 +20,7 @@ import bcrypt
 from app.database import get_db
 from app.models.user import User
 from app.models.attendance import Attendance, ReportStatus
+from app.models.food_review import FoodReview
 from app.core.logging import logger
 from app.api.deps import require_admin
 from slowapi import Limiter
@@ -506,3 +507,99 @@ async def admin_reset_pin(
     await db.flush()
     logger.info("admin_staff_pin_reset", by=_admin.employee_id, target=emp.employee_id)
     return {"ok": True, "message": f"PIN reset to default for {emp.employee_id}"}
+
+
+# ── Food review endpoints (temporary feature) ─────────────────────────────────
+
+FOOD_REVIEW_REDIS_PREFIX = "food_review_submitted:"  # key: prefix + staff_session_token
+
+class FoodReviewPayload(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = Field(None, max_length=500)
+
+
+@router.post("/api/v1/staff/food-review")
+async def submit_food_review(
+    payload: FoodReviewPayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    staff_session: Optional[str] = Cookie(default=None),
+):
+    # Require a valid staff session but never store who submitted
+    if not staff_session:
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+    result = await db.execute(
+        select(User).where(
+            User.staff_session_token == staff_session,
+            User.is_active == True,  # noqa: E712
+        )
+    )
+    if not result.scalar_one_or_none():
+        raise HTTPException(status_code=401, detail="Not authenticated.")
+
+    # Dedup: one review per session token per calendar day (WAT)
+    from app.redis_client import get_redis_pool
+    from redis.asyncio import Redis
+    WAT = timezone(timedelta(hours=1))
+    today = datetime.now(WAT).strftime("%Y-%m-%d")
+    dedup_key = f"{FOOD_REVIEW_REDIS_PREFIX}{staff_session}:{today}"
+    redis = Redis(connection_pool=get_redis_pool())
+    try:
+        already = await redis.get(dedup_key)
+        if already:
+            raise HTTPException(status_code=409, detail="ALREADY_SUBMITTED")
+        # Store review — no identity at all
+        review = FoodReview(rating=payload.rating, comment=payload.comment or None)
+        db.add(review)
+        await db.flush()
+        # Mark submitted for the rest of the day (TTL until midnight WAT)
+        now_wat = datetime.now(WAT)
+        midnight = (now_wat + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        ttl = int((midnight - now_wat).total_seconds())
+        await redis.setex(dedup_key, ttl, "1")
+    finally:
+        await redis.aclose()
+
+    logger.info("food_review_submitted", rating=payload.rating)
+    return {"ok": True}
+
+
+@router.get("/api/v1/staff/food-review/status")
+async def food_review_status(
+    request: Request,
+    staff_session: Optional[str] = Cookie(default=None),
+):
+    """Returns whether the current session has already submitted today."""
+    if not staff_session:
+        return {"submitted": False}
+    from app.redis_client import get_redis_pool
+    from redis.asyncio import Redis
+    WAT = timezone(timedelta(hours=1))
+    today = datetime.now(WAT).strftime("%Y-%m-%d")
+    dedup_key = f"{FOOD_REVIEW_REDIS_PREFIX}{staff_session}:{today}"
+    redis = Redis(connection_pool=get_redis_pool())
+    try:
+        already = await redis.get(dedup_key)
+    finally:
+        await redis.aclose()
+    return {"submitted": bool(already)}
+
+
+@router.get("/api/v1/admin/food-reviews")
+async def get_food_reviews(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
+    """Admin-only: returns all food reviews, newest first. No identity data."""
+    rows = (await db.execute(
+        select(FoodReview).order_by(FoodReview.submitted_at.desc())
+    )).scalars().all()
+    return [
+        {
+            "id": str(r.id),
+            "rating": r.rating,
+            "comment": r.comment,
+            "submitted_at": r.submitted_at.isoformat(),
+        }
+        for r in rows
+    ]
