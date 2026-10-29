@@ -51,6 +51,10 @@ function PostThumbnail({ src, title }: { src?: string | null; title: string }) {
   const [hasError, setHasError] = useState(false);
   const imageUrl = getMediaImageUrl(src);
 
+  useEffect(() => {
+    setHasError(false);
+  }, [src]);
+
   if (!imageUrl || hasError) {
     return (
       <div
