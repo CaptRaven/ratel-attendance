@@ -590,4 +590,128 @@ export const getResumeUrl = (filename: string) => {
   return `${BASE_URL.replace(/\/api\/v1\/?$/, "")}/static/uploads/resumes/${filename}`;
 };
 
+// ==========================================
+// Academy Courses & Enrollments
+// ==========================================
+export interface AcademyCourse {
+  id: string;
+  title: string;
+  code?: string | null;
+  category: string;
+  description: string;
+  syllabus: string[];
+  prerequisites: string[];
+  instructor?: string | null;
+  location: string;
+  format: "Onsite" | "Online" | "Hybrid" | string;
+  duration: string;
+  schedule?: string | null;
+  fee: string;
+  status: "upcoming" | "ongoing" | "completed" | "registration_open" | string;
+  start_date?: string | null;
+  end_date?: string | null;
+  capacity?: number | null;
+  enrolled_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getAcademyCourses = async (
+  category?: string,
+  status?: string,
+  search?: string,
+  active_only = false
+): Promise<AcademyCourse[]> => {
+  const p = new URLSearchParams();
+  if (category) p.set("category", category);
+  if (status) p.set("status", status);
+  if (search) p.set("search", search);
+  p.set("active_only", String(active_only));
+  const query = p.toString() ? `?${p.toString()}` : "";
+  const res = await api.get(`/academy/courses${query}`);
+  return res.data;
+};
+
+export const createAcademyCourse = async (data: {
+  title: string;
+  code?: string | null;
+  category: string;
+  description: string;
+  syllabus: string[];
+  prerequisites: string[];
+  instructor?: string | null;
+  location: string;
+  format: string;
+  duration: string;
+  schedule?: string | null;
+  fee: string;
+  status: string;
+  start_date?: string | null;
+  end_date?: string | null;
+  capacity?: number | null;
+}): Promise<AcademyCourse> => {
+  const res = await api.post("/academy/courses", data);
+  return res.data;
+};
+
+export const updateAcademyCourse = async (
+  id: string,
+  data: Partial<AcademyCourse>
+): Promise<AcademyCourse> => {
+  const res = await api.put(`/academy/courses/${id}`, data);
+  return res.data;
+};
+
+export const toggleAcademyCourseStatus = async (id: string): Promise<AcademyCourse> => {
+  const res = await api.patch(`/academy/courses/${id}/toggle-status`);
+  return res.data;
+};
+
+export const deleteAcademyCourse = async (id: string): Promise<void> => {
+  await api.delete(`/academy/courses/${id}`);
+};
+
+export interface AcademyEnrollment {
+  id: string;
+  course_id?: string | null;
+  course_title: string;
+  full_name: string;
+  email: string;
+  phone: string;
+  education_level?: string | null;
+  experience_level?: string | null;
+  notes?: string | null;
+  status: "pending" | "confirmed" | "waitlist" | "cancelled" | string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getAcademyEnrollments = async (
+  course_id?: string,
+  status?: string,
+  search?: string
+): Promise<AcademyEnrollment[]> => {
+  const p = new URLSearchParams();
+  if (course_id) p.set("course_id", course_id);
+  if (status) p.set("status", status);
+  if (search) p.set("search", search);
+  const query = p.toString() ? `?${p.toString()}` : "";
+  const res = await api.get(`/academy/enrollments${query}`);
+  return res.data;
+};
+
+export const updateAcademyEnrollmentStatus = async (
+  id: string,
+  status: string
+): Promise<AcademyEnrollment> => {
+  const res = await api.patch(`/academy/enrollments/${id}/status`, { status });
+  return res.data;
+};
+
+export const deleteAcademyEnrollment = async (id: string): Promise<void> => {
+  await api.delete(`/academy/enrollments/${id}`);
+};
+
+
 
