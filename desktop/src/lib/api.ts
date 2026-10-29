@@ -713,5 +713,97 @@ export const deleteAcademyEnrollment = async (id: string): Promise<void> => {
   await api.delete(`/academy/enrollments/${id}`);
 };
 
+// ==========================================
+// MEDIA & BLOG POSTS
+// ==========================================
+
+export interface MediaPost {
+  id: string;
+  title: string;
+  slug: string;
+  category: string;
+  summary: string;
+  content: string;
+  featured_image?: string | null;
+  author: string;
+  read_time: string;
+  tags?: string[];
+  is_published: boolean;
+  views_count: number;
+  published_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export const getMediaPosts = async (
+  category?: string,
+  search?: string,
+  published_only = false,
+  limit = 50,
+  offset = 0
+): Promise<MediaPost[]> => {
+  const p = new URLSearchParams();
+  if (category) p.set("category", category);
+  if (search) p.set("search", search);
+  p.set("published_only", String(published_only));
+  p.set("limit", String(limit));
+  p.set("offset", String(offset));
+  const query = p.toString() ? `?${p.toString()}` : "";
+  const res = await api.get(`/media/posts${query}`);
+  return res.data;
+};
+
+export const getMediaPost = async (slug_or_id: string): Promise<MediaPost> => {
+  const res = await api.get(`/media/posts/${slug_or_id}`);
+  return res.data;
+};
+
+export const createMediaPost = async (data: {
+  title: string;
+  slug?: string;
+  category: string;
+  summary: string;
+  content: string;
+  featured_image?: string | null;
+  author: string;
+  read_time: string;
+  tags?: string[];
+  is_published: boolean;
+}): Promise<MediaPost> => {
+  const res = await api.post("/media/posts", data);
+  return res.data;
+};
+
+export const updateMediaPost = async (
+  id: string,
+  data: Partial<MediaPost>
+): Promise<MediaPost> => {
+  const res = await api.put(`/media/posts/${id}`, data);
+  return res.data;
+};
+
+export const toggleMediaPostPublish = async (id: string): Promise<MediaPost> => {
+  const res = await api.patch(`/media/posts/${id}/toggle-publish`);
+  return res.data;
+};
+
+export const deleteMediaPost = async (id: string): Promise<void> => {
+  await api.delete(`/media/posts/${id}`);
+};
+
+export const uploadMediaImage = async (
+  file: File
+): Promise<{ url: string; filename: string; size: number }> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await api.post("/media/upload", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return res.data;
+};
+
+
 
 

@@ -4,6 +4,7 @@ from app.models.device import DeviceBinding
 from app.models.department import Department
 from app.models.job import JobOpening, JobApplication
 from app.models.academy import AcademyCourse, AcademyEnrollment
+from app.models.media import MediaPost
 
 __all__ = [
     "User", "UserRole",
@@ -12,4 +13,5 @@ __all__ = [
     "Department",
     "JobOpening", "JobApplication",
     "AcademyCourse", "AcademyEnrollment",
+    "MediaPost",
 ]

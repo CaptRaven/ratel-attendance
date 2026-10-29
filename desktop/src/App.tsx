@@ -7,12 +7,13 @@ import Analytics from "@/pages/Analytics";
 import Reports from "@/pages/Reports";
 import Careers from "@/pages/Careers";
 import Academy from "@/pages/Academy";
+import Media from "@/pages/Media";
 import Settings from "@/pages/Settings";
 import { theme } from "@/lib/theme";
 import logo from "@/assets/rATEL-LOGO.png";
-import { BarChart3, LayoutGrid, LogOut, Users, FileText, Briefcase, GraduationCap, Settings as SettingsIcon, ChevronLeft, ChevronRight } from "lucide-react";
+import { BarChart3, LayoutGrid, LogOut, Users, FileText, Briefcase, GraduationCap, Newspaper, Settings as SettingsIcon, ChevronLeft, ChevronRight } from "lucide-react";
 
-type Page = "dashboard" | "analytics" | "staff" | "reports" | "careers" | "academy" | "settings";
+type Page = "dashboard" | "analytics" | "staff" | "reports" | "careers" | "academy" | "media" | "settings";
 
 
 export default function App() {
@@ -108,6 +109,7 @@ export default function App() {
             { id: "reports", icon: FileText, label: "Reports" },
             { id: "careers", icon: Briefcase, label: "Job Openings" },
             { id: "academy", icon: GraduationCap, label: "Academy" },
+            { id: "media", icon: Newspaper, label: "Media & News" },
             { id: "settings", icon: SettingsIcon, label: "Settings" },
           ].map((item) => (
             <button
@@ -176,6 +178,7 @@ export default function App() {
         )}
         {page === "careers" && <Careers />}
         {page === "academy" && <Academy />}
+        {page === "media" && <Media />}
         {page === "settings" && <Settings />}
       </div>
     </div>

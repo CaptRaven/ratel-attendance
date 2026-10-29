@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from app.config import get_settings
 from app.core.logging import setup_logging, logger
 from fastapi.templating import Jinja2Templates  
-from app.api.v1 import auth, employees, sessions, checkin, websocket, mobile, reports, department, analytics, jobs, staff, academy
+from app.api.v1 import auth, employees, sessions, checkin, websocket, mobile, reports, department, analytics, jobs, staff, academy, media
 from app.database import get_db
 from app.redis_client import get_redis
 
@@ -32,6 +32,7 @@ import asyncio
 import os
 from app.seed_jobs import seed_jobs
 from app.seed_academy import seed_academy
+from app.seed_media import seed_media
 from app.core.auto_session import auto_session_loop
 
 @asynccontextmanager
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
     os.makedirs("app/static/uploads/resumes", exist_ok=True)
     os.makedirs("app/static/uploads/referees", exist_ok=True)
     os.makedirs("app/static/uploads/avatars", exist_ok=True)
+    os.makedirs("app/static/uploads/media", exist_ok=True)
     try:
         await seed_jobs()
     except Exception as e:
@@ -48,6 +50,10 @@ async def lifespan(app: FastAPI):
         await seed_academy()
     except Exception as e:
         logger.warning("auto_seed_academy_failed", error=str(e))
+    try:
+        await seed_media()
+    except Exception as e:
+        logger.warning("auto_seed_media_failed", error=str(e))
 
     asyncio.create_task(auto_session_loop())
     logger.info("startup", app=settings.APP_NAME, env=settings.ENVIRONMENT)
@@ -125,6 +131,7 @@ app.include_router(department.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(academy.router, prefix="/api/v1")
+app.include_router(media.router, prefix="/api/v1")
 app.include_router(staff.router)
 
 
