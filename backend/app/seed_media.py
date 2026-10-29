@@ -28,12 +28,12 @@ With GPON and active Ethernet technology, subscribers can experience speeds up t
 - Direct peering with major global content delivery networks (CDNs)
 
 Residential and commercial property owners can check coverage and request site survey inspections directly on the Ratel Plus portal.""",
-        "featured_image": "/assets/fiber_installation.png",
+        "featured_image": "/phone_dialer.png",
         "author": "Engr. Ahmed Bello",
         "read_time": "4 min read",
         "tags": ["Fiber", "FTTH", "Kano", "Broadband", "Infrastructure"],
         "is_published": True,
-        "views_count": 342,
+        "views_count": 0,
     },
     {
         "title": "Next-Gen Ratel Phone App Launched with Crystal-Clear HD VoIP Calling",
@@ -59,7 +59,7 @@ The app transforms any smartphone into an enterprise-grade extension, allowing u
         "read_time": "3 min read",
         "tags": ["VoIP", "Mobile App", "Voice", "SIP", "Software"],
         "is_published": True,
-        "views_count": 518,
+        "views_count": 0,
     },
     {
         "title": "Empowering Northern Businesses with Dedicated 4G LTE Fixed Wireless Access",
@@ -78,12 +78,12 @@ Ratel Plus has introduced its new enterprise Fixed Wireless Access (FWA) routers
 "We recognize that modern commerce doesn't sleep," explained Kabir Sani, Lead NOC Specialist. "Our enterprise LTE packages guarantee business-first priority queuing across our radio base stations."
 
 Contact our enterprise team today to schedule an onsite RF survey for your premises.""",
-        "featured_image": "/assets/lte_router.png",
+        "featured_image": "/phone_dialer.png",
         "author": "Kabir Sani",
         "read_time": "4 min read",
         "tags": ["LTE", "Wireless", "Enterprise", "FWA", "Business"],
         "is_published": True,
-        "views_count": 275,
+        "views_count": 0,
     },
     {
         "title": "Ratel Academy Opens Applications for Telecoms & Optical Fiber Engineering",
@@ -105,28 +105,34 @@ Our state-of-the-art training facilities in Kano provide students with direct ac
 The top 20% of graduates from each cohort are offered direct internship and junior engineering employment opportunities within Ratel Plus and partner telecom providers.
 
 Applications are now open online through the **Ratel Academy** portal.""",
-        "featured_image": "/assets/academy_banner.png",
+        "featured_image": "/phone_dialer.png",
         "author": "Dr. Amina Garba",
         "read_time": "3 min read",
         "tags": ["Academy", "Education", "Fiber", "Networking", "Careers"],
         "is_published": True,
-        "views_count": 689,
+        "views_count": 0,
     },
 ]
 
 
 async def seed_media():
     """
-    Seeds initial media/blog posts into PostgreSQL if the table is empty.
+    Seeds initial media/blog posts into PostgreSQL if the table is empty,
+    and ensures views count reflects actual user visits rather than static values.
     """
     async with AsyncSessionLocal() as session:
         try:
+            from sqlalchemy import text
+            # Reset any static/fabricated view counts from initial seed to 0 so views are 100% real
+            await session.execute(text("UPDATE media_posts SET views_count = 0 WHERE views_count IN (342, 518, 275, 689)"))
+
             stmt = select(MediaPost).limit(1)
             result = await session.execute(stmt)
             existing = result.scalar_one_or_none()
 
             if existing:
-                logger.info("media_posts_already_seeded", msg="Table not empty, skipping")
+                await session.commit()
+                logger.info("media_posts_already_seeded", msg="Table not empty, skipping new inserts")
                 return
 
             logger.info("seeding_initial_media_posts", count=len(INITIAL_MEDIA_POSTS))
@@ -142,7 +148,7 @@ async def seed_media():
                     read_time=p["read_time"],
                     tags=p.get("tags", []),
                     is_published=p["is_published"],
-                    views_count=p.get("views_count", 0),
+                    views_count=0,
                     published_at=datetime.utcnow() - timedelta(days=(len(INITIAL_MEDIA_POSTS) - i) * 3),
                 )
                 session.add(post)

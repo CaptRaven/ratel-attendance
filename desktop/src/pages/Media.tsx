@@ -12,7 +12,6 @@ import {
   User,
   Clock,
   Upload,
-  Image as ImageIcon,
   X,
 } from "lucide-react";
 import {
@@ -38,6 +37,46 @@ const CATEGORIES = [
   { key: "Academy & Training", label: "Academy & Training" },
   { key: "Community", label: "Community & Events" },
 ];
+
+export const getMediaImageUrl = (url?: string | null) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  if (url.startsWith("/static/")) {
+    return `https://attendance.ratelplus.net.ng${url}`;
+  }
+  return url;
+};
+
+function PostThumbnail({ src, title }: { src?: string | null; title: string }) {
+  const [hasError, setHasError] = useState(false);
+  const imageUrl = getMediaImageUrl(src);
+
+  if (!imageUrl || hasError) {
+    return (
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, rgba(15, 79, 157, 0.1) 0%, rgba(37, 99, 235, 0.15) 100%)",
+        }}
+      >
+        <Newspaper size={28} style={{ color: theme.primary, opacity: 0.8 }} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={title}
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      onError={() => setHasError(true)}
+    />
+  );
+}
 
 export default function Media() {
   const [posts, setPosts] = useState<MediaPost[]>([]);
@@ -637,7 +676,7 @@ export default function Media() {
               {formState.featured_image && (
                 <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "10px" }}>
                   <img
-                    src={formState.featured_image}
+                    src={getMediaImageUrl(formState.featured_image)}
                     alt="Preview"
                     style={{ height: "60px", borderRadius: "6px", objectFit: "cover", border: `1px solid ${theme.panelBorder}` }}
                     onError={(e) => {
@@ -918,26 +957,12 @@ export default function Media() {
                       width: "80px",
                       height: "80px",
                       borderRadius: "8px",
-                      background: "rgba(15, 79, 157, 0.08)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
                       overflow: "hidden",
                       flexShrink: 0,
+                      border: `1px solid ${theme.panelBorder}`,
                     }}
                   >
-                    {post.featured_image ? (
-                      <img
-                        src={post.featured_image}
-                        alt={post.title}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <ImageIcon size={32} style={{ color: theme.primary }} />
-                    )}
+                    <PostThumbnail src={post.featured_image} title={post.title} />
                   </div>
 
                   {/* Info */}
