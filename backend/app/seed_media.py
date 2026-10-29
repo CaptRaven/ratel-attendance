@@ -28,7 +28,7 @@ With GPON and active Ethernet technology, subscribers can experience speeds up t
 - Direct peering with major global content delivery networks (CDNs)
 
 Residential and commercial property owners can check coverage and request site survey inspections directly on the Ratel Plus portal.""",
-        "featured_image": "/phone_dialer.png",
+        "featured_image": "/datacenter_fiber.png",
         "author": "Engr. Ahmed Bello",
         "read_time": "4 min read",
         "tags": ["Fiber", "FTTH", "Kano", "Broadband", "Infrastructure"],
@@ -78,7 +78,7 @@ Ratel Plus has introduced its new enterprise Fixed Wireless Access (FWA) routers
 "We recognize that modern commerce doesn't sleep," explained Kabir Sani, Lead NOC Specialist. "Our enterprise LTE packages guarantee business-first priority queuing across our radio base stations."
 
 Contact our enterprise team today to schedule an onsite RF survey for your premises.""",
-        "featured_image": "/phone_dialer.png",
+        "featured_image": "/router_hub.png",
         "author": "Kabir Sani",
         "read_time": "4 min read",
         "tags": ["LTE", "Wireless", "Enterprise", "FWA", "Business"],
@@ -105,7 +105,7 @@ Our state-of-the-art training facilities in Kano provide students with direct ac
 The top 20% of graduates from each cohort are offered direct internship and junior engineering employment opportunities within Ratel Plus and partner telecom providers.
 
 Applications are now open online through the **Ratel Academy** portal.""",
-        "featured_image": "/phone_dialer.png",
+        "featured_image": "/hero_showcase.png",
         "author": "Dr. Amina Garba",
         "read_time": "3 min read",
         "tags": ["Academy", "Education", "Fiber", "Networking", "Careers"],
@@ -125,6 +125,10 @@ async def seed_media():
             from sqlalchemy import text
             # Reset any static/fabricated view counts from initial seed to 0 so views are 100% real
             await session.execute(text("UPDATE media_posts SET views_count = 0 WHERE views_count IN (342, 518, 275, 689)"))
+            # Update any legacy placeholder images to verified website public assets
+            await session.execute(text("UPDATE media_posts SET featured_image = '/datacenter_fiber.png' WHERE featured_image = '/assets/fiber_installation.png'"))
+            await session.execute(text("UPDATE media_posts SET featured_image = '/router_hub.png' WHERE featured_image = '/assets/lte_router.png'"))
+            await session.execute(text("UPDATE media_posts SET featured_image = '/hero_showcase.png' WHERE featured_image = '/assets/academy_banner.png'"))
 
             stmt = select(MediaPost).limit(1)
             result = await session.execute(stmt)

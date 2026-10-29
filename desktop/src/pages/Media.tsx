@@ -44,7 +44,7 @@ export const getMediaImageUrl = (url?: string | null) => {
   if (url.startsWith("/static/")) {
     return `https://attendance.ratelplus.net.ng${url}`;
   }
-  return url;
+  return `https://ratelplus.net.ng${url}`;
 };
 
 function PostThumbnail({ src, title }: { src?: string | null; title: string }) {
