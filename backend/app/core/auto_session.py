@@ -21,16 +21,22 @@ def _session_name_for(dt: datetime) -> str:
     return dt.strftime("Session %-d %b %Y")
 
 
-async def _ensure_session() -> None:
-    """Create today's session if none is active."""
+async def _ensure_session(force: bool = False) -> None:
+    """
+    Create today's session if none is active.
+    With force=True (used at 6am daily), always replace regardless of whether
+    one exists — the old session's 24hr TTL may still have time left but it
+    belongs to the previous day.
+    """
     redis = Redis(connection_pool=get_redis_pool())
     try:
-        active = await get_active_session(redis)
-        if active:
-            return
+        if not force:
+            active = await get_active_session(redis)
+            if active:
+                return
         name = _session_name_for(datetime.now(WAT))
         await create_session(redis, name, AUTO_LOCATION_ID, AUTO_CREATED_BY)
-        logger.info("auto_session_created", name=name)
+        logger.info("auto_session_created", name=name, forced=force)
     except Exception as e:
         logger.error("auto_session_error", error=str(e))
     finally:
@@ -58,4 +64,4 @@ async def auto_session_loop() -> None:
         sleep_secs = _seconds_until_next_6am_wat()
         logger.info("auto_session_scheduled", seconds_until_next=round(sleep_secs))
         await asyncio.sleep(sleep_secs)
-        await _ensure_session()
+        await _ensure_session(force=True)
