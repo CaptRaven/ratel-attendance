@@ -1,13 +1,16 @@
 [
   {
     "relation": [
-      "delegate_permission/common.handle_all_urls"
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds",
+      "delegate_permission/common.use_as_origin"
     ],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.ratel.attendance",
+      "package_name": "net.ratelplus.phone",
       "sha256_cert_fingerprints": [
-        "YOUR_APP_SHA256_FINGERPRINT_HERE"
+        "D1:A9:F5:27:05:83:D6:02:86:AE:A8:90:52:28:BC:5C:86:6F:7F:9F:FB:2B:E3:71:0D:DD:F8:BB:CD:F4:54:4F",
+        "0F:D5:D5:64:8E:5D:7A:F3:BF:F0:1A:92:5B:A2:D1:46:36:12:B8:99:C4:2D:1B:5E:18:79:42:A7:17:E7:E5:AA"
       ]
     }
   }

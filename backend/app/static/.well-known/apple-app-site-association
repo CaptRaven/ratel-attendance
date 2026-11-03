@@ -3,12 +3,45 @@
     "apps": [],
     "details": [
       {
-        "appID": "YOUR_TEAM_ID_HERE.com.ratel.attendance",
+        "appID": "VFR3UKM888.org.net.ratelplus.phone",
         "paths": [
-          "/checkin*",
-          "/api/v1/mobile/checkin*"
+          "/phone/*",
+          "*"
+        ],
+        "components": [
+          {
+            "/": "/phone/*",
+            "comment": "Ratel Phone Universal Links"
+          },
+          {
+            "/": "/*",
+            "comment": "All Ratel App Links"
+          }
+        ]
+      },
+      {
+        "appID": "Z2V957B3D6.org.net.ratelplus.phone",
+        "paths": [
+          "/phone/*",
+          "*"
+        ],
+        "components": [
+          {
+            "/": "/phone/*",
+            "comment": "Ratel Phone Universal Links"
+          },
+          {
+            "/": "/*",
+            "comment": "All Ratel App Links"
+          }
         ]
       }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "VFR3UKM888.org.net.ratelplus.phone",
+      "Z2V957B3D6.org.net.ratelplus.phone"
     ]
   }
 }
