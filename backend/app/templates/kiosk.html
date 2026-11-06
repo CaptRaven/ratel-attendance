@@ -384,12 +384,14 @@
 
     .face-video-ring {
       position: relative;
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
+      width: 100%;
+      max-width: 340px;
+      aspect-ratio: 4/3;
+      border-radius: 18px;
       overflow: hidden;
       border: 3px solid var(--primary);
-      box-shadow: 0 0 20px rgba(79, 70, 229, 0.2);
+      box-shadow: 0 0 24px rgba(79, 70, 229, 0.25);
+      background: #0f172a;
     }
 
     #face-video {
@@ -1171,21 +1173,52 @@
     }
 
     // ── Face Scan ──────────────────────────────────────────────────────────
+    let _cameraWatchdog = null;
+    let _lastVideoTime = -1;
+    let _frozenTicks = 0;
+
     async function startFaceScan() {
       if (faceStream) return;
       try {
         faceStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
         });
-        document.getElementById("face-video").srcObject = faceStream;
+        const video = document.getElementById("face-video");
+        video.srcObject = faceStream;
         document.getElementById("face-panel").style.display = "flex";
         startIdCardScanning();
+        _startCameraWatchdog();
       } catch (err) {
         console.warn("Face scan camera unavailable:", err);
       }
     }
 
+    function _startCameraWatchdog() {
+      if (_cameraWatchdog) clearInterval(_cameraWatchdog);
+      _lastVideoTime = -1;
+      _frozenTicks = 0;
+      _cameraWatchdog = setInterval(async () => {
+        const video = document.getElementById("face-video");
+        if (!video || !faceStream) return;
+        const t = video.currentTime;
+        if (t === _lastVideoTime) {
+          _frozenTicks++;
+          if (_frozenTicks >= 3) {
+            // Video hasn't advanced in ~6 seconds — restart the stream
+            _frozenTicks = 0;
+            stopFaceScan();
+            await new Promise(r => setTimeout(r, 800));
+            void startFaceScan();
+          }
+        } else {
+          _lastVideoTime = t;
+          _frozenTicks = 0;
+        }
+      }, 2000);
+    }
+
     function stopFaceScan() {
+      if (_cameraWatchdog) { clearInterval(_cameraWatchdog); _cameraWatchdog = null; }
       stopIdCardScanning();
       if (faceStream) {
         faceStream.getTracks().forEach(t => t.stop());
@@ -1195,6 +1228,13 @@
       const toast = document.getElementById("face-result-toast");
       if (toast) toast.classList.remove("visible");
     }
+
+    // Restart camera when user returns to the tab after it went to background
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && !faceStream && document.getElementById("face-panel")) {
+        void startFaceScan();
+      }
+    });
 
     // ── ID Card QR Scanning ────────────────────────────────────────────────
     let _barcodeDetector = null;
