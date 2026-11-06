@@ -1186,16 +1186,11 @@
     }
 
     // ── Face Scan ──────────────────────────────────────────────────────────
-    let _cameraWatchdog = null;
-    let _lastVideoTime = -1;
-    let _frozenTicks = 0;
-
     let _cameraRetryTimeout = null;
     let _cameraAcquirePromise = null;
 
-    // Acquire the camera stream — returns a Promise that resolves once the
-    // stream is set on faceStream (or rejects/retries on failure).
-    // Multiple callers share the same Promise so there's no race.
+    // Acquire the camera stream — returns a shared Promise so multiple callers
+    // during startup don't race each other.
     function _warmCamera() {
       if (faceStream) return Promise.resolve();
       if (_cameraAcquirePromise) return _cameraAcquirePromise;
@@ -1211,7 +1206,6 @@
         video.play().catch(() => {});
         video.addEventListener("playing", () => {
           if (overlay) overlay.style.display = "none";
-          _startCameraWatchdog();
         }, { once: true });
       }).catch(err => {
         _cameraAcquirePromise = null;
@@ -1225,37 +1219,12 @@
 
     async function startFaceScan() {
       await _warmCamera();
-      if (!faceStream) return; // still retrying — watchdog/retry will call startFaceScan again
+      if (!faceStream) return;
       document.getElementById("face-panel").style.display = "flex";
       if (!idCardScanInterval) startIdCardScanning();
     }
 
-    function _startCameraWatchdog() {
-      if (_cameraWatchdog) clearInterval(_cameraWatchdog);
-      _lastVideoTime = -1;
-      _frozenTicks = 0;
-      _cameraWatchdog = setInterval(async () => {
-        const video = document.getElementById("face-video");
-        if (!video || !faceStream) return;
-        const t = video.currentTime;
-        if (t === _lastVideoTime) {
-          _frozenTicks++;
-          if (_frozenTicks >= 3) {
-            // Video hasn't advanced in ~6 seconds — restart the stream
-            _frozenTicks = 0;
-            stopFaceScan();
-            await new Promise(r => setTimeout(r, 800));
-            void startFaceScan();
-          }
-        } else {
-          _lastVideoTime = t;
-          _frozenTicks = 0;
-        }
-      }, 2000);
-    }
-
     function stopFaceScan() {
-      if (_cameraWatchdog) { clearInterval(_cameraWatchdog); _cameraWatchdog = null; }
       if (_cameraRetryTimeout) { clearTimeout(_cameraRetryTimeout); _cameraRetryTimeout = null; }
       _cameraAcquirePromise = null;
       stopIdCardScanning();
