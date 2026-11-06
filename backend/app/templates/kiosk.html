@@ -19,7 +19,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="/static/jsqr.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     
@@ -1234,14 +1234,16 @@
       let qrData = null;
 
       const detector = _getScanner();
+      let detectorFailed = false;
       if (detector) {
         // Native BarcodeDetector — reads raw video frames directly (CSS mirror is visual only)
         try {
           const codes = await detector.detect(video);
           if (codes.length > 0) qrData = codes[0].rawValue;
-        } catch (e) {}
-      } else if (typeof jsQR !== "undefined") {
-        // jsQR fallback — try full frame, then a 2× centre crop for small QR codes
+        } catch (e) { detectorFailed = true; }
+      }
+      // jsQR: used when BarcodeDetector is absent or threw
+      if (!qrData && (detectorFailed || !detector) && typeof jsQR !== "undefined") {
         const vw = video.videoWidth || 1280;
         const vh = video.videoHeight || 720;
         const canvas = document.createElement("canvas");
@@ -1275,6 +1277,7 @@
 
       // Flash the indicator
       const dot = document.getElementById("id-card-scan-dot");
+      const hintSpan = dot ? dot.nextElementSibling : null;
       if (dot) { dot.classList.remove("scanning"); dot.classList.add("detected"); }
 
       try {
@@ -1287,13 +1290,18 @@
 
         if (res.ok && data.matched && !data.already_done) {
           showFaceResult(data);
+        } else if (res.ok && data.already_done) {
+          if (hintSpan) { hintSpan.textContent = `${data.employee} already checked out`; }
+        } else if (!data.matched) {
+          if (hintSpan) { hintSpan.textContent = "Card not recognised — contact admin"; }
         }
-        // already_done or unrecognised — ignored silently, keep scanning
       } catch (e) { /* network blip */ }
 
       setTimeout(() => {
         const d = document.getElementById("id-card-scan-dot");
         if (d) { d.classList.remove("detected"); d.classList.add("scanning"); }
+        const s = d ? d.nextElementSibling : null;
+        if (s) s.textContent = "Hold ID card QR close to camera to check in";
         idCardLastToken = null; // allow re-scan after cooldown
       }, 4000);
     }
