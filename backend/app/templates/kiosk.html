@@ -696,6 +696,10 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     .attendee-avatar {
       width: 36px;
       height: 36px;
@@ -900,6 +904,15 @@
 
         <div class="face-video-ring">
           <video id="face-video" autoplay playsinline muted></video>
+          <div id="camera-loading" style="
+            position:absolute;inset:0;display:flex;flex-direction:column;
+            align-items:center;justify-content:center;gap:10px;
+            background:#0f172a;color:rgba(255,255,255,0.6);font-size:13px;font-weight:500;">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="animation:spin 1.2s linear infinite">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+            Starting camera…
+          </div>
         </div>
 
         <div class="face-actions">
@@ -1177,20 +1190,34 @@
     let _lastVideoTime = -1;
     let _frozenTicks = 0;
 
+    let _cameraRetryTimeout = null;
+
     async function startFaceScan() {
       if (faceStream) return;
+      const overlay = document.getElementById("camera-loading");
+      if (overlay) overlay.style.display = "flex";
+      document.getElementById("face-panel").style.display = "flex";
       try {
         faceStream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
         });
         const video = document.getElementById("face-video");
         video.srcObject = faceStream;
-        document.getElementById("face-panel").style.display = "flex";
+        video.play().catch(() => {});
+        // Hide loading overlay once first frame arrives
+        video.addEventListener("playing", () => {
+          if (overlay) overlay.style.display = "none";
+          _startCameraWatchdog();
+        }, { once: true });
         startIdCardScanning();
-        // Only start watchdog once video is actually playing, not during init
-        video.addEventListener("playing", _startCameraWatchdog, { once: true });
       } catch (err) {
-        console.warn("Face scan camera unavailable:", err);
+        console.warn("Face scan camera unavailable, retrying in 2s:", err);
+        // Camera may still be held by previous page — retry shortly
+        if (_cameraRetryTimeout) clearTimeout(_cameraRetryTimeout);
+        _cameraRetryTimeout = setTimeout(() => {
+          faceStream = null;
+          void startFaceScan();
+        }, 2000);
       }
     }
 
@@ -1220,6 +1247,7 @@
 
     function stopFaceScan() {
       if (_cameraWatchdog) { clearInterval(_cameraWatchdog); _cameraWatchdog = null; }
+      if (_cameraRetryTimeout) { clearTimeout(_cameraRetryTimeout); _cameraRetryTimeout = null; }
       stopIdCardScanning();
       if (faceStream) {
         faceStream.getTracks().forEach(t => t.stop());
