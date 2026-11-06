@@ -1191,34 +1191,41 @@
     let _frozenTicks = 0;
 
     let _cameraRetryTimeout = null;
+    let _cameraWarmingUp = false;
 
-    async function startFaceScan() {
-      if (faceStream) return;
+    // Acquire the camera stream in the background — called at page init so the
+    // camera is already warm by the time the session finishes loading.
+    async function _warmCamera() {
+      if (faceStream || _cameraWarmingUp) return;
+      _cameraWarmingUp = true;
       const overlay = document.getElementById("camera-loading");
-      if (overlay) overlay.style.display = "flex";
-      document.getElementById("face-panel").style.display = "flex";
       try {
-        faceStream = await navigator.mediaDevices.getUserMedia({
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
         });
+        faceStream = stream;
         const video = document.getElementById("face-video");
         video.srcObject = faceStream;
         video.play().catch(() => {});
-        // Hide loading overlay once first frame arrives
         video.addEventListener("playing", () => {
           if (overlay) overlay.style.display = "none";
           _startCameraWatchdog();
         }, { once: true });
         startIdCardScanning();
       } catch (err) {
-        console.warn("Face scan camera unavailable, retrying in 2s:", err);
-        // Camera may still be held by previous page — retry shortly
+        _cameraWarmingUp = false;
+        console.warn("Camera unavailable, retrying in 2s:", err);
         if (_cameraRetryTimeout) clearTimeout(_cameraRetryTimeout);
-        _cameraRetryTimeout = setTimeout(() => {
-          faceStream = null;
-          void startFaceScan();
-        }, 2000);
+        _cameraRetryTimeout = setTimeout(() => { void _warmCamera(); }, 2000);
+      } finally {
+        _cameraWarmingUp = false;
       }
+    }
+
+    async function startFaceScan() {
+      if (!faceStream) await _warmCamera();
+      document.getElementById("face-panel").style.display = "flex";
+      if (!idCardScanInterval) startIdCardScanning();
     }
 
     function _startCameraWatchdog() {
@@ -1881,6 +1888,8 @@
 
     // ── Init ──────────────────────────────────────────────────────────────
     async function init() {
+      // Start camera warmup immediately — don't wait for session fetch
+      void _warmCamera();
       try {
         await syncActiveSession();
         startActiveSessionPolling();
