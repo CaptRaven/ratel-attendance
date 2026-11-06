@@ -1187,7 +1187,8 @@
         video.srcObject = faceStream;
         document.getElementById("face-panel").style.display = "flex";
         startIdCardScanning();
-        _startCameraWatchdog();
+        // Only start watchdog once video is actually playing, not during init
+        video.addEventListener("playing", _startCameraWatchdog, { once: true });
       } catch (err) {
         console.warn("Face scan camera unavailable:", err);
       }
