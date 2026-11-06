@@ -1191,39 +1191,41 @@
     let _frozenTicks = 0;
 
     let _cameraRetryTimeout = null;
-    let _cameraWarmingUp = false;
+    let _cameraAcquirePromise = null;
 
-    // Acquire the camera stream in the background — called at page init so the
-    // camera is already warm by the time the session finishes loading.
-    async function _warmCamera() {
-      if (faceStream || _cameraWarmingUp) return;
-      _cameraWarmingUp = true;
-      const overlay = document.getElementById("camera-loading");
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
-        });
+    // Acquire the camera stream — returns a Promise that resolves once the
+    // stream is set on faceStream (or rejects/retries on failure).
+    // Multiple callers share the same Promise so there's no race.
+    function _warmCamera() {
+      if (faceStream) return Promise.resolve();
+      if (_cameraAcquirePromise) return _cameraAcquirePromise;
+
+      _cameraAcquirePromise = navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
+      }).then(stream => {
         faceStream = stream;
+        _cameraAcquirePromise = null;
         const video = document.getElementById("face-video");
-        video.srcObject = faceStream;
+        const overlay = document.getElementById("camera-loading");
+        video.srcObject = stream;
         video.play().catch(() => {});
         video.addEventListener("playing", () => {
           if (overlay) overlay.style.display = "none";
           _startCameraWatchdog();
         }, { once: true });
-        startIdCardScanning();
-      } catch (err) {
-        _cameraWarmingUp = false;
+      }).catch(err => {
+        _cameraAcquirePromise = null;
         console.warn("Camera unavailable, retrying in 2s:", err);
         if (_cameraRetryTimeout) clearTimeout(_cameraRetryTimeout);
         _cameraRetryTimeout = setTimeout(() => { void _warmCamera(); }, 2000);
-      } finally {
-        _cameraWarmingUp = false;
-      }
+      });
+
+      return _cameraAcquirePromise;
     }
 
     async function startFaceScan() {
-      if (!faceStream) await _warmCamera();
+      await _warmCamera();
+      if (!faceStream) return; // still retrying — watchdog/retry will call startFaceScan again
       document.getElementById("face-panel").style.display = "flex";
       if (!idCardScanInterval) startIdCardScanning();
     }
@@ -1255,6 +1257,7 @@
     function stopFaceScan() {
       if (_cameraWatchdog) { clearInterval(_cameraWatchdog); _cameraWatchdog = null; }
       if (_cameraRetryTimeout) { clearTimeout(_cameraRetryTimeout); _cameraRetryTimeout = null; }
+      _cameraAcquirePromise = null;
       stopIdCardScanning();
       if (faceStream) {
         faceStream.getTracks().forEach(t => t.stop());
