@@ -288,9 +288,14 @@ export default function Dashboard() {
       const now = new Date();
       const createdAt = new Date(activeSession.created_at);
 
-      const last6AM = new Date();
-      if (now.getHours() < 6) last6AM.setDate(now.getDate() - 1);
-      last6AM.setHours(6, 0, 0, 0);
+      // 6 AM WAT = 5 AM UTC. Always compare in UTC so the desktop app's
+      // local timezone doesn't accidentally trigger a session rotation.
+      const last6AM = new Date(Date.UTC(
+        now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 5, 0, 0, 0
+      ));
+      if (now.getTime() < last6AM.getTime()) {
+        last6AM.setUTCDate(last6AM.getUTCDate() - 1);
+      }
 
       if (createdAt < last6AM) {
         await closeSession(activeSession.session_id);
@@ -336,7 +341,8 @@ export default function Dashboard() {
       
       interval = setInterval(() => {
         const now = new Date();
-        if (now.getHours() === 6 && now.getMinutes() === 0) {
+        // Trigger at 6 AM WAT (5 AM UTC) regardless of machine timezone
+        if (now.getUTCHours() === 5 && now.getUTCMinutes() === 0) {
           void checkAndRotateSession();
         }
       }, 60000);
