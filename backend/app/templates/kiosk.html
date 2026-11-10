@@ -1207,6 +1207,21 @@
         video.addEventListener("playing", () => {
           if (overlay) overlay.style.display = "none";
         }, { once: true });
+        // If the OS/browser ends the track (sleep, another app grabs camera),
+        // clear faceStream so the next frame check or visibilitychange restarts it
+        stream.getVideoTracks().forEach(track => {
+          track.addEventListener("ended", () => {
+            if (faceStream === stream) {
+              faceStream = null;
+              _cameraAcquirePromise = null;
+              const ov = document.getElementById("camera-loading");
+              if (ov) ov.style.display = "flex";
+              void _warmCamera().then(() => {
+                if (faceStream) startIdCardScanning();
+              });
+            }
+          });
+        });
       }).catch(err => {
         _cameraAcquirePromise = null;
         console.warn("Camera unavailable, retrying in 2s:", err);
@@ -1239,7 +1254,11 @@
 
     // Restart camera when user returns to the tab after it went to background
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && !faceStream && document.getElementById("face-panel")) {
+      if (document.visibilityState !== "visible") return;
+      const trackDead = faceStream && faceStream.getVideoTracks().some(t => t.readyState === "ended");
+      if (!faceStream || trackDead) {
+        faceStream = null;
+        _cameraAcquirePromise = null;
         void startFaceScan();
       }
     });
