@@ -1454,6 +1454,7 @@
       stopShiftAutoUpdate();
       stopFaceScan();
       shouldReconnect = false;
+      _wsIsReconnect = false;
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
         reconnectTimeout = null;
@@ -1504,7 +1505,7 @@
         status: record.status,
         action: record.check_status === "checked_out" ? "checked_out" : "checked_in",
         checked_in_at: record.checked_in_at,
-      }));
+      })).sort((a, b) => (b.checked_in_at > a.checked_in_at ? 1 : -1));
       renderAttendees();
     }
 
@@ -1565,13 +1566,27 @@
     }
 
     // ── WebSocket ─────────────────────────────────────────────────────────
+    let _wsIsReconnect = false;
+
     function connectWebSocket() {
       if (!sessionId) return;
       shouldReconnect = true;
       const wsUrl = window.location.origin.replace("https://", "wss://").replace("http://", "ws://");
       ws = new WebSocket(`${wsUrl}/ws/public/sessions/${sessionId}`);
+      ws.onopen = async () => {
+        if (_wsIsReconnect) {
+          // Reload attendance to pick up any events missed during the reconnect gap
+          await loadExistingAttendance();
+        }
+        _wsIsReconnect = true;
+      };
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        if (data.type === "ping") {
+          // Echo pong so Nginx proxy_send_timeout doesn't cut the connection
+          try { ws.send(JSON.stringify({ type: "pong" })); } catch (_) {}
+          return;
+        }
         if (data.type === "checkin") addAttendee(data);
       };
       ws.onclose = () => {
